@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="lib/assets/icon.png" width="120" alt="anImestream icon">
+<img src="lib/assets/icons/logo.png" width="120" alt="anImestream icon">
 
 # anImestream
 
