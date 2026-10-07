@@ -176,7 +176,7 @@ class _AppInfoSettingState extends State<AppInfoSetting> {
         children: [
           ClickableItem(
               onTap: () => launchUrl(
-                    Uri.parse("https://github.com/frostnova721/animestream"),
+                    Uri.parse("https://github.com/sofikuw/anImestream"),
                     mode: LaunchMode.externalApplication,
                   ),
               label: "GitHub Repository",
@@ -186,7 +186,7 @@ class _AppInfoSettingState extends State<AppInfoSetting> {
           _divider(),
           ClickableItem(
             onTap: () => launchUrl(
-              Uri.parse("https://github.com/frostnova721/animestream/issues"),
+              Uri.parse("https://github.com/sofikuw/anImestream/issues"),
               mode: LaunchMode.externalApplication,
             ),
             label: "Report an Issue",
@@ -196,7 +196,7 @@ class _AppInfoSettingState extends State<AppInfoSetting> {
           _divider(),
           ClickableItem(
               onTap: () {
-                Clipboard.setData(ClipboardData(text: "https://github.com/frostnova721/animestream"));
+                Clipboard.setData(ClipboardData(text: "https://github.com/sofikuw/anImestream"));
                 floatingSnackBar("Repository link copied!");
               },
               label: "Share App",

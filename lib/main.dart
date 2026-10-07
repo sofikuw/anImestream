@@ -311,7 +311,7 @@ class _AnimeStreamState extends State<AnimeStream> {
           final themeProvider = Provider.of<AppProvider>(context);
 
           return MaterialApp(
-            title: 'Animestream',
+            title: 'anImestream',
             navigatorKey: AnimeStream.navigatorKey,
             scaffoldMessengerKey: AnimeStream.snackbarKey,
             theme: ThemeData(

@@ -1,114 +1,93 @@
-# animestream
+# anImestream
 
-A Flutter project made to stream and download Anime with Anilist tracking.
+**An iOS-focused fork of Animestream.**
 
-<p align="center">
-<a href="https://www.codefactor.io/repository/github/frostnova721/animestream/overview/master"><img src="https://www.codefactor.io/repository/github/frostnova721/animestream/badge/master?style=for-the-badge" alt="CodeFactor" /></a>
-<a href="https://github.com/frostnova721/animestream/releases"><img src="https://img.shields.io/github/downloads/frostnova721/animestream/total.svg?style=for-the-badge&color=CAF979"></a>
-<a href="https://img.shields.io/badge/Made_With-Flutter-%2302569B.svg?style=for-the-badge&logo=Flutter&logoColor=white"><img src="https://img.shields.io/badge/Made_With-Flutter-%2302569B.svg?style=for-the-badge&logo=Flutter&logoColor=white"></a>
-<a href="https://img.shields.io/badge/Made_For-Android-3DDC84?style=for-the-badge&logo=android&logoColor=white"><img src="https://img.shields.io/badge/Made_For-Android-3DDC84?style=for-the-badge&logo=android&logoColor=white"></a>
-<a href="https://discord.gg/DEQHYGJ9Zr"><img src="https://img.shields.io/discord/1323364150067466331?style=for-the-badge&logo=discord&color=5865F2"></a>
-</p>
+anImestream is a Flutter application for streaming anime with AniList tracking, based on the original [Animestream](https://github.com/frostnova721/animestream) project by **FrostNova (frostnova721)**.
 
-<p align="center">
-    <img src="lib/assets/icons/logo.png" width="256" height="256" alt="project logo">
-</p>
+This fork is maintained by **sofikuw** and is focused on producing an iOS build while keeping the upstream application's core functionality intact.
 
-## Tech Stack
+> The original project is licensed under the GNU General Public License v3.0. This fork remains under GPL-3.0 and preserves the original author's attribution. See [LICENSE](LICENSE).
 
-Built with ❤️ using Flutter
+## Authors
 
-## Introduction
+- **Original author:** [FrostNova / frostnova721](https://github.com/frostnova721)
+- **Fork author / iOS maintainer:** [sofikuw](https://github.com/sofikuw)
 
-**animestream** is a project made to stream and download Anime. Inspired from parent project [animestream-electron](https://github.com/frostnova721/animestream-electron) which was limited to desktops. Just wanted to make an app! btw, this app is **HEAVILY** inspired from saikou (you know what it means!)
+## iOS support status
 
-## Installation
+The upstream application is multi-platform, but some parts of its implementation are Android-specific. In this iOS fork, the following should be treated as **Android-only / unavailable on iOS**:
 
-### Android & Windows
+| Feature | iOS status | Notes |
+| --- | --- | --- |
+| Anime streaming | ✅ Supported | iOS uses the FVP/MDK player path. |
+| AniList tracking | ✅ Supported | Shared Flutter functionality. |
+| Search / discovery / lists | ✅ Supported | Shared Flutter functionality. |
+| Double-tap-to-seek setting | ❌ Android-only setting | The upstream setting is hidden unless `Platform.isAndroid`. |
+| Player gesture setting | ❌ Android-only setting | The upstream setting is hidden unless `Platform.isAndroid`. |
+| Old navbar | ❌ Android-only | The upstream implementation and navbar transparency are Android-specific. |
+| Auto Picture-in-Picture | ❌ Android-only in this codebase | The upstream watch/player implementation only enables its PiP handling on Android. |
+| Anime downloads | ⚠️ Android-oriented / not supported by this iOS fork | The upstream downloader uses Android storage APIs and Android filesystem paths. |
+| Android TV support | ❌ Android-only | TV detection and related storage handling use Android APIs. |
+| Desktop window controls / RPC | ❌ Not applicable | Windows/Linux-specific functionality was removed from this fork's platform projects. |
 
-You can download the latest apk or windows setup executable file from the [releases](https://github.com/frostnova721/animestream/releases/latest) tab. Then install the downloaded apk!
+### Important
 
-### Linux
+The table describes the **current upstream implementation**, not a claim that iOS itself lacks these capabilities. Some capabilities, such as system Picture-in-Picture, are technically possible on iOS, but they are not implemented by the upstream application in its current form.
 
+## What was removed for the iOS fork
 
-Just run the command below.
+The repository no longer carries platform projects/build tooling that are not required for the iOS build:
 
-```sh
-curl -fsSL https://raw.githubusercontent.com/frostnova721/animestream/master/install-linux.sh | bash
-```
+- Android project
+- Windows project
+- Linux project
+- macOS project
+- Web project
+- Linux installer script
+- Cross-platform `astrm` build scripts
+- Android/Linux/Windows release-build workflow logic
+- Windows installer configuration/tooling
+- Release notification workflow from the upstream project
 
-Alternatively, just download the zip file from [releases](https://github.com/frostnova721/animestream/releases/latest) page
+The shared Dart source remains largely intact so that the fork does not unnecessarily diverge from the original application.
 
-## Building
+## Building the unsigned iOS IPA
 
-- Clone the repo
+This fork uses GitHub Actions and Apple's macOS runner.
 
-- Install required packages:
+1. Fork/clone this repository.
+2. Add the required repository secrets:
+   - `SIMKL_CLIENT_SECRET`
+   - `SIMKL_CLIENT_ID`
+   - `COMMENTUM_API_URL`
+   - `DISCORD_APP_ID`
+3. Open **Actions → Build iOS Unsigned IPA → Run workflow**.
+4. Download the generated `anImestream-*-ios-unsigned.ipa` artifact.
 
-```cmd
-flutter pub get
-```
+The workflow intentionally uses `--no-codesign`; signing/installing the IPA is a separate step.
 
-- Setup signing keystore file for android and store them in `android/app/` directory
+## Project name
 
-- Setup key.properties in `android/` directory
+The iOS application display name is **anImestream**.
 
-> `./astrm` is just a script to run the flutter commands without needing to add the dart define args everytime! 
+The internal Dart package name remains `animestream` because Dart package identifiers are conventionally lowercase and changing it would require a much larger source-wide refactor with no benefit to the iOS build.
 
-- To build the apk from the source code, simply run the command below:
+## Upstream
 
-```cmd
-./astrm build apk
-```
+This project is derived from:
 
-- To build application for windows, run the following command:
+**Animestream** — https://github.com/frostnova721/animestream
 
-```cmd
-./astrm build windows
-```
-
-- To package the windows application as a setup, run:
-
-```cmd
-./astrm pack windows
-```
-
-*pack* argument only works for windows. For other platforms, just use the "*build*" argument.
-
-If you havent installed inno setup on your machine, install it first before building the windows setup:
-[install inno setup](https://github.com/hahouari/inno_bundle/wiki/Install-Inno-Setup)
-
-PS: Your machine needs to have flutter installed. [Install flutter](https://docs.flutter.dev/get-started/install)
-
-## Contribution
-
-Contributions are always welcome! If you have any ideas or changes that you want to see in the app, submit a pull request. If you have suggestions or issues, feel free to open a issue!
+The upstream project is heavily inspired by Saikou and was originally built as a multi-platform Flutter application.
 
 ## License
 
-This project is licensed under the **GNU Public License version 3.0**.
+This fork is licensed under the **GNU General Public License v3.0 (GPL-3.0)**, the same license as the original project.
+
+GPLv3 permits modification and redistribution while requiring covered derivative works to preserve the license's copyleft terms.
+
+See [LICENSE](LICENSE) for the complete license text.
 
 ## Disclaimer
 
-- By using this app, you agree that the developer(s) of animestream is not responsible for any content within the app and won't be legally responsible for any violations.
-- All the contents in animestream are taken from 3rd party websites and API's, and the developer(s) of animestream is not accountable for their nature or legality. Users are advised to use the application responsibly and in compliance with relevant laws and regulations.
-- animestream or its developer(s) are not responsible for the misuse of any content within or outside the app and shall not be responsible for dissemination of any content within the app.
-
-## Official Communities
-
-### Discord
-<a href="https://discord.gg/DEQHYGJ9Zr">
-<img src="http://invidget.switchblade.xyz/DEQHYGJ9Zr">
-</a>
-
-### Reddit
-<a href="https://www.reddit.com/r/animestream/">
-<img src="https://img.shields.io/badge/Reddit-Join%20Our%20Community-FF4500?style=for-the-badge&logo=reddit&logoColor=white">
-</a>
-
-
-## Contributors
-
-- [FrostNova](https://github.com/frostnova721)
-- [DarkxDev](https://github.com/roshancodespace)
-- [Sheby](https://github.com/Shebyyy)
+This project does not host or provide anime content. It accesses third-party sources/APIs. Users are responsible for complying with applicable laws, terms of service, and copyright requirements when using the application.

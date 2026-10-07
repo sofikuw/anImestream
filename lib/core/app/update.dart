@@ -48,9 +48,12 @@ class UpdateCheckResult {
 /// v is when the update is parsed from github api.
 /// stage can be beta followed by the iterative number (these are rare and arent present most time)
 Future<UpdateCheckResult?> checkForUpdates() async {
+  // iOS builds are distributed as manually installed/sideloaded IPAs in this fork.
+  // The upstream updater only knows Android/Linux/Windows installers.
+  if (Platform.isIOS) return null;
   // print(_checkIfTheNewVersionIsActuallyAnUpgrade("1.6.0-beta1", "1.6.0-beta1"));
   try {
-    final releasesUrl = 'https://api.github.com/repos/frostnova721/animestream/releases';
+    final releasesUrl = 'https://api.github.com/repos/sofikuw/anImestream/releases';
     final packageInfo = await PackageInfo.fromPlatform();
     final releases = json.decode(await fetch(releasesUrl)) as List<dynamic>;
     final allowPrereleases = currentUserSettings?.receivePreReleases ?? false;

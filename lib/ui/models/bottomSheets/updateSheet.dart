@@ -37,12 +37,6 @@ class _UpdateSheetState extends State<UpdateSheet> {
 
   DownloadState downloadState = DownloadState.idle;
 
-  String get _linuxUpdateCommand {
-    final tag = "'${widget.data.latestVersion.replaceAll("'", "'\\''")}'";
-    return 'curl -fsSL https://raw.githubusercontent.com/frostnova721/animestream/master/install-linux.sh '
-        '| bash -s -- update --version $tag';
-  }
-
   Future<bool> verifyFileHash(File file, String expectedDigest) async {
     final parts = expectedDigest.trim().toLowerCase().split(':');
 
@@ -287,7 +281,7 @@ class _UpdateSheetState extends State<UpdateSheet> {
                   IconButton(
                     onPressed: () async {
                       await launchUrl(
-                        Uri.parse("https://github.com/frostnova721/animestream/releases/latest"),
+                        Uri.parse("https://github.com/sofikuw/anImestream/releases/latest"),
                         mode: LaunchMode.externalApplication,
                       );
                     },
@@ -323,18 +317,6 @@ class _UpdateSheetState extends State<UpdateSheet> {
                 ],
               ),
             ),
-            if (Platform.isLinux)
-              Padding(
-                padding: const EdgeInsets.only(top: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text("Copy this command, close animestream, then run it in your terminal to update.", style: style()),
-                    const SizedBox(height: 8),
-                    SelectableText(_linuxUpdateCommand, style: style()),
-                  ],
-                ),
-              ),
             Container(
               margin: EdgeInsets.only(top: 20),
               child: Row(
@@ -344,16 +326,7 @@ class _UpdateSheetState extends State<UpdateSheet> {
                     flex: 3,
                     child: Padding(
                       padding: const EdgeInsets.only(right: 10),
-                      child: Platform.isLinux
-                          ? FilledButton.icon(
-                              onPressed: () async {
-                                await Clipboard.setData(ClipboardData(text: _linuxUpdateCommand));
-                                if (mounted) floatingSnackBar("Update command copied.");
-                              },
-                              icon: const Icon(Icons.copy),
-                              label: const Text("Copy update command"),
-                            )
-                          : ValueListenableBuilder(
+                      child: ValueListenableBuilder(
                         valueListenable: progress,
                         builder: (ctx, val, child) {
                           return LiquidDownloadButton(
