@@ -1,0 +1,146 @@
+name: Build and Release iOS
+
+on:
+  workflow_dispatch:
+    inputs:
+      create_release:
+        description: Create GitHub Release
+        required: false
+        type: boolean
+        default: true
+      tag_name:
+        description: Existing tag to build (empty = current branch/commit)
+        required: false
+        type: string
+        default: ''
+  push:
+    tags:
+      - 'v*'
+
+env:
+  FLUTTER_VERSION: '3.47.1'
+
+jobs:
+  build-ios:
+    name: Build iOS Unsigned IPA
+    runs-on: macos-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      build_number: ${{ steps.version.outputs.build_number }}
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Select source tag
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name != '' }}
+        run: |
+          git check-ref-format "refs/tags/${{ inputs.tag_name }}"
+          git rev-parse --verify "refs/tags/${{ inputs.tag_name }}^{commit}"
+          git checkout --detach "refs/tags/${{ inputs.tag_name }}"
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Setup environment
+        env:
+          SIMKL_CLIENT_SECRET: ${{ secrets.SIMKL_CLIENT_SECRET }}
+          SIMKL_CLIENT_ID: ${{ secrets.SIMKL_CLIENT_ID }}
+          COMMENTUM_API_URL: ${{ secrets.COMMENTUM_API_URL }}
+          DISCORD_APP_ID: ${{ secrets.DISCORD_APP_ID }}
+        run: |
+          echo "SIMKL_CLIENT_SECRET=$SIMKL_CLIENT_SECRET" > .env
+          echo "SIMKL_CLIENT_ID=$SIMKL_CLIENT_ID" >> .env
+          echo "COMMENTUM_API_URL=$COMMENTUM_API_URL" >> .env
+          echo "DISCORD_APP_ID=$DISCORD_APP_ID" >> .env
+
+      - name: Read version
+        id: version
+        shell: bash
+        run: |
+          VERSION=$(sed -n 's/^version: \([^+]*\)+.*/\1/p' pubspec.yaml | head -n1)
+          BUILD_NUMBER=$(sed -n 's/^version: [^+]*+\([0-9][0-9]*\).*/\1/p' pubspec.yaml | head -n1)
+
+          if [ -z "$VERSION" ] || [ -z "$BUILD_NUMBER" ]; then
+            echo "Could not read version/build number from pubspec.yaml"
+            exit 1
+          fi
+
+          TAG="v$VERSION"
+
+          # For tag builds, make sure the tag matches pubspec.yaml.
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            PUSHED_TAG="${GITHUB_REF#refs/tags/}"
+            if [ "$PUSHED_TAG" != "$TAG" ]; then
+              echo "Tag $PUSHED_TAG does not match pubspec version $VERSION"
+              exit 1
+            fi
+          elif [ -n "${{ inputs.tag_name }}" ] && [ "${{ inputs.tag_name }}" != "$TAG" ]; then
+            echo "Selected tag ${{ inputs.tag_name }} does not match pubspec version $VERSION"
+            exit 1
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Build iOS app
+        run: |
+          flutter build ios             --release             --no-codesign             --dart-define-from-file=.env             --build-number=${{ steps.version.outputs.build_number }}             --build-name=${{ steps.version.outputs.version }}
+
+      - name: Package unsigned IPA
+        shell: bash
+        run: |
+          rm -rf Payload
+          mkdir -p Payload
+          cp -R build/ios/iphoneos/Runner.app Payload/Runner.app
+          zip -qry "anImestream-${{ steps.version.outputs.version }}-ios-unsigned.ipa" Payload
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: anImestream-ios-unsigned
+          path: anImestream-*-ios-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 30
+
+  create-release:
+    name: Create GitHub Release
+    needs: build-ios
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    if: >-
+      ${{
+        (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+        (github.event_name == 'workflow_dispatch' && inputs.create_release == true)
+      }}
+    steps:
+      - name: Download IPA artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: anImestream-ios-unsigned
+          path: release-files
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.build-ios.outputs.tag }}
+          name: anImestream ${{ needs.build-ios.outputs.tag }}
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(needs.build-ios.outputs.version, '-') }}
+          files: release-files/anImestream-*-ios-unsigned.ipa
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
