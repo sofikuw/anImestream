@@ -384,7 +384,7 @@ class _DownloadsPageState extends State<DownloadsPage> with TickerProviderStateM
       floatingSnackBar("File Not Found!");
       return;
     }
-    final controller = Platform.isAndroid ? BetterPlayerWrapper() : FvpWrapper();
+    final controller = (Platform.isAndroid || Platform.isIOS) ? BetterPlayerWrapper() : FvpWrapper();
     final fullFilename = filepath.split(Platform.pathSeparator).last;
     final lastDotIndex = fullFilename.lastIndexOf('.');
     final filename = lastDotIndex != -1 ? fullFilename.substring(0, lastDotIndex) : fullFilename;

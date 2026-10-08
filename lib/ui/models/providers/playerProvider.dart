@@ -145,7 +145,7 @@ class PlayerProvider extends ChangeNotifier {
     if (Platform.isWindows) {
       val ? _enablePip() : _disablePip();
     } else {
-      await controller.setPip(true); // doesnt really matter for android since disabling is done by the system
+      await controller.setPip(val);
     }
     notifyListeners();
   }
