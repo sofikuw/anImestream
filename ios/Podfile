@@ -34,6 +34,11 @@ require File.expand_path(
 flutter_ios_podfile_setup
 
 target 'Runner' do
+  # BetterPlayer's Swift caching pods need module maps for these Objective-C
+  # dependencies when CocoaPods integrates them as static libraries.
+  pod 'GCDWebServer', :modular_headers => true
+  pod 'PINCache', :modular_headers => true
+
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 
   target 'RunnerTests' do
