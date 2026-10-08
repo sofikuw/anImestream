@@ -129,32 +129,6 @@ jobs:
         working-directory: ios
         run: pod install --repo-update
 
-      # Cache is a Swift pod required by better_player. Build it first so its
-      # Cache.modulemap exists in the same DerivedData tree before Xcode
-      # compiles better_player. This avoids the Xcode 26 parallel-target
-      # module-map race seen in CI.
-      - name: Prebuild Cache pod
-        run: |
-          xcodebuild \
-            -workspace ios/Runner.xcworkspace \
-            -target Cache \
-            -configuration Release \
-            -sdk iphoneos \
-            -destination 'generic/platform=iOS' \
-            -derivedDataPath "$GITHUB_WORKSPACE/build/ios/DerivedData" \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
-            DEVELOPMENT_TEAM="" \
-            build
-
-          CACHE_MODULEMAP="$GITHUB_WORKSPACE/build/ios/DerivedData/Build/Products/Release-iphoneos/Cache/Cache.modulemap"
-          if [ ! -f "$CACHE_MODULEMAP" ]; then
-            echo "ERROR: Cache.modulemap was not generated."
-            find "$GITHUB_WORKSPACE/build/ios/DerivedData/Build/Products" -name "Cache.modulemap" -o -name "Cache.framework" -print
-            exit 1
-          fi
-
       # Build the actual device .app directly with Xcode.
       # Signing is explicitly disabled because this workflow creates an unsigned IPA.
       - name: Build unsigned ipa
