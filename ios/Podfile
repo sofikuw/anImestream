@@ -34,6 +34,11 @@ require File.expand_path(
 flutter_ios_podfile_setup
 
 target 'Runner' do
+  # These Objective-C pods are dependencies of Swift pods used by Better Player.
+  # Modular headers let CocoaPods expose module maps for those Swift imports.
+  pod 'GCDWebServer', :modular_headers => true
+  pod 'PINCache', :modular_headers => true
+
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 
   target 'RunnerTests' do
