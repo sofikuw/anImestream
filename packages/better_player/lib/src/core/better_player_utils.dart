@@ -1,0 +1,78 @@
+// Flutter imports:
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+
+class BetterPlayerUtils {
+  static String formatBitrate(int bitrate) {
+    if (bitrate < 1000) {
+      return "$bitrate bit/s";
+    }
+    if (bitrate < 1000000) {
+      final kbit = (bitrate / 1000).floor();
+      return "~$kbit KBit/s";
+    }
+    final mbit = (bitrate / 1000000).floor();
+    return "~$mbit MBit/s";
+  }
+
+  static String formatDuration(Duration position) {
+    final ms = position.inMilliseconds;
+
+    int seconds = ms ~/ 1000;
+    final int hours = seconds ~/ 3600;
+    seconds = seconds % 3600;
+    final minutes = seconds ~/ 60;
+    seconds = seconds % 60;
+
+    final hoursString = hours >= 10
+        ? '$hours'
+        : hours == 0
+            ? '00'
+            : '0$hours';
+
+    final minutesString = minutes >= 10
+        ? '$minutes'
+        : minutes == 0
+            ? '00'
+            : '0$minutes';
+
+    final secondsString = seconds >= 10
+        ? '$seconds'
+        : seconds == 0
+            ? '00'
+            : '0$seconds';
+
+    final formattedTime = '${hoursString == '00' ? '' : '$hoursString:'}$minutesString:$secondsString';
+
+    return formattedTime;
+  }
+
+  static Future<String?> getMediaMimeType({required String url, Map<String, String> headers = const {}}) async {
+    final client = HttpClient();
+    try {
+      final request = await client.headUrl(Uri.parse(url));
+      headers.forEach((k, v) => request.headers.set(k, v));
+      final res = await request.close();
+      return res.headers.contentType?.mimeType;
+    } finally {
+      client.close();
+    }
+  }
+
+  static double calculateAspectRatio(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final width = size.width;
+    final height = size.height;
+
+    return width > height ? width / height : height / width;
+  }
+
+  static void log(String logMessage) {
+    if (!kReleaseMode) {
+      // ignore: avoid_print
+      print(logMessage);
+    }
+  }
+}

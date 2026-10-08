@@ -1,4 +1,4 @@
-platform :ios, '13.0'
+platform :ios, '14.0'
 
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
@@ -11,7 +11,7 @@ project 'Runner', {
 def flutter_root
   generated_xcode_build_settings_path = File.expand_path(
     File.join('..', 'Flutter', 'Generated.xcconfig'),
-    __FILE__,
+    __FILE__
   )
 
   unless File.exist?(generated_xcode_build_settings_path)
@@ -28,22 +28,12 @@ end
 
 require File.expand_path(
   File.join('packages', 'flutter_tools', 'bin', 'podhelper'),
-  flutter_root,
+  flutter_root
 )
 
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # Better Player's iOS implementation depends on these pods.
-  # Cache is a Swift pod and must expose a module map before better_player
-  # is compiled. Declaring it explicitly makes the dependency visible to
-  # CocoaPods/Xcode instead of relying only on the transitive dependency.
-  pod 'Cache', '6.0.0', :modular_headers => true
-
-  # These Objective-C pods are imported by Better Player's Swift sources.
-  pod 'GCDWebServer', :modular_headers => true
-  pod 'PINCache', :modular_headers => true
-
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 
   target 'RunnerTests' do
@@ -54,14 +44,5 @@ end
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
-
-    # Xcode 26 can otherwise compile better_player before Cache has emitted
-    # Cache.modulemap when CocoaPods' pod targets are built in parallel.
-    if target.name == 'Cache'
-      target.build_configurations.each do |config|
-        config.build_settings['DEFINES_MODULE'] = 'YES'
-        config.build_settings['SWIFT_VERSION'] = '5.0'
-      end
-    end
   end
 end

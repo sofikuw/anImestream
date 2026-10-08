@@ -1,231 +1,95 @@
-<div align="center">
-
-<img src="lib/assets/icons/logo.png" width="120" alt="anImestream icon">
-
 # anImestream
 
-An iOS-focused fork of **Animestream**, a Flutter-based anime streaming application.
+**An iOS-focused fork of Animestream.**
 
-**Original author:** [@frostnova721](https://github.com/frostnova721)  
-**Fork / iOS maintainer:** [@sofikuw](https://github.com/sofikuw)
+anImestream is a Flutter application for streaming anime with AniList tracking, based on the original [Animestream](https://github.com/frostnova721/animestream) project by **FrostNova (frostnova721)**.
 
-</div>
+This fork is maintained by **sofikuw** and is focused on producing an iOS build while keeping the upstream application's core functionality intact.
 
----
+> The original project is licensed under the GNU General Public License v3.0. This fork remains under GPL-3.0 and preserves the original author's attribution. See [LICENSE](LICENSE).
 
-## Requirements
+## Authors
 
-### iOS
+- **Original author:** [FrostNova / frostnova721](https://github.com/frostnova721)
+- **Fork author / iOS maintainer:** [sofikuw](https://github.com/sofikuw)
 
-- **Minimum iOS version:** iOS 13.0
-- Internet connection required
-- iPhone or iPad capable of running iOS 13+
-- Releases are currently distributed as **unsigned IPAs**
+## iOS support status
 
----
+The upstream application is multi-platform, but some parts of its implementation are Android-specific. This table lists the current availability in this iOS fork:
 
-## Installation
+| Feature | iOS status | Notes |
+| --- | --- | --- |
+| Anime streaming | ✅ Supported | iOS and Android use the BetterPlayer backend; desktop uses FVP. |
+| AniList tracking | ✅ Supported | Shared Flutter functionality. |
+| Search / discovery / lists | ✅ Supported | Shared Flutter functionality. |
+| Picture in Picture | ✅ Supported | iOS 14 and later; use the player PiP control or enable Auto Picture-in-Picture in player settings. |
+| Double-tap-to-seek setting | ❌ Android-only setting | The upstream setting is hidden unless `Platform.isAndroid`. |
+| Player gesture setting | ❌ Android-only setting | The upstream setting is hidden unless `Platform.isAndroid`. |
+| Old navbar | ❌ Android-only | The upstream implementation and navbar transparency are Android-specific. |
+| Anime downloads | ⚠️ Android-oriented / not supported by this iOS fork | The upstream downloader uses Android storage APIs and Android filesystem paths. |
+| Android TV support | ❌ Android-only | TV detection and related storage handling use Android APIs. |
+| Desktop window controls / RPC | ❌ Not applicable | Windows/Linux-specific functionality was removed from this fork's platform projects. |
 
-The released IPA is **unsigned**, so it cannot simply be opened and installed on a normal, non-jailbroken iPhone.
+### Important
 
-### AltStore / SideStore
+The table describes the **current state of this fork**. Several limitations are inherited from Android-oriented upstream code and are not limitations of iOS itself.
 
-1. Install AltStore or SideStore on your device.
-2. Download the `anImestream-*.ipa` from GitHub Releases.
-3. Import the IPA into AltStore/SideStore.
-4. Sign and install the application.
-5. Open anImestream.
+This fork enables the native iOS Picture-in-Picture player path. The iOS deployment target is 14.0 to match iPhone PiP availability.
 
-The exact signing limits depend on the sideloading solution and Apple account being used.
+## What was removed for the iOS fork
 
-### Sideloadly
+The repository no longer carries platform projects/build tooling that are not required for the iOS build:
 
-1. Download the latest anImestream IPA.
-2. Open Sideloadly on a supported computer.
-3. Connect your iPhone/iPad.
-4. Select the IPA.
-5. Sign and install it with your Apple account.
-6. Trust the developer profile on the device if required.
-7. Launch anImestream.
+- Android project
+- Windows project
+- Linux project
+- macOS project
+- Web project
+- Linux installer script
+- Cross-platform `astrm` build scripts
+- Android/Linux/Windows release-build workflow logic
+- Windows installer configuration/tooling
+- Release notification workflow from the upstream project
 
-Free Apple accounts may have Apple's normal sideloading limitations.
+The shared Dart source remains largely intact so that the fork does not unnecessarily diverge from the original application.
 
-### Jailbroken devices
+## Building the unsigned iOS IPA
 
-On a jailbroken device, the unsigned IPA can potentially be installed using a suitable jailbreak-side installation method.
+This fork uses GitHub Actions and Apple's macOS runner.
 
-The exact procedure depends on the jailbreak, iOS version, and installed signing/app-installation components.
+1. Fork/clone this repository.
+2. Add the required repository secrets:
+   - `SIMKL_CLIENT_SECRET`
+   - `SIMKL_CLIENT_ID`
+   - `COMMENTUM_API_URL`
+   - `DISCORD_APP_ID`
+3. Open **Actions → Build iOS Unsigned IPA → Run workflow**.
+4. Download the generated `anImestream-*-ios-unsigned.ipa` artifact.
 
----
+The workflow intentionally uses `--no-codesign`; signing/installing the IPA is a separate step.
 
-## GitHub Releases
+## Project name
 
-Releases are built automatically using GitHub Actions.
+The iOS application display name is **anImestream**.
 
-A version tag such as:
+The internal Dart package name remains `animestream` because Dart package identifiers are conventionally lowercase and changing it would require a much larger source-wide refactor with no benefit to the iOS build.
 
-```text
-v1.0.0
-```
+## Upstream
 
-triggers the iOS build workflow.
+This project is derived from:
 
-The workflow:
+**Animestream** — https://github.com/frostnova721/animestream
 
-1. Checks out the tagged source.
-2. Sets up Flutter.
-3. Builds the iOS application.
-4. Creates an unsigned IPA.
-5. Uploads the IPA as an Actions artifact.
-6. Attaches the IPA to the GitHub Release.
-
-Example:
-
-```text
-anImestream v1.0.0
-└── anImestream-1.0.0-ios-unsigned.ipa
-```
-
----
-
-## iOS-specific limitations
-
-Animestream was originally designed as a multi-platform application. Some features in the original project depend specifically on Android or desktop APIs.
-
-The following features are unavailable or may behave differently on iOS:
-
-- Android-specific download/storage functionality
-- Android filesystem paths
-- Android Picture-in-Picture implementation
-- Android player gesture settings
-- Android-specific navigation bar settings
-- Android navigation bar transparency
-- Android TV functionality
-- Desktop Discord Rich Presence
-- Desktop-specific functionality
-- Android-specific update/installer functionality
-
-These features are intentionally not part of the iOS build where they depend on unsupported platform APIs.
-
----
-
-## Features
-
-The iOS fork retains the main cross-platform functionality of Animestream, including:
-
-- Anime discovery
-- Anime search
-- Anime information
-- Streaming
-- Episode selection
-- AniList integration
-- Watchlists / lists
-- User preferences
-- Dark mode
-- Other functionality implemented through Flutter's shared code
-
-Availability of individual features may depend on the upstream services used by the application.
-
----
-
-## Why an iOS fork?
-
-The original project contains support for multiple platforms.
-
-This fork provides a cleaner iOS-focused codebase by removing unnecessary platform projects and build infrastructure while keeping the shared Flutter application code.
-
-The goal is to make iOS development and automated IPA releases simpler.
-
----
-
-## Building from source
-
-### Requirements
-
-- Flutter SDK
-- Xcode
-- macOS
-- CocoaPods
-- An Apple development environment for signed builds
-
-Install dependencies:
-
-```bash
-flutter pub get
-```
-
-Build the iOS application:
-
-```bash
-flutter build ios --release --no-codesign
-```
-
-The resulting application is located under:
-
-```text
-build/ios/iphoneos/
-```
-
-The GitHub Actions workflow packages the `.app` into an IPA automatically.
-
----
-
-## Versioning
-
-The application version is defined in:
-
-```text
-pubspec.yaml
-```
-
-Example:
-
-```yaml
-version: 1.0.0+1
-```
-
-The Git tag should match the release version:
-
-```text
-v1.0.0
-```
-
-For a beta:
-
-```text
-v1.1.0-beta1
-```
-
----
+The upstream project is heavily inspired by Saikou and was originally built as a multi-platform Flutter application.
 
 ## License
 
-This project is distributed under the **GNU General Public License v3.0 (GPL-3.0)**, following the original project's license.
+This fork is licensed under the **GNU General Public License v3.0 (GPL-3.0)**, the same license as the original project.
 
-See the `LICENSE` file for the complete license text.
+GPLv3 permits modification and redistribution while requiring covered derivative works to preserve the license's copyleft terms.
 
----
-
-## Credits
-
-### Original project
-
-**Animestream**  
-Original author: **FrostNova / frostnova721**
-
-The original project and its contributors retain credit for the original work.
-
-### iOS fork
-
-**anImestream**  
-Fork / iOS maintainer: **sofikuw**
-
-This fork focuses on adapting, maintaining, and distributing the project for iOS.
-
----
+See [LICENSE](LICENSE) for the complete license text.
 
 ## Disclaimer
 
-anImestream is an independent fork and is not affiliated with Apple, AniList, or any third-party streaming/content provider.
-
-The availability and legality of content accessed through the application depend on the services and sources used by the user.
+This project does not host or provide anime content. It accesses third-party sources/APIs. Users are responsible for complying with applicable laws, terms of service, and copyright requirements when using the application.

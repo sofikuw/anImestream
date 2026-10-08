@@ -185,7 +185,9 @@ class ServerSelectionBottomSheetState extends State<ServerSelectionBottomSheet> 
       rating: widget.provider.data.rating,
     );
 
-    final controller = (Platform.isAndroid || Platform.isIOS) ? BetterPlayerWrapper() : FvpWrapper();
+    final controller = Platform.isAndroid || Platform.isIOS
+        ? BetterPlayerWrapper()
+        : FvpWrapper();
     final provider = widget.provider;
     final navigatorState = (Platform.isWindows ? AppWrapper.navKey.currentState : Navigator.of(context));
 

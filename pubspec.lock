@@ -92,11 +92,9 @@ packages:
   better_player:
     dependency: "direct main"
     description:
-      path: "."
-      ref: HEAD
-      resolved-ref: "2849caa6c3b5467f1a7b0e36317a6f997e47f727"
-      url: "https://github.com/frostnova721/betterplayer.git"
-    source: git
+      path: packages/better_player
+      relative: true
+    source: path
     version: "1.0.0"
   boolean_selector:
     dependency: transitive

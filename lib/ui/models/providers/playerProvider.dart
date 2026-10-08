@@ -134,21 +134,36 @@ class PlayerProvider extends ChangeNotifier {
 
   /// Set pip mode
   Future<void> setPip(bool val) async {
-    final supportsNativePip = Platform.isIOS || Platform.isAndroid;
-    final supportsWindowPip = Platform.isWindows;
-    if (!supportsNativePip && !supportsWindowPip) {
+    if (Platform.isWindows) {
+      Logs.player.log("set pip: $val");
+      _state = _state.copyWith(pip: val);
+      val ? _enablePip() : _disablePip();
+      notifyListeners();
+      return;
+    }
+
+    if (!Platform.isAndroid && !Platform.isIOS) {
       Logs.player.log("PiP not supported on this platform.");
       return;
     }
 
     Logs.player.log("set pip: $val");
-    _state = _state.copyWith(pip: val);
-
-    if (supportsWindowPip) {
-      val ? _enablePip() : _disablePip();
-    } else {
-      await controller.setPip(val);
+    try {
+      // Android enters PiP through the system leave-app event; iOS can explicitly
+      // start and stop PiP from the AVPlayer-backed BetterPlayer controller.
+      if (Platform.isIOS || val) {
+        await controller.setPip(val);
+      }
+      _state = _state.copyWith(pip: val);
+      notifyListeners();
+    } catch (e) {
+      Logs.player.log("Could not change PiP state: $e");
     }
+  }
+
+  void resetPipState() {
+    if (!_state.pip) return;
+    _state = _state.copyWith(pip: false);
     notifyListeners();
   }
 
@@ -223,7 +238,6 @@ class PlayerProvider extends ChangeNotifier {
   bool _wasMaximized = false;
   Offset _positionBefore = Offset(0, 0);
 
-  
 
   void _disablePip() async {
     windowManager.setAlwaysOnTop(false);
