@@ -61,6 +61,7 @@ dependencies:
     git:
       url: https://github.com/YuiHrsw/window_manager.git
       ref: 2fdb7941a01fb89d59b4019b5721faf5163b8f2e
+      path: packages/window_manager
 
 dev_dependencies:
   flutter_test:
