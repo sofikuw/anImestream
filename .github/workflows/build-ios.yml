@@ -63,10 +63,17 @@ jobs:
           COMMENTUM_API_URL: ${{ secrets.COMMENTUM_API_URL }}
           DISCORD_APP_ID: ${{ secrets.DISCORD_APP_ID }}
         run: |
-          echo "SIMKL_CLIENT_SECRET=$SIMKL_CLIENT_SECRET" > .env
-          echo "SIMKL_CLIENT_ID=$SIMKL_CLIENT_ID" >> .env
-          echo "COMMENTUM_API_URL=$COMMENTUM_API_URL" >> .env
-          echo "DISCORD_APP_ID=$DISCORD_APP_ID" >> .env
+          jq -n \
+            --arg SIMKL_CLIENT_ID "$SIMKL_CLIENT_ID" \
+            --arg SIMKL_CLIENT_SECRET "$SIMKL_CLIENT_SECRET" \
+            --arg COMMENTUM_API_URL "$COMMENTUM_API_URL" \
+            --arg DISCORD_APP_ID "$DISCORD_APP_ID" \
+            '{
+              SIMKL_CLIENT_ID: $SIMKL_CLIENT_ID,
+              SIMKL_CLIENT_SECRET: $SIMKL_CLIENT_SECRET,
+              COMMENTUM_API_URL: $COMMENTUM_API_URL,
+              DISCORD_APP_ID: $DISCORD_APP_ID
+            }' > .env.json
 
       - name: Read version
         id: version
@@ -108,7 +115,7 @@ jobs:
             --release \
             --no-codesign \
             --config-only \
-            --dart-define-from-file=.env \
+            --dart-define-from-file=.env.json \
             --build-number=${{ steps.version.outputs.build_number }} \
             --build-name=${{ steps.version.outputs.version }}
 
@@ -117,7 +124,7 @@ jobs:
         run: pod install
 
       # Build the actual device .app directly with Xcode.
-      # Signing is explicitly disabled at the Xcode       - name: Build unsigned iOS app
+      # Signing is explicitly disabled because this workflow creates an unsigned IPA.
       - name: Build unsigned ipa
         run: |
           rm -rf build/ios/iphoneos
@@ -129,7 +136,7 @@ jobs:
             -configuration Release \
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
-            -derivedDataPath build/ios/DerivedData \
+            -derivedDataPath "$GITHUB_WORKSPACE/build/ios/DerivedData" \
             CONFIGURATION_BUILD_DIR="$GITHUB_WORKSPACE/build/ios/iphoneos" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \

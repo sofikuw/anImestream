@@ -1,3 +1,7 @@
+import 'dart:io';
+
+import 'package:animestream/core/app/runtimeDatas.dart';
+import 'package:animestream/core/app/ios_pip_service.dart';
 import 'package:animestream/ui/models/playerControllers/videoController.dart';
 import 'package:animestream/ui/models/providers/playerProvider.dart';
 import 'package:animestream/ui/models/widgets/player/controls.dart';
@@ -20,6 +24,8 @@ class Watch extends StatefulWidget {
 }
 
 class _WatchState extends State<Watch> with WidgetsBindingObserver {
+  bool _autoPipRequested = false;
+
   @override
   void initState() {
     super.initState();
@@ -30,6 +36,33 @@ class _WatchState extends State<Watch> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) async {
+    if (state == AppLifecycleState.resumed) {
+      _autoPipRequested = false;
+      return;
+    }
+
+    if (!Platform.isIOS ||
+        state != AppLifecycleState.inactive ||
+        _autoPipRequested ||
+        currentUserSettings?.enablePipOnMinimize != true ||
+        IosPipService().isPipActive) {
+      return;
+    }
+
+    final playerProvider = Provider.of<PlayerProvider>(context, listen: false);
+    if (playerProvider.controller.isPlaying != true) return;
+
+    _autoPipRequested = true;
+    try {
+      await playerProvider.setPip(true);
+    } catch (error) {
+      _autoPipRequested = false;
+      debugPrint('Automatic iOS PiP failed: $error');
+    }
   }
 
 

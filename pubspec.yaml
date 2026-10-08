@@ -1,29 +1,107 @@
-name: anImestream
-description: An anime streaming client written in Flutter with iOS YouTube-style Picture-in-Picture.
+name: animestream
+description: An anime streaming client written in Flutter with iOS Picture-in-Picture.
 publish_to: "none"
 version: 1.0.1-beta.1+1
 
 environment:
-  sdk: ">=3.0.0 <4.0.0"
-  flutter: ">=3.10.0"
+  sdk: ">=3.12.0 <4.0.0"
+  flutter: ">=3.44.0"
 
 dependencies:
   flutter:
     sdk: flutter
-  better_player: ^0.0.84
-  provider: ^6.1.2
-  dio: ^5.4.3+1
+  app_links: ^7.2.1
+  awesome_notifications: ^0.12.1
+  better_player:
+    git:
+      url: https://github.com/frostnova721/betterplayer.git
+      ref: 2849caa6c3b5467f1a7b0e36317a6f997e47f727
+  cached_network_image: ^3.4.1
+  collection: ^1.19.1
+  commentum_client:
+    git:
+      url: https://github.com/frostnova721/commentum_client
+      ref: 6cd43f44cc05db301271807fdced125e28fbde9e
+  crypto: ^3.0.7
+  dart_discord_presence:
+    git:
+      url: https://github.com/frostnova721/dart_discord_presence.git
+      ref: cebf5c13885d2c4943473a1f7f7957b3c11f3467
+  desktop_webview_window: ^0.3.0
+  device_info_plus: ^13.2.0
+  dynamic_color: ^2.1.0
+  encrypt: ^5.0.3
+  file_picker: ^12.0.0
+  flutter_markdown_plus: ^1.0.12
+  flutter_native_splash: ^2.4.8
+  flutter_secure_storage: ^11.0.0
+  flutter_svg: ^2.3.0
+  flutter_web_auth_2: 6.0.0-alpha.7
+  fvp:
+    git:
+      url: https://github.com/frostnova721/fvp.git
+      ref: cc3a91282bb3c03d41ce11af2b8ae9ac99dfd3b7
   hive: ^2.2.3
   hive_flutter: ^1.1.0
-  intl: ^0.19.0
+  html: ^0.15.6
+  http: ^1.6.0
+  js_unpack: ^1.0.4
+  open_file: ^4.0.0
+  package_info_plus: ^10.2.1
+  path_provider: ^2.1.6
+  permission_handler: ^13.0.1
+  provider: ^6.1.5
+  pull_to_refresh: ^2.0.0
+  screen_brightness: ^2.1.11
+  url_launcher: ^6.3.2
+  url_launcher_android: ^6.3.32
+  video_player: ^2.14.0
+  wakelock_plus: ^1.7.0
+  window_manager:
+    git:
+      url: https://github.com/YuiHrsw/window_manager.git
+      ref: 2fdb7941a01fb89d59b4019b5721faf5163b8f2e
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^3.0.0
+  flutter_launcher_icons: ^0.14.4
+  inno_bundle: ^0.12.0
 
 flutter:
   uses-material-design: true
   assets:
-    - assets/icons/
-    - assets/images/
+    - lib/assets/icons/
+    - lib/assets/images/
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: lib/assets/fonts/Inter-Regular.ttf
+        - asset: lib/assets/fonts/Inter-Bold.ttf
+          weight: 700
+    - family: NotoSans
+      fonts:
+        - asset: lib/assets/fonts/NotoSans-Regular.ttf
+        - asset: lib/assets/fonts/NotoSans-Bold.ttf
+          weight: 700
+    - family: NunitoSans
+      fonts:
+        - asset: lib/assets/fonts/NunitoSans_10pt-Medium.ttf
+          weight: 500
+        - asset: lib/assets/fonts/NunitoSans_10pt-Bold.ttf
+          weight: 700
+    - family: OpenSans
+      fonts:
+        - asset: lib/assets/fonts/OpenSans-Regular.ttf
+        - asset: lib/assets/fonts/OpenSans-Bold.ttf
+          weight: 700
+    - family: Poppins
+      fonts:
+        - asset: lib/assets/fonts/Poppins-Bold.ttf
+          weight: 700
+    - family: Rubik
+      fonts:
+        - asset: lib/assets/fonts/Rubik-Medium.ttf
+          weight: 500
+        - asset: lib/assets/fonts/Rubik-Bold.ttf
+          weight: 700

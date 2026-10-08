@@ -134,15 +134,17 @@ class PlayerProvider extends ChangeNotifier {
 
   /// Set pip mode
   Future<void> setPip(bool val) async {
-    if (!Platform.isAndroid && !Platform.isWindows && !Platform.isLinux) {
+    final supportsNativePip = Platform.isIOS || Platform.isAndroid;
+    final supportsWindowPip = Platform.isWindows;
+    if (!supportsNativePip && !supportsWindowPip) {
       Logs.player.log("PiP not supported on this platform.");
+      return;
     }
-    ;
 
     Logs.player.log("set pip: $val");
     _state = _state.copyWith(pip: val);
 
-    if (Platform.isWindows) {
+    if (supportsWindowPip) {
       val ? _enablePip() : _disablePip();
     } else {
       await controller.setPip(val);
