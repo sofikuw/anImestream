@@ -22,7 +22,7 @@ The upstream application is multi-platform, but some parts of its implementation
 | Anime streaming | ✅ Supported | iOS and Android use the BetterPlayer backend; desktop uses FVP. |
 | AniList tracking | ✅ Supported | Shared Flutter functionality. |
 | Search / discovery / lists | ✅ Supported | Shared Flutter functionality. |
-| Picture in Picture | ✅ Supported | iOS 14 and later; use the player PiP control or enable Auto Picture-in-Picture in player settings. |
+| Picture in Picture | ✅ Supported | iOS 15 and later; use the player PiP control or enable Auto Picture-in-Picture in player settings. |
 | Double-tap-to-seek setting | ❌ Android-only setting | The upstream setting is hidden unless `Platform.isAndroid`. |
 | Player gesture setting | ❌ Android-only setting | The upstream setting is hidden unless `Platform.isAndroid`. |
 | Old navbar | ❌ Android-only | The upstream implementation and navbar transparency are Android-specific. |
@@ -34,7 +34,7 @@ The upstream application is multi-platform, but some parts of its implementation
 
 The table describes the **current state of this fork**. Several limitations are inherited from Android-oriented upstream code and are not limitations of iOS itself.
 
-This fork enables the native iOS Picture-in-Picture player path. The iOS deployment target is 14.0 to match iPhone PiP availability.
+This fork enables the native iOS Picture-in-Picture player path. The iOS deployment target is 15.0 to match Flutter 3.47.1's iOS minimum.
 
 ## What was removed for the iOS fork
 

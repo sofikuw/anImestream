@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 #import "BetterPlayerPlugin.h"
-#import <better_player/better_player-Swift.h>
+#import "better_player-Swift.h"
 
 #if !__has_feature(objc_arc)
 #error Code Requires ARC.
@@ -310,7 +310,7 @@ bool _remoteCommandsInitialized = false;
             NSString* cacheKey = dataSource[@"cacheKey"];
             NSNumber* maxCacheSize = dataSource[@"maxCacheSize"];
             NSString* videoExtension = dataSource[@"videoExtension"];
-            
+
             int overriddenDuration = 0;
             if ([dataSource objectForKey:@"overriddenDuration"] != [NSNull null]){
                 overriddenDuration = [dataSource[@"overriddenDuration"] intValue];
@@ -429,14 +429,14 @@ bool _remoteCommandsInitialized = false;
             NSDictionary* headers = dataSource[@"headers"];
             NSNumber* maxCacheSize = dataSource[@"maxCacheSize"];
             NSString* videoExtension = dataSource[@"videoExtension"];
-            
+
             if (headers == [ NSNull null ]){
                 headers = @{};
             }
             if (videoExtension == [NSNull null]){
                 videoExtension = nil;
             }
-            
+
             if (urlArg != [NSNull null]){
                 NSURL* url = [NSURL URLWithString:urlArg];
                 if ([_cacheManager isPreCacheSupportedWithUrl:url videoExtension:videoExtension]){
