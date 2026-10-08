@@ -1,4 +1,4 @@
-name: animestream
+name: anImestream
 description: An anime streaming client written in Flutter with iOS YouTube-style Picture-in-Picture.
 publish_to: "none"
 version: 1.0.1-beta.1+1
