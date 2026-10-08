@@ -119,17 +119,46 @@ jobs:
             --build-number=${{ steps.version.outputs.build_number }} \
             --build-name=${{ steps.version.outputs.version }}
 
+      - name: Prepare clean iOS CocoaPods build
+        run: |
+          rm -rf build/ios/DerivedData build/ios/iphoneos
+          rm -rf ios/Pods ios/Podfile.lock
+          mkdir -p build/ios/DerivedData build/ios/iphoneos
+
       - name: Install CocoaPods dependencies
         working-directory: ios
-        run: pod install
+        run: pod install --repo-update
+
+      # Cache is a Swift pod required by better_player. Build it first so its
+      # Cache.modulemap exists in the same DerivedData tree before Xcode
+      # compiles better_player. This avoids the Xcode 26 parallel-target
+      # module-map race seen in CI.
+      - name: Prebuild Cache pod
+        run: |
+          xcodebuild \
+            -workspace ios/Runner.xcworkspace \
+            -target Cache \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$GITHUB_WORKSPACE/build/ios/DerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            build
+
+          CACHE_MODULEMAP="$GITHUB_WORKSPACE/build/ios/DerivedData/Build/Products/Release-iphoneos/Cache/Cache.modulemap"
+          if [ ! -f "$CACHE_MODULEMAP" ]; then
+            echo "ERROR: Cache.modulemap was not generated."
+            find "$GITHUB_WORKSPACE/build/ios/DerivedData/Build/Products" -name "Cache.modulemap" -o -name "Cache.framework" -print
+            exit 1
+          fi
 
       # Build the actual device .app directly with Xcode.
       # Signing is explicitly disabled because this workflow creates an unsigned IPA.
       - name: Build unsigned ipa
         run: |
-          rm -rf build/ios/iphoneos
-          mkdir -p build/ios/iphoneos
-
           xcodebuild \
             -workspace ios/Runner.xcworkspace \
             -scheme Runner \
@@ -137,12 +166,13 @@ jobs:
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
             -derivedDataPath "$GITHUB_WORKSPACE/build/ios/DerivedData" \
+            -parallelizeTargets NO \
             CONFIGURATION_BUILD_DIR="$GITHUB_WORKSPACE/build/ios/iphoneos" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
             DEVELOPMENT_TEAM="" \
-            clean build
+            build
 
       - name: Verify unsigned app
         shell: bash
