@@ -27,7 +27,7 @@ The upstream application is multi-platform, but some parts of its implementation
 | Player gestures | ✅ Supported | Optional iOS and Android setting; swipe vertically on the left for brightness and right for volume. |
 | Hold for 2× speed | ✅ Supported | Optional iOS and Android setting; hold the video to temporarily play at 2×, then release to restore the previous speed. |
 | Old navbar | ❌ Android-only | The upstream implementation and navbar transparency are Android-specific. |
-| Anime downloads | ⚠️ Android-oriented / not supported by this iOS fork | The upstream downloader uses Android storage APIs and Android filesystem paths. |
+| Anime downloads | ✅ Supported  | This fork now can download animes in ios. |
 | Android TV support | ❌ Android-only | TV detection and related storage handling use Android APIs. |
 | Desktop window controls / RPC | ❌ Not applicable | Windows/Linux-specific functionality was removed from this fork's platform projects. |
 
