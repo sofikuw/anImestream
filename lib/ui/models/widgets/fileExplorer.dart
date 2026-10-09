@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:animestream/core/anime/downloader/downloaderHelper.dart';
 import 'package:animestream/core/app/runtimeDatas.dart';
 import 'package:animestream/core/data/downloadHistory.dart';
 import 'package:animestream/ui/models/snackBar.dart';
@@ -16,8 +17,28 @@ class FileExplorer extends StatefulWidget {
 class _FileExplorerState extends State<FileExplorer> {
   @override
   void initState() {
-    _readDir();
     super.initState();
+    _initializeRootDirectory();
+  }
+
+  Future<void> _initializeRootDirectory() async {
+    try {
+      final path = await DownloaderHelper().getDownloadsPath();
+      final root = Directory(path);
+      if (!mounted) return;
+
+      setState(() {
+        _rootDir = root.path;
+        _currentDir = root;
+      });
+      await _readDir();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _loadingFiles = false;
+        _loadError = "Could not open the downloads folder: $error";
+      });
+    }
   }
 
   Future<void> _deleteDownload(FileSystemEntity entity, int? id) async {
@@ -27,44 +48,54 @@ class _FileExplorerState extends State<FileExplorer> {
     }
   }
 
-  final _rootDir = (currentUserSettings?.downloadPath ?? "/storage/emulated/0/Download/animestream");
+  String? _rootDir;
+  Directory? _currentDir;
+  String? _loadError;
+  List<String> _currentDirPathSplit = [];
 
   String _getFileName(String path) {
-    return Platform.isWindows ? path.split("\\").last : path.split("/").last;
+    return path.split(Platform.pathSeparator).last;
   }
 
   void _navBack() {
-    currentDir = currentDir.parent;
+    final directory = _currentDir;
+    if (directory == null || !_canGoBack) return;
+    _currentDir = directory.parent;
     _readDir();
-    setState(() {});
   }
 
-  bool get _canGoBack => currentDir.path != _rootDir;
+  bool get _canGoBack => _rootDir != null && _currentDir != null && _currentDir!.path != _rootDir;
+
   Future<void> _readDir() async {
-    currentDirPathSplit = currentDir.path.split(Platform.isWindows ? "\\" : "/");
-    setState(() {
-      _loadingFiles = true;
-    });
-    final items = <FileSystemEntity>[];
-    currentDir.list().listen(
-      (it) {
-        items.add(it);
-      },
-      onDone: () {
-        if (mounted)
-          setState(() {
-            entities = items;
-            _loadingFiles = false;
-          });
-      },
-    );
-  }
+    final directory = _currentDir;
+    if (directory == null) return;
 
-  Directory currentDir = Directory(currentUserSettings?.downloadPath ?? '/storage/emulated/0/Download/animestream');
+    setState(() {
+      _currentDirPathSplit = directory.path.split(Platform.pathSeparator);
+      _loadingFiles = true;
+      _loadError = null;
+    });
+
+    try {
+      final items = await directory.list().toList();
+      if (!mounted) return;
+      setState(() {
+        entities = items;
+        _loadingFiles = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        entities = [];
+        _loadingFiles = false;
+        _loadError = "Could not read this folder: $error";
+      });
+    }
+  }
 
   List<FileSystemEntity> entities = [];
 
-  bool _loadingFiles = false;
+  bool _loadingFiles = true;
 
   IconData _getTypeIcon(String ext) {
     return switch (ext) {
@@ -74,8 +105,6 @@ class _FileExplorerState extends State<FileExplorer> {
       _ => Icons.insert_drive_file_rounded,
     };
   }
-
-  late List<String> currentDirPathSplit;
 
   @override
   Widget build(BuildContext context) {
@@ -88,25 +117,34 @@ class _FileExplorerState extends State<FileExplorer> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _currentPathAndFile(),
+          if (_currentDirPathSplit.isNotEmpty) _currentPathAndFile(),
           Expanded(
-            child: entities.isEmpty
-                ? Center(
-                    child: Text(
-                      "Empty folder!",
-                      style: TextStyle(fontFamily: "NunitoSans"),
-                    ),
-                  )
-                : ListView.builder(
-                    itemCount: entities.length,
-                    itemBuilder: (context, index) {
-                      final e = entities[index];
-                      if (e is Directory)
-                        return _folderTile(e);
-                      else
-                        return _fileTile(e);
-                    },
-                  ),
+            child: _loadingFiles
+                ? Center(child: CircularProgressIndicator(color: appTheme.textSubColor))
+                : _loadError != null
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Text(_loadError!, textAlign: TextAlign.center),
+                        ),
+                      )
+                    : entities.isEmpty
+                        ? Center(
+                            child: Text(
+                              "Empty folder!",
+                              style: TextStyle(fontFamily: "NunitoSans"),
+                            ),
+                          )
+                        : ListView.builder(
+                            itemCount: entities.length,
+                            itemBuilder: (context, index) {
+                              final e = entities[index];
+                              if (e is Directory) {
+                                return _folderTile(e);
+                              }
+                              return _fileTile(e);
+                            },
+                          ),
           ),
         ],
       ),
@@ -128,12 +166,12 @@ class _FileExplorerState extends State<FileExplorer> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    currentDirPathSplit.sublist(0, currentDirPathSplit.length - 1).join('/') + "/",
+                    _currentDirPathSplit.sublist(0, _currentDirPathSplit.length - 1).join('/') + "/",
                     style: TextStyle(fontSize: 12),
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
-                    currentDirPathSplit.last,
+                    _currentDirPathSplit.last,
                     style: _titleStyle().copyWith(fontSize: 16),
                   ),
                 ],
@@ -163,9 +201,8 @@ class _FileExplorerState extends State<FileExplorer> {
     return _tappable(
       entity: entity,
       onTap: () {
-        currentDir = Directory(entity.path);
+        _currentDir = Directory(entity.path);
         _readDir();
-        setState(() {});
       },
       child: Row(
         children: [

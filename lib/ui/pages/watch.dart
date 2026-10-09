@@ -10,6 +10,7 @@ import 'package:animestream/ui/models/widgets/player/controls.dart';
 import 'package:animestream/ui/models/widgets/player/gestureOverlay.dart';
 import 'package:animestream/ui/models/widgets/subtitles/subViewer.dart';
 import 'package:better_player/better_player.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -309,9 +310,13 @@ class _WatchState extends State<Watch> with WidgetsBindingObserver {
 
   // Just a smol logic to handle taps since gesture dectector doesnt do the job with double taps
   Timer? _tapTimer;
-  int lastTapTime = 0;
-  final int doubleTapThreshold = 300; // in ms
-  // bool _waitingForSecondTap = false;
+  bool _waitingForSecondTap = false;
+  static const Duration _doubleTapWindow = Duration(milliseconds: 300);
+  static const Duration _maxSurfaceTapDuration = Duration(milliseconds: 500);
+  final Map<int, Offset> _surfacePointerOrigins = {};
+  final Map<int, Duration> _surfacePointerStartTimes = {};
+  final Set<int> _movedSurfacePointers = {};
+  final Set<int> _controlPointerIds = {};
 
   bool _showRewindAnim = false;
   bool _showForwardAnim = false;
@@ -342,38 +347,103 @@ class _WatchState extends State<Watch> with WidgetsBindingObserver {
     });
   }
 
-  // void _handleTap() {
-  //   // New Logic Baby!
-  //   if (_waitingForSecondTap) {
-  //     // event where the 2nd tap is detected
-  //     _waitingForSecondTap = false;
-  //     _tapTimer?.cancel();
-  //     _handleDoubleTap();
-  //     return;
-  //   }
+  void _onSurfacePointerDown(PointerDownEvent event) {
+    _surfacePointerOrigins[event.pointer] = event.localPosition;
+    _surfacePointerStartTimes[event.pointer] = event.timeStamp;
+    _movedSurfacePointers.remove(event.pointer);
+  }
 
-  //   _handleSingleTap();
-  //   _waitingForSecondTap = true;
-  //   _tapTimer = Timer(Duration(milliseconds: doubleTapThreshold), () {
-  //     // after threshold time, if no 2nd tap, treat it as succesful single tap
-  //     if (mounted) {
-  //       setState(() {
-  //         _waitingForSecondTap = false;
-  //       });
-  //     }
-  //   });
+  void _onSurfacePointerMove(PointerMoveEvent event) {
+    final origin = _surfacePointerOrigins[event.pointer];
+    if (origin != null && (event.localPosition - origin).distance > 18) {
+      _movedSurfacePointers.add(event.pointer);
+    }
+  }
 
-  //   // if (_tapTimer != null && _tapTimer!.isActive) {
-  //   //   // Double tap
-  //   //   _tapTimer!.cancel();
-  //   //   _handleDoubleTap();
-  //   // } else {
-  //   //   // Single tap
-  //   //   _tapTimer = Timer(Duration(milliseconds: doubleTapThreshold), () {
-  //   //     _handleSingleTap();
-  //   //   });
-  //   // }
-  // }
+  void _onSurfacePointerUp(PointerUpEvent event) {
+    final origin = _surfacePointerOrigins.remove(event.pointer);
+    final startedAt = _surfacePointerStartTimes.remove(event.pointer);
+    final moved = _movedSurfacePointers.remove(event.pointer);
+    if (origin == null || startedAt == null || moved || event.timeStamp - startedAt >= _maxSurfaceTapDuration) {
+      return;
+    }
+
+    _handleSurfaceTap(event.localPosition);
+  }
+
+  void _onSurfacePointerCancel(PointerCancelEvent event) {
+    _surfacePointerOrigins.remove(event.pointer);
+    _surfacePointerStartTimes.remove(event.pointer);
+    _movedSurfacePointers.remove(event.pointer);
+  }
+
+  void _onControlPointerDown(PointerDownEvent event) {
+    _tapTimer?.cancel();
+    _tapTimer = null;
+    _waitingForSecondTap = false;
+    _controlPointerIds.add(event.pointer);
+  }
+
+  void _onControlPointerUp(PointerUpEvent event) {
+    _controlPointerIds.remove(event.pointer);
+  }
+
+  void _onControlPointerCancel(PointerCancelEvent event) {
+    _controlPointerIds.remove(event.pointer);
+  }
+
+  void _handleSurfaceTap(Offset position) {
+    if (!mounted || !isInitiated) return;
+
+    if (_waitingForSecondTap) {
+      _waitingForSecondTap = false;
+      _tapTimer?.cancel();
+      _tapTimer = null;
+      _handleSurfaceDoubleTap(position);
+      return;
+    }
+
+    _handleSingleTap();
+    _waitingForSecondTap = true;
+    _tapTimer?.cancel();
+    _tapTimer = Timer(_doubleTapWindow, () {
+      _waitingForSecondTap = false;
+      _tapTimer = null;
+    });
+  }
+
+  void _handleSurfaceDoubleTap(Offset position) {
+    final width = MediaQuery.sizeOf(context).width;
+    if (position.dx < width * 0.33) {
+      _handleDoubleTapLeft();
+    } else if (position.dx > width * 0.66) {
+      _handleDoubleTapRight();
+    } else {
+      _handleDoubleTap();
+    }
+  }
+
+  void _handleDoubleTapLeft() {
+    final playerProvider = context.read<PlayerProvider>();
+    final dataProvider = context.read<PlayerDataProvider>();
+    if (dataProvider.state.controlsLocked || isDesktop) return;
+    if (!(currentUserSettings?.doubleTapToSkip ?? true)) return;
+
+    playerProvider.fastForward(-(currentUserSettings?.skipDuration ?? 10));
+    if (!_showRewindAnim) skipCount = 0;
+    _showFastForwardAnim(false);
+  }
+
+  void _handleDoubleTapRight() {
+    final playerProvider = context.read<PlayerProvider>();
+    final dataProvider = context.read<PlayerDataProvider>();
+    if (dataProvider.state.controlsLocked || isDesktop) return;
+    if (!(currentUserSettings?.doubleTapToSkip ?? true)) return;
+
+    playerProvider.fastForward(currentUserSettings?.skipDuration ?? 10);
+    if (!_showForwardAnim) skipCount = 0;
+    _showFastForwardAnim(true);
+  }
 
   void _handleSingleTap() {
     if (!mounted || !isInitiated) return;
@@ -481,26 +551,6 @@ class _WatchState extends State<Watch> with WidgetsBindingObserver {
               ScreenBrightness.instance.setApplicationScreenBrightness(val);
               _showIndicator(brightness: val);
             },
-            onDoubleTapCenter: _handleDoubleTap,
-            onDoubleTapLeft: () {
-              // desktop shouldnt be having double tap to skip functionality
-              if (playerDataProvider.state.controlsLocked || isDesktop) return;
-              if (currentUserSettings?.doubleTapToSkip ?? true) {
-                playerProvider.fastForward(-(currentUserSettings?.skipDuration ?? 10));
-                if (!_showRewindAnim) skipCount = 0;
-                _showFastForwardAnim(false);
-              }
-            },
-            onDoubleTapRight: () {
-              // desktop shouldnt be having double tap to skip functionality
-              if (playerDataProvider.state.controlsLocked || isDesktop) return;
-              if (currentUserSettings?.doubleTapToSkip ?? true) {
-                playerProvider.fastForward(currentUserSettings?.skipDuration ?? 10);
-                if (!_showForwardAnim) skipCount = 0;
-                _showFastForwardAnim(true);
-              }
-            },
-            onSingleTap: () => _handleSingleTap(),
             onSpeedChange: (increase) {
               final currSpeed = playerProvider.state.speed;
               if (increase) {
@@ -515,6 +565,7 @@ class _WatchState extends State<Watch> with WidgetsBindingObserver {
             onSpeedUpStart: () {
               if (playerProvider.state.playerState == PlayerState.playing &&
                   !isDesktop &&
+                  _controlPointerIds.isEmpty &&
                   !playerDataProvider.state.controlsLocked) {
                 spedUp = true;
                 lastSpeed = playerProvider.state.speed;
@@ -561,7 +612,16 @@ class _WatchState extends State<Watch> with WidgetsBindingObserver {
                   : SystemMouseCursors.none,
               child: Stack(
                 children: [
-                  Player(controller),
+                  Positioned.fill(
+                    child: Listener(
+                      behavior: HitTestBehavior.opaque,
+                      onPointerDown: _onSurfacePointerDown,
+                      onPointerMove: _onSurfacePointerMove,
+                      onPointerUp: _onSurfacePointerUp,
+                      onPointerCancel: _onSurfacePointerCancel,
+                      child: Player(controller),
+                    ),
+                  ),
                   if (playerProvider.state.showSubs && playerDataProvider.state.currentStream.subtitle != null)
                     SubViewer(
                       controller: controller,
@@ -579,7 +639,15 @@ class _WatchState extends State<Watch> with WidgetsBindingObserver {
                           child: Stack(
                             children: [
                               IgnorePointer(ignoring: true, child: overlay()),
-                              IgnorePointer(ignoring: !playerProvider.state.controlsVisible, child: Controls()),
+                              IgnorePointer(
+                                ignoring: !playerProvider.state.controlsVisible,
+                                child: Listener(
+                                  onPointerDown: _onControlPointerDown,
+                                  onPointerUp: _onControlPointerUp,
+                                  onPointerCancel: _onControlPointerCancel,
+                                  child: Controls(),
+                                ),
+                              ),
                             ],
                           ),
                         )

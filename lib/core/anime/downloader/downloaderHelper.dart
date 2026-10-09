@@ -16,21 +16,15 @@ class DownloaderHelper {
 
   final NotificationService _notifierService = NotificationService();
 
-  // Requests for file permission.
+  // Android stores downloads outside its app sandbox and needs storage access.
+  // iOS and desktop platforms use app or user-selected directories instead.
   Future<bool> checkAndRequestPermission() async {
-    // We have perm to store anywhere in windows n linux ig (not the root-ish paths ofc)
-    if (Platform.isWindows || Platform.isLinux) return true;
-
-    Permission fileAccessPermission;
+    if (!Platform.isAndroid) return true;
 
     final os = await DeviceInfoPlugin().androidInfo;
     final sdk = os.version.sdkInt;
 
-    if (sdk > 32) {
-      fileAccessPermission = await Permission.manageExternalStorage;
-    } else {
-      fileAccessPermission = await Permission.storage;
-    }
+    final fileAccessPermission = sdk > 32 ? Permission.manageExternalStorage : Permission.storage;
 
     final status = await fileAccessPermission.status;
 
@@ -57,19 +51,51 @@ class DownloaderHelper {
   }
 
   Future<String> getDownloadsPath() async {
-    String defDownloadPath; // just for windows
+    if (Platform.isIOS) {
+      final documentsDirectory = await getApplicationDocumentsDirectory();
+      final downloadsDirectory =
+          Directory('${documentsDirectory.path}${Platform.pathSeparator}Downloads');
+      await downloadsDirectory.create(recursive: true);
+      return downloadsDirectory.path;
+    }
 
     if (currentUserSettings?.downloadPath != null) {
-      return currentUserSettings!.downloadPath!;
-    } else {
-      try {
-        defDownloadPath = (await getDownloadsDirectory())!.path;
-      } catch (err) {
-        // Default fallback
-        defDownloadPath = '${Platform.environment['USERPROFILE']}\\Downloads';
-      }
-      return Platform.isWindows ? defDownloadPath : '/storage/emulated/0/Download/animestream';
+      final configuredDirectory = Directory(currentUserSettings!.downloadPath!);
+      await configuredDirectory.create(recursive: true);
+      return configuredDirectory.path;
     }
+
+    if (Platform.isAndroid) {
+      const androidDownloadsPath = '/storage/emulated/0/Download/animestream';
+      final downloadsDirectory = Directory(androidDownloadsPath);
+      await downloadsDirectory.create(recursive: true);
+      return downloadsDirectory.path;
+    }
+
+    Directory? platformDownloadsDirectory;
+    try {
+      platformDownloadsDirectory = await getDownloadsDirectory();
+    } catch (error) {
+      print("[DOWNLOADER] Could not resolve the system downloads directory: $error");
+    }
+    if (platformDownloadsDirectory != null) {
+      await platformDownloadsDirectory.create(recursive: true);
+      return platformDownloadsDirectory.path;
+    }
+
+    if (Platform.isWindows) {
+      final userProfile = Platform.environment['USERPROFILE'];
+      if (userProfile != null && userProfile.isNotEmpty) {
+        final downloadsDirectory = Directory('$userProfile\\Downloads');
+        await downloadsDirectory.create(recursive: true);
+        return downloadsDirectory.path;
+      }
+    }
+
+    final documentsDirectory = await getApplicationDocumentsDirectory();
+    final downloadsDirectory = Directory('${documentsDirectory.path}${Platform.pathSeparator}Downloads');
+    await downloadsDirectory.create(recursive: true);
+    return downloadsDirectory.path;
   }
 
   /// Make the directory for the file

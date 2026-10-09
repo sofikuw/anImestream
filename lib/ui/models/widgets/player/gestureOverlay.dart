@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:io';
 
 import 'package:animestream/core/app/runtimeDatas.dart';
@@ -12,14 +11,8 @@ class GestureOverlay extends StatefulWidget {
   final bool controlsLocked;
   final bool enableHoldToSpeedUp;
 
-  // Hover & Tap Callbacks
+  // Hover callback
   final void Function(PointerHoverEvent) onPointerHover;
-  final VoidCallback onSingleTap;
-
-  // Double Tap Callbacks (Split by zones)
-  final VoidCallback onDoubleTapLeft;
-  final VoidCallback onDoubleTapCenter;
-  final VoidCallback onDoubleTapRight;
 
   // Speed Control Callbacks (Long Press + Horizontal Drag)
   final VoidCallback onSpeedUpStart;
@@ -40,10 +33,6 @@ class GestureOverlay extends StatefulWidget {
     required this.controlsLocked,
     required this.enableHoldToSpeedUp,
     required this.onPointerHover,
-    required this.onSingleTap,
-    required this.onDoubleTapLeft,
-    required this.onDoubleTapCenter,
-    required this.onDoubleTapRight,
     required this.onSpeedUpStart,
     required this.onSpeedChange,
     required this.onSpeedUpEnd,
@@ -59,15 +48,6 @@ class GestureOverlay extends StatefulWidget {
 }
 
 class _GestureOverlayState extends State<GestureOverlay> {
-    // Tap State
-  Timer? _tapTimer;
-
-  bool _waitingForSecondTap = false;
-
-  Offset? _lastTapPosition;
-
-  final int _doubleTapThreshold = 300; 
- // ms
   bool _isSpeedingUp = false;
 
   double? _lastSpeedChangeOffset;
@@ -87,37 +67,6 @@ class _GestureOverlayState extends State<GestureOverlay> {
       currentUserSettings?.enableHoldToSpeedUp ?? widget.enableHoldToSpeedUp;
 
   final isDesktop = Platform.isWindows || Platform.isLinux;
-
-  void _handleTapDown(TapDownDetails details) {
-    _lastTapPosition = details.localPosition;
-  }
-
-  void _handleTap() {
-    if (_waitingForSecondTap && _lastTapPosition != null) {
-      _waitingForSecondTap = false;
-      _tapTimer?.cancel();
-      
-      // Calculate which third of the screen was double-tapped
-      final screenWidth = MediaQuery.sizeOf(context).width;
-      final tapX = _lastTapPosition!.dx;
-      
-      if (tapX < screenWidth * 0.33) {
-        widget.onDoubleTapLeft();
-      } else if (tapX > screenWidth * 0.66) {
-        widget.onDoubleTapRight();
-      } else {
-        widget.onDoubleTapCenter();
-      }
-      return;
-    }
-
-    widget.onSingleTap();
-    _waitingForSecondTap = true;
-    
-    _tapTimer = Timer(Duration(milliseconds: _doubleTapThreshold), () {
-      if (mounted) setState(() => _waitingForSecondTap = false);
-    });
-  }
 
   // --- VERTICAL DRAG (Volume / Brightness) ---
   void _onVerticalDragStart(DragStartDetails details) async {
@@ -208,19 +157,11 @@ class _GestureOverlayState extends State<GestureOverlay> {
   }
 
   @override
-  void dispose() {
-    _tapTimer?.cancel();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Listener(
       onPointerHover: widget.onPointerHover,
       child: GestureDetector(
         behavior: HitTestBehavior.translucent,
-        onTapDown: _handleTapDown,
-        onTap: _handleTap,
         onVerticalDragStart: isDesktop ? null : _onVerticalDragStart,
         onVerticalDragUpdate: isDesktop ? null : _onVerticalDragUpdate,
         onVerticalDragEnd: isDesktop ? null : _onVerticalDragEnd,

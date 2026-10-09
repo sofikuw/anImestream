@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:animestream/core/app/runtimeDatas.dart';
 import 'package:animestream/core/data/settings.dart';
 import 'package:animestream/core/data/types.dart';
@@ -97,47 +99,58 @@ class _DownloaderSettingsState extends State<DownloaderSettings> {
                       });
                       writeSettings(SettingsModal(writeSubtitleTrackToVideo: writeSubtitleTrackToVideo));
                     }),
-                InkWell(
-                  onTap: () async {
-                    String? dir;
-                    // if (Platform.isWindows) {
-                    //   dir = await FilePickerWindows().getDirectoryPath();
-                    // } else if (Platform.isLinux) {
-                    //   dir = await FilePickerLinux().getDirectoryPath();
-                    // } else {
-                      dir = await FilePicker.getDirectoryPath();
-                    // }
-                    if (dir == null) return;
-                    print("Path set to: $dir");
-                    await Settings().writeSettings(SettingsModal(downloadPath: dir));
-                    setState(() {});
-                    floatingSnackBar("might need to provide 'allow access to all files' while downloading!");
-                  },
-                  child: Container(
-                    padding: EdgeInsets.only(top: 10, bottom: 10, left: 20, right: 20),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.center,
+                if (Platform.isIOS)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              "Download path",
-                              style: textStyle(),
-                            ),
-                            Text(
-                              currentUserSettings?.downloadPath ?? "Default downloads directory",
-                              style: textStyle().copyWith(color: appTheme.textSubColor, fontSize: 12),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
+                        Text("iOS download location", style: textStyle()),
+                        const SizedBox(height: 6),
+                        Text(
+                          "Files app → On My iPhone/iPad → anImestream → Downloads",
+                          style: textStyle().copyWith(color: appTheme.textSubColor, fontSize: 12),
                         ),
-                        Icon(Icons.navigate_next_rounded)
+                        Text(
+                          "Downloads are stored in the app and need no storage permission.",
+                          style: textStyle().copyWith(color: appTheme.textSubColor, fontSize: 12),
+                        ),
                       ],
                     ),
+                  )
+                else
+                  InkWell(
+                    onTap: () async {
+                      final dir = await FilePicker.getDirectoryPath();
+                      if (dir == null) return;
+                      await Settings().writeSettings(SettingsModal(downloadPath: dir));
+                      setState(() {});
+                      if (Platform.isAndroid) {
+                        floatingSnackBar("If downloads fail, allow storage access in Android settings.");
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.only(top: 10, bottom: 10, left: 20, right: 20),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text("Download path", style: textStyle()),
+                              Text(
+                                currentUserSettings?.downloadPath ?? "Default downloads directory",
+                                style: textStyle().copyWith(color: appTheme.textSubColor, fontSize: 12),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                          const Icon(Icons.navigate_next_rounded),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
               ],
             ),
           ),
