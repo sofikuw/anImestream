@@ -148,10 +148,26 @@ class PlayerProvider extends ChangeNotifier {
     }
 
     Logs.player.log("set pip: $val");
+    if (Platform.isIOS) {
+      final previousPipState = _state.pip;
+      // Update immediately so the iOS lifecycle handler knows PiP was
+      // requested before the app receives its next background callback.
+      _state = _state.copyWith(pip: val);
+      notifyListeners();
+      try {
+        await controller.setPip(val);
+      } catch (e) {
+        _state = _state.copyWith(pip: previousPipState);
+        notifyListeners();
+        Logs.player.log("Could not change PiP state: $e");
+      }
+      return;
+    }
+
     try {
       // Android enters PiP through the system leave-app event; iOS can explicitly
       // start and stop PiP from the AVPlayer-backed BetterPlayer controller.
-      if (Platform.isIOS || val) {
+      if (val) {
         await controller.setPip(val);
       }
       _state = _state.copyWith(pip: val);

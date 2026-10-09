@@ -38,6 +38,7 @@ class Watch extends StatefulWidget {
 
 class _WatchState extends State<Watch> with WidgetsBindingObserver {
   late VideoController controller;
+  bool _wasPlayingBeforeBackground = false;
 
   @override
   void initState() {
@@ -58,11 +59,31 @@ class _WatchState extends State<Watch> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
 
-    if (state == AppLifecycleState.inactive &&
-        Platform.isIOS &&
-        (currentUserSettings?.enablePipOnMinimize ?? false) &&
-        !context.read<PlayerProvider>().state.pip) {
-      unawaited(context.read<PlayerProvider>().setPip(true));
+    if (!Platform.isIOS || !mounted) return;
+
+    final playerProvider = context.read<PlayerProvider>();
+    if (state == AppLifecycleState.inactive) {
+      if (controller.isPlaying ?? false) {
+        _wasPlayingBeforeBackground = true;
+        if ((currentUserSettings?.enablePipOnMinimize ?? true) && !playerProvider.state.pip) {
+          unawaited(playerProvider.setPip(true));
+        }
+      }
+    } else if (state == AppLifecycleState.paused) {
+      // BetterPlayer lifecycle pausing is disabled on iOS so PiP can finish
+      // starting before the app backgrounds. Pause only when PiP is not active.
+      if (!playerProvider.state.pip && (controller.isPlaying ?? false)) {
+        _wasPlayingBeforeBackground = true;
+        unawaited(controller.pause());
+      }
+    } else if (state == AppLifecycleState.resumed) {
+      if (_wasPlayingBeforeBackground) {
+        if (!playerProvider.state.pip) {
+          unawaited(controller.play());
+        }
+        playerProvider.toggleControlsVisibility(action: true);
+        _wasPlayingBeforeBackground = false;
+      }
     }
   }
 
@@ -71,7 +92,7 @@ class _WatchState extends State<Watch> with WidgetsBindingObserver {
   void _initCallbacks(BuildContext context) {
     _channel.setMethodCallHandler((call) async {
       if (call.method == "onUserLeaveHint") {
-        if (currentUserSettings?.enablePipOnMinimize ?? false) {
+        if (currentUserSettings?.enablePipOnMinimize ?? true) {
           context.read<PlayerProvider>().setPip(true);
         }
       }
@@ -106,6 +127,7 @@ class _WatchState extends State<Watch> with WidgetsBindingObserver {
       await controller.initiateVideo(dataProvider.state.currentStream.url,
           headers: dataProvider.state.currentStream.customHeaders);
 
+      _markPlayerReady();
       controller.setQuality(q);
 
       // Fetch those skips
@@ -120,6 +142,7 @@ class _WatchState extends State<Watch> with WidgetsBindingObserver {
       }
     } else {
       await controller.initiateVideo(dataProvider.state.currentStream.url, offline: true);
+      _markPlayerReady();
     }
 
     final lastWatchPct = (dataProvider.lastWatchDuration ?? 0).clamp(0, 100);
@@ -128,17 +151,17 @@ class _WatchState extends State<Watch> with WidgetsBindingObserver {
 
     // await dataProvider.updateDiscordPresence();
 
-    // Seek to last watched part
-    await controller.seekTo(Duration(milliseconds: lastWatchDuration)); //percentage to value
+    // A zero-position seek is unnecessary and can fail before AVPlayer reports
+    // a duration. Keep controls usable even when resume seeking is unavailable.
+    if (lastWatchDuration > 0 && totalMs > 0) {
+      try {
+        await controller.seekTo(Duration(milliseconds: lastWatchDuration));
+      } catch (e) {
+        Logs.player.log("Could not restore playback position: $e");
+      }
+    }
 
     if (mounted) context.read<PlayerProvider>().toggleSubs(action: dataProvider.state.currentStream.subtitle != null);
-
-    // Placed here for safety. placing it above might cause issues with custom controls functions
-    setState(() {
-      isInitiated = true;
-    });
-
-    controller.addListener(_listener);
 
     if (Platform.isAndroid || Platform.isIOS) {
       try {
@@ -147,6 +170,7 @@ class _WatchState extends State<Watch> with WidgetsBindingObserver {
             Future.delayed(Duration(milliseconds: 250), () {
               if (mounted) {
                 context.read<PlayerProvider>().resetPipState();
+                context.read<PlayerProvider>().toggleControlsVisibility(action: true);
                 setWatchMode();
                 context.read<PlayerProvider>().handleWakelock();
               }
@@ -160,6 +184,15 @@ class _WatchState extends State<Watch> with WidgetsBindingObserver {
       await dataProvider.startRPC();
       await dataProvider.updatePresence();
     }
+  }
+
+  void _markPlayerReady() {
+    if (!mounted || isInitiated) return;
+    setState(() {
+      isInitiated = true;
+    });
+    context.read<PlayerProvider>().toggleControlsVisibility(action: true);
+    controller.addListener(_listener);
   }
 
   void _listener() {
@@ -194,9 +227,12 @@ class _WatchState extends State<Watch> with WidgetsBindingObserver {
 
     playerProvider.handleWakelock(); // Yes, it handles wakelock state
 
-    if (!widget.localSource) {
-      final currentByTotal = (controller.position ?? 0) / (controller.duration ?? 0);
-      if (currentByTotal * 100 >= 75 && !dataProvider.state.preloadStarted && (controller.isPlaying ?? false)) {
+    final currentPositionMs = controller.position ?? 0;
+    final durationMs = controller.duration ?? 0;
+
+    if (!widget.localSource && durationMs > 0) {
+      final currentByTotal = currentPositionMs / durationMs;
+      if (currentByTotal >= 0.75 && !dataProvider.state.preloadStarted && (controller.isPlaying ?? false)) {
         dataProvider.preloadNextEpisode();
         updateWatching(
           dataProvider.showId,
@@ -210,9 +246,11 @@ class _WatchState extends State<Watch> with WidgetsBindingObserver {
     final finalEpReached = dataProvider.state.currentEpIndex + 1 == dataProvider.epLinks.length;
 
     //play the loaded episode if equal to duration
-    if (!finalEpReached &&
-        controller.duration != null &&
-        (controller.position ?? 0) / 1000 == (controller.duration ?? 0) / 1000) {
+    final endToleranceMs = durationMs > 0 ? (durationMs < 10000 ? durationMs ~/ 10 : 1000) : 0;
+    final playbackReachedEnd = durationMs > 0 &&
+        currentPositionMs > 0 &&
+        currentPositionMs >= durationMs - endToleranceMs;
+    if (!finalEpReached && playbackReachedEnd) {
       if (controller.isPlaying ?? false) {
         controller.pause();
       }

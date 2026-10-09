@@ -1,4 +1,4 @@
-import 'dart:async';
+import 'dart:io';
 
 import 'package:animestream/core/app/logging.dart';
 import 'package:animestream/core/commons/extractQuality.dart';
@@ -31,6 +31,9 @@ class BetterPlayerWrapper implements VideoController {
         Logs.player.log("[PLAYER] Oooooooh! We've got some issues!!! \n${ev.parameters}");
       }
     },
+    // iOS PiP must remain playing while the app transitions to the background.
+    // Watch manages ordinary background pause/resume on iOS itself.
+    handleLifecycle: !Platform.isIOS,
     autoDispose: true,
     controlsConfiguration: BetterPlayerControlsConfiguration(
       showControls: false,
@@ -123,22 +126,14 @@ class BetterPlayerWrapper implements VideoController {
   @override
   Future<void> setPip(bool value) async {
     if (value) {
-      if (!await controller.isPictureInPictureSupported()) {
-        throw StateError("Picture in Picture is not supported by this device.");
-      }
-
       final operation = controller.enablePictureInPicture(key);
       if (operation != null) {
-        unawaited(operation.catchError((Object error) {
-          Logs.player.log("Could not start Picture in Picture: $error");
-        }));
+        await operation;
       }
     } else {
       final operation = controller.disablePictureInPicture();
       if (operation != null) {
-        unawaited(operation.catchError((Object error) {
-          Logs.player.log("Could not stop Picture in Picture: $error");
-        }));
+        await operation;
       }
     }
   }

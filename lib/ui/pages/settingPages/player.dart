@@ -56,7 +56,7 @@ class PlayerSettingState extends State<PlayerSetting> {
       megaSkipDurationSliderValue = megaSkipDuration!.toDouble();
       enableSuperSpeeds = settings.enableSuperSpeeds ?? false;
       doubleTapToSkip = settings.doubleTapToSkip ?? true;
-      enablePipOnMinimize = settings.enablePipOnMinimize ?? false;
+      enablePipOnMinimize = settings.enablePipOnMinimize ?? true;
       autoOpEdSkip = settings.autoOpEdSkip ?? false;
       enableHoldToSpeedUp = settings.enableHoldToSpeedUp ?? true;
       enablePlayerGestures = settings.enablePlayerGestures ?? false;

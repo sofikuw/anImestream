@@ -63,7 +63,7 @@ class SettingsModal {
   /// Use native titles (japanese/korean) when available instead of romaji/english [defaults to false]
   final bool? nativeTitle;
 
-  /// Enable picture in picture mode on minimize (Not available for desktops) [defaults to false]
+  /// Enable picture in picture mode on minimize (Not available for desktops) [defaults to true]
   final bool? enablePipOnMinimize;
 
   /// Automatically skip opening and ending themes [defaults to false]
@@ -142,7 +142,7 @@ class SettingsModal {
       useFramelessWindow: map['useFramelessWindow'] ?? false,
       doubleTapToSkip: map['doubleTapToSkip'] ?? true,
       nativeTitle: map['nativeTitle'] ?? false,
-      enablePipOnMinimize: map['enablePipOnMinimize'] ?? false,
+      enablePipOnMinimize: map['enablePipOnMinimize'] ?? true,
       autoOpEdSkip: map['autoOpEdSkip'] ?? false,
       enableLogging: map['enableLogging'] ?? false,
       enableHoldToSpeedUp: map['enableHoldToSpeedUp'] ?? true,
