@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math';
 
 import 'package:animestream/core/commons/utils.dart';
@@ -15,7 +16,9 @@ Future<BetterPlayerDataSource> dataSourceConfig(String url, {Map<String, String>
       maxBufferMs: 120000,
     ),
     cacheConfiguration: BetterPlayerCacheConfiguration(
-      useCache: true,
+      // The iOS HLS cache proxy drops source request headers. Let AVPlayer
+      // request iOS streams directly so Referer/auth headers keep working.
+      useCache: !Platform.isIOS,
       maxCacheFileSize: 50 * 1024 * 1024,
       maxCacheSize: 50 * 1024 * 1024,
     ),
@@ -25,26 +28,31 @@ Future<BetterPlayerDataSource> dataSourceConfig(String url, {Map<String, String>
 }
 
 Future<BetterPlayerVideoFormat> _getFormat(String url, Map<String, String>? headers) async {
-  final mime = (await getMediaMimeType(url, headers))?.toLowerCase();
-
-  // lets assume stuff if something goes wrong
-  if (mime == null || mime.contains("octet-stream")) {
-    final urlPath = Uri.parse(url).path.toLowerCase(); //wrong variable name btw!
-
-    //guessing game
-    if (urlPath.endsWith(".m3u8") || urlPath.endsWith(".m3u")) return BetterPlayerVideoFormat.hls;
-    if (urlPath.endsWith(".mpd") || urlPath.endsWith(".dash")) return BetterPlayerVideoFormat.dash;
-    return BetterPlayerVideoFormat.other;
-
-  } else if (mime.contains("mpegurl") || mime.contains("mp2t")) {
+  // Use the URL when it is explicit. Some stream hosts reject or stall on HEAD
+  // requests, so don't make normal HLS/DASH playback wait for MIME detection.
+  final urlPath = Uri.tryParse(url)?.path.toLowerCase() ?? url.toLowerCase().split('?').first;
+  if (urlPath.endsWith(".m3u8") || urlPath.endsWith(".m3u")) {
     return BetterPlayerVideoFormat.hls;
-
-  } else if (mime.contains("dash")) {
-    return BetterPlayerVideoFormat.dash;
-    
-  } else {
-    return BetterPlayerVideoFormat.other;
   }
+  if (urlPath.endsWith(".mpd") || urlPath.endsWith(".dash")) {
+    return BetterPlayerVideoFormat.dash;
+  }
+
+  // For extensionless URLs, MIME detection is best-effort and must not block
+  // starting the player when a CDN does not support HEAD.
+  try {
+    final mime = (await getMediaMimeType(url, headers).timeout(const Duration(seconds: 2)))?.toLowerCase();
+    if (mime != null && (mime.contains("mpegurl") || mime.contains("mp2t"))) {
+      return BetterPlayerVideoFormat.hls;
+    }
+    if (mime != null && mime.contains("dash")) {
+      return BetterPlayerVideoFormat.dash;
+    }
+  } catch (_) {
+    // Let the native player infer the format from the response.
+  }
+
+  return BetterPlayerVideoFormat.other;
 }
 
 class PlayerLoadingWidget extends StatelessWidget {

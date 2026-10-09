@@ -2,7 +2,6 @@ import 'package:animestream/core/anime/providers/types.dart';
 import 'package:animestream/core/app/logging.dart';
 import 'package:animestream/core/app/runtimeDatas.dart';
 import 'package:animestream/core/commons/extractQuality.dart';
-import 'package:animestream/core/commons/utils.dart';
 import 'package:animestream/core/data/preferences.dart';
 import 'package:animestream/core/database/aniskip/aniskip.dart';
 import 'package:animestream/core/database/database.dart';
@@ -72,14 +71,10 @@ class PlayerDataProvider extends ChangeNotifier {
   Future<void> extractCurrentStreamQualities() async {
     final url = _state.currentStream.url;
     final headers = _state.currentStream.customHeaders;
-    String? mime;
-    if (!url.contains(RegExp(r'\.(mkv|mp4|mov|webm|dash|m3u|m3u8)', caseSensitive: false))) {
-      //get mime if none is mentioned
-      mime = await getMediaMimeType(url, headers);
-      print(mime);
-    }
     try {
-      final master = await parseMasterPlaylist(url, customHeader: headers);
+      // Quality/audio discovery is optional. Do not keep the entire player
+      // waiting when a stream host is slow or does not support range requests.
+      final master = await parseMasterPlaylist(url, customHeader: headers).timeout(const Duration(seconds: 5));
       _state = _state.copyWith(qualities: master.qualityStreams, audioTracks: master.audioStreams);
     } catch (e) {
       // just a backup, the code shouldnt reach here, but my luck... brooo....
