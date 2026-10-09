@@ -88,9 +88,7 @@ class BetterPlayerWrapper implements VideoController {
   }
 
   @override
-  Future<void> setSpeed(double speed) async {
-    controller.setSpeed(speed);
-  }
+  Future<void> setSpeed(double speed) => controller.setSpeed(speed);
 
   @override
   void dispose() {

@@ -376,6 +376,16 @@ class _WatchState extends State<Watch> with WidgetsBindingObserver {
   // }
 
   void _handleSingleTap() {
+    if (!mounted || !isInitiated) return;
+
+    final playerProvider = context.read<PlayerProvider>();
+    if (playerProvider.state.controlsVisible) {
+      playerProvider.toggleControlsVisibility(action: false);
+      _controlsTimer?.cancel();
+      _controlsTimer = null;
+      return;
+    }
+
     _showControlsAndResetTimer();
   }
 
@@ -467,7 +477,6 @@ class _WatchState extends State<Watch> with WidgetsBindingObserver {
             enableHoldToSpeedUp: currentUserSettings?.enableHoldToSpeedUp ?? true,
             getInitialBrightness: () => ScreenBrightness.instance.application,
             getInitialVolume: () async => playerProvider.state.volume,
-            onPointerUp: _showControlsAndResetTimer,
             onBrightnessUpdate: (val) {
               ScreenBrightness.instance.setApplicationScreenBrightness(val);
               _showIndicator(brightness: val);
@@ -667,6 +676,7 @@ class _WatchState extends State<Watch> with WidgetsBindingObserver {
   Widget _playbackSpeedSlider() {
     final speed = context.read<PlayerProvider>().state.speed;
     final playbackSpeeds = context.read<PlayerProvider>().playbackSpeeds;
+    if (playbackSpeeds.last <= 2) return const SizedBox.shrink();
     final divisions = playbackSpeeds.where((e) => e >= 2).length - 1;
     return SliderTheme(
       data: SliderThemeData(
@@ -678,7 +688,7 @@ class _WatchState extends State<Watch> with WidgetsBindingObserver {
         year2023: false,
       ),
       child: Slider(
-        value: speed.clamp(2, playbackSpeeds.last),
+        value: speed.clamp(2, playbackSpeeds.last).toDouble(),
         min: 2,
         max: playbackSpeeds.last,
         divisions: divisions > 0 ? divisions : null,

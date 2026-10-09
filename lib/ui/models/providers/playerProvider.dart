@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:animestream/core/anime/providers/types.dart';
@@ -23,6 +24,7 @@ class PlayerProvider extends ChangeNotifier {
   final bool _isOffline;
 
   PlayerProviderState _state;
+  Future<void> _pendingSpeedCommand = Future<void>.value();
 
   PlayerProvider(this._controller, this._isOffline)
       : _state = PlayerProviderState(
@@ -49,7 +51,8 @@ class PlayerProvider extends ChangeNotifier {
         1.5,
         1.75,
         2,
-        if ((currentUserSettings?.enableSuperSpeeds ?? false) && !Platform.isWindows) ...[4, 5, 8, 10]
+        if ((currentUserSettings?.enableSuperSpeeds ?? false) && !Platform.isWindows && !Platform.isIOS)
+          ...[4, 5, 8, 10]
       ];
 
   /// Play a media
@@ -185,15 +188,35 @@ class PlayerProvider extends ChangeNotifier {
 
   /// Set playback speed
   void setSpeed(double val) {
+    final maxSpeed = Platform.isIOS ? 2.0 : 10.0;
+    if (!val.isFinite || val <= 0 || val > maxSpeed) {
+      Logs.player.log("Ignoring unsupported playback speed: ${val}x");
+      return;
+    }
+
+    final previousSpeed = _state.speed;
     _state = _state.copyWith(speed: val);
-    _controller.setSpeed(val);
     notifyListeners();
+
+    // Serialize rate changes so a quick hold/release cannot leave the native
+    // player at the temporary rate after the UI has restored the old rate.
+    _pendingSpeedCommand = _pendingSpeedCommand.then((_) => _applySpeed(val, previousSpeed));
   }
 
   void resetSpeed() {
-    _state = _state.copyWith(speed: 1);
-    _controller.setSpeed(1);
-    notifyListeners();
+    setSpeed(1);
+  }
+
+  Future<void> _applySpeed(double speed, double previousSpeed) async {
+    try {
+      await _controller.setSpeed(speed);
+    } catch (error) {
+      Logs.player.log("Could not set playback speed to ${speed}x: $error");
+      if (_state.speed == speed) {
+        _state = _state.copyWith(speed: previousSpeed);
+        notifyListeners();
+      }
+    }
   }
 
   Future<void> setQuality(QualityStream qs) async {

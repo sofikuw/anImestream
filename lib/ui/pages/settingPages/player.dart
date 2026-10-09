@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:animestream/core/app/runtimeDatas.dart';
 import 'package:animestream/core/data/settings.dart';
 import 'package:animestream/core/data/types.dart';
@@ -256,14 +258,15 @@ class PlayerSettingState extends State<PlayerSetting> {
                               ),
                             ),
                           ),
-                          ToggleItem(
-                              label: "Enable super speeds",
-                              value: enableSuperSpeeds,
-                              description: "Enable extra player speeds",
-                              onTapFunction: () {
-                                enableSuperSpeeds = !enableSuperSpeeds;
-                                writeSettings(SettingsModal(enableSuperSpeeds: enableSuperSpeeds));
-                              }),
+                          if (!Platform.isIOS && !Platform.isWindows)
+                            ToggleItem(
+                                label: "Enable super speeds",
+                                value: enableSuperSpeeds,
+                                description: "Enable extra player speeds",
+                                onTapFunction: () {
+                                  enableSuperSpeeds = !enableSuperSpeeds;
+                                  writeSettings(SettingsModal(enableSuperSpeeds: enableSuperSpeeds));
+                                }),
                             ToggleItem(
                               onTapFunction: () {
                                 doubleTapToSkip = !doubleTapToSkip;
