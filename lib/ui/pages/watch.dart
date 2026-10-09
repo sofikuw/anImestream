@@ -376,12 +376,18 @@ class _WatchState extends State<Watch> with WidgetsBindingObserver {
   // }
 
   void _handleSingleTap() {
+    _showControlsAndResetTimer();
+  }
+
+  void _showControlsAndResetTimer() {
+    if (!mounted || !isInitiated) return;
     final playerProvider = context.read<PlayerProvider>();
-    playerProvider.toggleControlsVisibility();
     if (!playerProvider.state.controlsVisible) {
-      _controlsTimer?.cancel();
-      _controlsTimer = null;
+      playerProvider.toggleControlsVisibility(action: true);
     }
+    _controlsTimer?.cancel();
+    _controlsTimer = null;
+    hideControlsOnTimeout(context.read<PlayerDataProvider>(), playerProvider);
   }
 
   void _handleDoubleTap() {
@@ -461,6 +467,7 @@ class _WatchState extends State<Watch> with WidgetsBindingObserver {
             enableHoldToSpeedUp: currentUserSettings?.enableHoldToSpeedUp ?? true,
             getInitialBrightness: () => ScreenBrightness.instance.application,
             getInitialVolume: () async => playerProvider.state.volume,
+            onPointerUp: _showControlsAndResetTimer,
             onBrightnessUpdate: (val) {
               ScreenBrightness.instance.setApplicationScreenBrightness(val);
               _showIndicator(brightness: val);

@@ -14,6 +14,7 @@ class GestureOverlay extends StatefulWidget {
 
   // Hover & Tap Callbacks
   final void Function(PointerHoverEvent) onPointerHover;
+  final VoidCallback onPointerUp;
   final VoidCallback onSingleTap;
 
   // Double Tap Callbacks (Split by zones)
@@ -40,6 +41,7 @@ class GestureOverlay extends StatefulWidget {
     required this.controlsLocked,
     required this.enableHoldToSpeedUp,
     required this.onPointerHover,
+    required this.onPointerUp,
     required this.onSingleTap,
     required this.onDoubleTapLeft,
     required this.onDoubleTapCenter,
@@ -214,6 +216,9 @@ class _GestureOverlayState extends State<GestureOverlay> {
   Widget build(BuildContext context) {
     return Listener(
       onPointerHover: widget.onPointerHover,
+      // A raw pointer callback still fires if another nested recognizer wins
+      // the gesture arena, so hidden controls can always be brought back.
+      onPointerUp: (_) => widget.onPointerUp(),
       child: GestureDetector(
         behavior: HitTestBehavior.translucent,
         onTapDown: _handleTapDown,
