@@ -270,7 +270,7 @@ class PlayerSettingState extends State<PlayerSetting> {
                                 writeSettings(SettingsModal(doubleTapToSkip: doubleTapToSkip));
                               },
                               label: "Double tap to seek",
-                              description: "Double tap left/right to jump $skipDuration seconds",
+                              description: "Double tap left or right to seek $skipDuration seconds",
                               value: doubleTapToSkip,
                               mobileOnly: true,
                             ),
@@ -297,9 +297,10 @@ class PlayerSettingState extends State<PlayerSetting> {
                               enableHoldToSpeedUp = !enableHoldToSpeedUp;
                               writeSettings(SettingsModal(enableHoldToSpeedUp: enableHoldToSpeedUp));
                             },
-                            label: "Hold to Speed Up",
-                            description: "Long press the player to speed up the video",
+                            label: "Hold for 2× speed",
+                            description: "Hold the video for 2× playback; release to restore your speed",
                             value: enableHoldToSpeedUp,
+                            mobileOnly: true,
                           ),
                           ToggleItem(
                             onTapFunction: () {
@@ -307,10 +308,10 @@ class PlayerSettingState extends State<PlayerSetting> {
                               writeSettings(SettingsModal(enablePlayerGestures: enablePlayerGestures));
                             },
                             label: "Player Gestures",
-                            description: "Gestures for brightness & volume controls",
+                            description: "Swipe vertically on the left for brightness or right for volume",
                             value: enablePlayerGestures,
                             mobileOnly: true,
-                            )
+                          ),
                         ],
                       ),
                     )

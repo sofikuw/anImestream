@@ -509,8 +509,7 @@ class _WatchState extends State<Watch> with WidgetsBindingObserver {
                   !playerDataProvider.state.controlsLocked) {
                 spedUp = true;
                 lastSpeed = playerProvider.state.speed;
-                // ensure atleast 2x speed on long press and max of 10x (max available speed)
-                playerProvider.setSpeed((lastSpeed * 2).clamp(2, playerProvider.playbackSpeeds.last));
+                playerProvider.setSpeed(2.0);
               }
             },
             onSpeedUpEnd: () {

@@ -199,7 +199,7 @@ class _ThemeSettingState extends State<ThemeSetting> {
                             },
                             label: "Use Old Navbar",
                             value: useOldNavbar,
-                            mobileOnly: true,
+                            androidOnly: true,
                           ),
                           if (Platform.isAndroid && useOldNavbar)
                             Padding(

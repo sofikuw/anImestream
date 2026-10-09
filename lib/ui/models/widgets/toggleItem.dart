@@ -10,6 +10,7 @@ class ToggleItem extends StatelessWidget {
   final String? description;
   final bool value;
   final bool mobileOnly;
+  final bool androidOnly;
 
   const ToggleItem({
     super.key,
@@ -18,11 +19,13 @@ class ToggleItem extends StatelessWidget {
     this.description,
     required this.value,
     this.mobileOnly = false,
+    this.androidOnly = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    if (mobileOnly && !Platform.isAndroid) return SizedBox.shrink();
+    if (mobileOnly && !Platform.isAndroid && !Platform.isIOS) return SizedBox.shrink();
+    if (androidOnly && !Platform.isAndroid) return SizedBox.shrink();
     return InkWell(
       onTap: onTapFunction,
       child: Container(

@@ -83,7 +83,10 @@ class _GestureOverlayState extends State<GestureOverlay> {
 
   final double _verticalDragSensitivity = 300.0;
 
-  final disableGestures = !(currentUserSettings?.enablePlayerGestures ?? false);
+  bool get _playerGesturesEnabled => currentUserSettings?.enablePlayerGestures ?? false;
+
+  bool get _holdToSpeedUpEnabled =>
+      currentUserSettings?.enableHoldToSpeedUp ?? widget.enableHoldToSpeedUp;
 
   final isDesktop = Platform.isWindows || Platform.isLinux;
 
@@ -120,7 +123,7 @@ class _GestureOverlayState extends State<GestureOverlay> {
 
   // --- VERTICAL DRAG (Volume / Brightness) ---
   void _onVerticalDragStart(DragStartDetails details) async {
-    if (widget.controlsLocked) return;
+    if (widget.controlsLocked || !_playerGesturesEnabled) return;
     
     final screenWidth = MediaQuery.sizeOf(context).width;
     final screenHeight = MediaQuery.sizeOf(context).height;
@@ -155,7 +158,7 @@ class _GestureOverlayState extends State<GestureOverlay> {
   }
 
   void _onVerticalDragUpdate(DragUpdateDetails details) {
-    if (widget.controlsLocked || _dragStartY == null || _startValue == null) return;
+    if (widget.controlsLocked || !_playerGesturesEnabled || _dragStartY == null || _startValue == null) return;
 
     final double dragDistance = _dragStartY! - details.localPosition.dy;
     final double changePercentage = dragDistance / _verticalDragSensitivity;
@@ -176,7 +179,7 @@ class _GestureOverlayState extends State<GestureOverlay> {
 
   // Speed Control
   void _onLongPressStart(LongPressStartDetails details) {
-    if (widget.isDesktop || widget.controlsLocked || !widget.enableHoldToSpeedUp) return;
+    if (widget.isDesktop || widget.controlsLocked || !_holdToSpeedUpEnabled) return;
     
     _isSpeedingUp = true;
     _lastSpeedChangeOffset = null;
@@ -223,9 +226,9 @@ class _GestureOverlayState extends State<GestureOverlay> {
         behavior: HitTestBehavior.translucent,
         onTapDown: _handleTapDown,
         onTap: _handleTap,
-        onVerticalDragStart: isDesktop || disableGestures ? null : _onVerticalDragStart,
-        onVerticalDragUpdate: isDesktop || disableGestures ? null : _onVerticalDragUpdate,
-        onVerticalDragEnd: isDesktop || disableGestures ? null : _onVerticalDragEnd,
+        onVerticalDragStart: isDesktop ? null : _onVerticalDragStart,
+        onVerticalDragUpdate: isDesktop ? null : _onVerticalDragUpdate,
+        onVerticalDragEnd: isDesktop ? null : _onVerticalDragEnd,
         onLongPressStart: _onLongPressStart,
         onLongPressMoveUpdate: _onLongPressMoveUpdate,
         onLongPressEnd: _onLongPressEnd,

@@ -23,8 +23,9 @@ The upstream application is multi-platform, but some parts of its implementation
 | AniList tracking | ✅ Supported | Shared Flutter functionality. |
 | Search / discovery / lists | ✅ Supported | Shared Flutter functionality. |
 | Picture in Picture | ✅ Supported | iOS 15 and later; use the player PiP control or enable Auto Picture-in-Picture in player settings. |
-| Double-tap-to-seek setting | ❌ Android-only setting | The upstream setting is hidden unless `Platform.isAndroid`. |
-| Player gesture setting | ❌ Android-only setting | The upstream setting is hidden unless `Platform.isAndroid`. |
+| Double-tap-to-seek | ✅ Supported | Optional iOS and Android setting; double-tap the left or right side to seek. |
+| Player gestures | ✅ Supported | Optional iOS and Android setting; swipe vertically on the left for brightness and right for volume. |
+| Hold for 2× speed | ✅ Supported | Optional iOS and Android setting; hold the video to temporarily play at 2×, then release to restore the previous speed. |
 | Old navbar | ❌ Android-only | The upstream implementation and navbar transparency are Android-specific. |
 | Anime downloads | ⚠️ Android-oriented / not supported by this iOS fork | The upstream downloader uses Android storage APIs and Android filesystem paths. |
 | Android TV support | ❌ Android-only | TV detection and related storage handling use Android APIs. |
