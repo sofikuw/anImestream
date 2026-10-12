@@ -48,15 +48,35 @@ jobs:
           flutter analyze --no-fatal-infos lib/core/extensions lib/core/manga lib/ui/pages/manga test || true
           flutter test test/extension_system_test.dart test/manga_feature_test.dart
 
+      - name: Prepare iOS Release configuration
+        run: |
+          flutter build ios --config-only --no-codesign --release
+          pod install --project-directory=ios
+
       - name: Build iOS App (Unsigned Release)
         run: |
-          flutter build ios --no-codesign --release
+          xcodebuild \
+            -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build/ios \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+          test -d build/ios/Build/Products/Release-iphoneos/Runner.app
 
       - name: Package Unsigned IPA for Sideloading
         run: |
+          set -euo pipefail
+          APP_PATH="build/ios/Build/Products/Release-iphoneos/Runner.app"
+          rm -rf Payload animestream-unsigned.ipa
           mkdir -p Payload
-          cp -r build/ios/iphoneos/Runner.app Payload/
-          zip -r animestream-unsigned.ipa Payload
+          ditto "$APP_PATH" Payload/Runner.app
+          ditto -c -k --sequesterRsrc --keepParent Payload animestream-unsigned.ipa
+          unzip -tq animestream-unsigned.ipa
           ls -lh animestream-unsigned.ipa
 
       - name: Upload Unsigned IPA Artifact
