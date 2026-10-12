@@ -47,8 +47,7 @@ dependencies:
   wakelock_plus: ^1.7.0
   video_player: ^2.14.0
   better_player:
-    git:
-      url: https://github.com/frostnova721/betterplayer.git
+    path: packages/better_player
   fvp: 
     git:
       url: "https://github.com/frostnova721/fvp.git"
