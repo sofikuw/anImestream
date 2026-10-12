@@ -106,7 +106,7 @@ jobs:
           echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
-            - name: Prepare iOS Build Environment
+      - name: Prepare iOS Build Environment
         # Builds for the simulator first to safely generate Flutter's bridging files 
         # (Generated.xcconfig) and run pod install without triggering the code-signing block.
         run: flutter build ios --debug --simulator
