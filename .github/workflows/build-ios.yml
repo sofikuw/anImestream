@@ -106,21 +106,31 @@ jobs:
           echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
-      - name: Bypass Xcode Development Team Enforcement
+            - name: Prepare iOS Build Environment
+        # Builds for the simulator first to safely generate Flutter's bridging files 
+        # (Generated.xcconfig) and run pod install without triggering the code-signing block.
+        run: flutter build ios --debug --simulator
+
+      - name: Build Unsigned Release App (Direct xcodebuild)
         run: |
-          # Force Xcode to ignore the Development Team and Provisioning Profile requirements
-          echo "CODE_SIGNING_ALLOWED=NO" >> ios/Flutter/Release.xcconfig
-          echo "CODE_SIGNING_REQUIRED=NO" >> ios/Flutter/Release.xcconfig
-          echo "CODE_SIGN_IDENTITY=\"\"" >> ios/Flutter/Release.xcconfig
-          echo "EXPANDED_CODE_SIGN_IDENTITY=\"\"" >> ios/Flutter/Release.xcconfig
-          
-      - name: Build raw iOS App bundle
-        run: flutter build ios --release --no-codesign
-        
+          # Use xcodebuild directly to compile the physical arm64 app bundle
+          # Command-line arguments override any missing certificates or team IDs
+          xcodebuild -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build/ios_derived \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            EXPANDED_CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM=""
+
       - name: Package into unsigned IPA
         run: |
           mkdir -p Payload
-          mv build/ios/iphoneos/Runner.app Payload/
+          # Target the specific derivedDataPath where xcodebuild exported the raw .app
+          mv build/ios_derived/Build/Products/Release-iphoneos/Runner.app Payload/
           zip -r -q unsigned-app.ipa Payload
 
       - name: Upload unsigned IPA
@@ -128,6 +138,7 @@ jobs:
         with:
           name: unsigned-app
           path: unsigned-app.ipa
+
 
 
 
