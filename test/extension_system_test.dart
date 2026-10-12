@@ -5,6 +5,8 @@ import '../lib/core/extensions/runtime/js_runtime_bridge.dart';
 import '../lib/core/extensions/manager/extension_manager.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('ExtensionManifest Tests', () {
     test('Valid manifest passes validation', () {
       const manifest = ExtensionManifest(

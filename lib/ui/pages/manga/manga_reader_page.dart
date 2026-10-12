@@ -119,7 +119,7 @@ class _MangaReaderPageState extends State<MangaReaderPage> {
                 padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top, bottom: 8),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Colors.black.withOpacity(0.85), Colors.transparent],
+                    colors: [Colors.black.withValues(alpha: 0.85), Colors.transparent],
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                   ),
@@ -168,7 +168,7 @@ class _MangaReaderPageState extends State<MangaReaderPage> {
                 padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom + 8, top: 8, left: 16, right: 16),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Colors.transparent, Colors.black.withOpacity(0.9)],
+                    colors: [Colors.transparent, Colors.black.withValues(alpha: 0.9)],
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                   ),

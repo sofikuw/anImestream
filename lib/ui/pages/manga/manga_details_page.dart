@@ -90,7 +90,7 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
                       gradient: LinearGradient(
                         colors: [
                           Colors.transparent,
-                          const Color(0xFF0F172A).withOpacity(0.9),
+                          const Color(0xFF0F172A).withValues(alpha: 0.9),
                           const Color(0xFF0F172A),
                         ],
                         begin: Alignment.topCenter,
@@ -131,9 +131,9 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF43F5E).withOpacity(0.2),
+                          color: const Color(0xFFF43F5E).withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: const Color(0xFFF43F5E).withOpacity(0.4)),
+                          border: Border.all(color: const Color(0xFFF43F5E).withValues(alpha: 0.4)),
                         ),
                         child: Text(
                           _details?.status.toDisplayString() ?? 'Ongoing',
