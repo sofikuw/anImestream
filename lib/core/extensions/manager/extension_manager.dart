@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../models/extension_catalog.dart';
 import '../models/extension_manifest.dart';
@@ -197,14 +196,14 @@ class ExtensionManager extends ChangeNotifier {
 
     _installed[gogoManifest.id] = InstalledExtensionBundle(
       manifest: gogoManifest,
-      javascriptCode: SafeExtensionInstaller._generateDefaultExtensionJs(gogoManifest),
+      javascriptCode: SafeExtensionInstaller.generateDefaultExtensionJs(gogoManifest),
       isEnabled: true,
       installedAt: DateTime.now(),
     );
 
     _installed[mangadexManifest.id] = InstalledExtensionBundle(
       manifest: mangadexManifest,
-      javascriptCode: SafeExtensionInstaller._generateDefaultExtensionJs(mangadexManifest),
+      javascriptCode: SafeExtensionInstaller.generateDefaultExtensionJs(mangadexManifest),
       isEnabled: true,
       installedAt: DateTime.now(),
     );

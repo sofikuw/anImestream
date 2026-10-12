@@ -1,9 +1,8 @@
 import 'dart:convert';
-import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../models/extension_catalog.dart';
 import '../models/extension_manifest.dart';
-import '../../network/http_client.dart' as animestream_http;
 
 /// Manages configured GitHub / HTTPS extension repositories and catalogs.
 class RepositoryManager extends ChangeNotifier {
@@ -94,12 +93,15 @@ class RepositoryManager extends ChangeNotifier {
           ? repoUrl
           : '${repoUrl.endsWith('/') ? repoUrl.substring(0, repoUrl.length - 1) : repoUrl}/index.json';
 
-      // Use HTTP client or mock fallback if offline
-      final client = animestream_http.HttpClient();
-      final response = await client.get(indexUrl).timeout(const Duration(seconds: 10));
+      final dio = Dio(BaseOptions(
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 15),
+        responseType: ResponseType.plain,
+      ));
+      final response = await dio.get(indexUrl);
 
-      if (response.statusCode == 200) {
-        final dynamic decoded = jsonDecode(response.body);
+      if (response.statusCode == 200 && response.data != null) {
+        final dynamic decoded = jsonDecode(response.data.toString());
         if (decoded is Map<String, dynamic>) {
           final repo = ExtensionRepository.fromJson(decoded, repoUrl);
           _cachedRepos[repoUrl] = repo;
@@ -107,7 +109,6 @@ class RepositoryManager extends ChangeNotifier {
         }
       }
 
-      // If network fails, generate fallback sample catalog to prevent blocking
       _populateSampleCatalogIfEmpty(repoUrl);
       return true;
     } catch (e) {

@@ -211,6 +211,15 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
                 ),
               ),
             )
+          else if (_error != null)
+            SliverToBoxAdapter(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(32.0),
+                  child: Text(_error!, style: const TextStyle(color: Colors.white70)),
+                ),
+              ),
+            )
           else if (_chapters.isEmpty)
             const SliverToBoxAdapter(
               child: Center(

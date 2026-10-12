@@ -3,7 +3,6 @@ import '../../../core/extensions/manager/extension_manager.dart';
 import '../../../core/extensions/manager/repository_manager.dart';
 import '../../../core/extensions/manager/safe_installer.dart';
 import '../../../core/extensions/models/extension_catalog.dart';
-import '../../../core/extensions/models/extension_manifest.dart';
 
 class ManageExtensionsPage extends StatefulWidget {
   const ManageExtensionsPage({super.key});

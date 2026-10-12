@@ -251,7 +251,7 @@ class _MangaReaderPageState extends State<MangaReaderPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.error_outline, color: Colors.rose, size: 48),
+              const Icon(Icons.error_outline, color: Color(0xFFF43F5E), size: 48),
               const SizedBox(height: 12),
               Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70)),
               const SizedBox(height: 12),

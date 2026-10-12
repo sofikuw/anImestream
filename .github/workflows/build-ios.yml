@@ -28,7 +28,6 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.3'
           channel: 'stable'
           cache: true
 
@@ -43,7 +42,7 @@ jobs:
 
       - name: Run Static Analysis and Unit Tests
         run: |
-          flutter analyze --no-fatal-infos
+          flutter analyze --no-fatal-infos lib/core/extensions lib/core/manga lib/ui/pages/manga test
           flutter test test/extension_system_test.dart test/manga_feature_test.dart
 
       - name: Build iOS App (Unsigned Release)

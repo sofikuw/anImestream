@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 /// Supported types of content an extension can provide.
 enum ExtensionType {
   anime,

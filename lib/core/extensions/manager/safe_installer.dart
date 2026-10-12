@@ -1,9 +1,8 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
+import 'package:dio/dio.dart';
 import '../models/extension_catalog.dart';
 import '../models/extension_manifest.dart';
 import '../runtime/js_runtime_bridge.dart';
-import '../../network/http_client.dart' as animestream_http;
 
 /// Progress status during an extension install or update.
 class InstallProgress {
@@ -69,13 +68,18 @@ class SafeExtensionInstaller {
     final extId = item.id;
     onProgress?.call(InstallProgress(extensionId: extId, status: 'Fetching manifest...', progress: 0.1));
 
+    final dio = Dio(BaseOptions(
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 15),
+      responseType: ResponseType.plain,
+    ));
+
     // 1. Download Manifest
     ExtensionManifest manifest;
     try {
-      final client = animestream_http.HttpClient();
-      final manifestRes = await client.get(item.manifestUrl).timeout(const Duration(seconds: 10));
-      if (manifestRes.statusCode == 200) {
-        final decoded = jsonDecode(manifestRes.body) as Map<String, dynamic>;
+      final manifestRes = await dio.get(item.manifestUrl);
+      if (manifestRes.statusCode == 200 && manifestRes.data != null) {
+        final decoded = jsonDecode(manifestRes.data.toString()) as Map<String, dynamic>;
         manifest = ExtensionManifest.fromJson(decoded);
       } else {
         // Fallback construct from catalog item
@@ -90,7 +94,7 @@ class SafeExtensionInstaller {
           iconUrl: item.iconUrl,
           lang: item.lang,
           entrypoint: 'index.js',
-          capabilities: item.capabilities.map((c) => ExtensionCapability.fromString(c)!).whereType<ExtensionCapability>().toSet(),
+          capabilities: item.capabilities.map((c) => ExtensionCapability.fromString(c)).whereType<ExtensionCapability>().toSet(),
         );
       }
     } catch (_) {
@@ -106,7 +110,7 @@ class SafeExtensionInstaller {
         iconUrl: item.iconUrl,
         lang: item.lang,
         entrypoint: 'index.js',
-        capabilities: item.capabilities.map((c) => ExtensionCapability.fromString(c)!).whereType<ExtensionCapability>().toSet(),
+        capabilities: item.capabilities.map((c) => ExtensionCapability.fromString(c)).whereType<ExtensionCapability>().toSet(),
       );
     }
 
@@ -126,15 +130,14 @@ class SafeExtensionInstaller {
     onProgress?.call(InstallProgress(extensionId: extId, status: 'Downloading JavaScript payload...', progress: 0.5));
     String jsCode;
     try {
-      final client = animestream_http.HttpClient();
-      final codeRes = await client.get(item.codeUrl).timeout(const Duration(seconds: 15));
-      if (codeRes.statusCode == 200 && codeRes.body.isNotEmpty) {
-        jsCode = codeRes.body;
+      final codeRes = await dio.get(item.codeUrl);
+      if (codeRes.statusCode == 200 && codeRes.data != null && codeRes.data.toString().isNotEmpty) {
+        jsCode = codeRes.data.toString();
       } else {
-        jsCode = _generateDefaultExtensionJs(manifest);
+        jsCode = generateDefaultExtensionJs(manifest);
       }
     } catch (_) {
-      jsCode = _generateDefaultExtensionJs(manifest);
+      jsCode = generateDefaultExtensionJs(manifest);
     }
 
     // 5. Sandboxed Dry-Run Syntax / Execution Check
@@ -172,7 +175,7 @@ class SafeExtensionInstaller {
   }
 
   /// Generates a valid JavaScript extension script if network payload is unreachable.
-  static String _generateDefaultExtensionJs(ExtensionManifest manifest) {
+  static String generateDefaultExtensionJs(ExtensionManifest manifest) {
     return '''
 // Animestream Extension: ${manifest.name} (v${manifest.version})
 var extensionInfo = {

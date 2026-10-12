@@ -88,7 +88,7 @@ class _MangaSearchPageState extends State<MangaSearchPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.error_outline, color: Colors.rose, size: 40),
+              const Icon(Icons.error_outline, color: Color(0xFFF43F5E), size: 40),
               const SizedBox(height: 12),
               Text(_error!, style: const TextStyle(color: Colors.white70)),
               const SizedBox(height: 12),

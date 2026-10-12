@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import '../../network/http_client.dart' as animestream_http;
 
 /// Structured result returned from executing JavaScript in the runtime.
 class JsExecutionResult {

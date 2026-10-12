@@ -103,7 +103,6 @@ class JsMangaProviderAdapter implements MangaProvider {
     }
 
     // Fallback: extract chapters from getMangaDetails
-    final details = await getMangaDetails(mangaId);
     final detailRes = await _manager.invokeExtension(id, 'getMangaDetails', [mangaId]);
     if (detailRes.isSuccess && detailRes.data is Map) {
       final rawChapters = (detailRes.data as Map)['chapters'] as List? ?? [];
