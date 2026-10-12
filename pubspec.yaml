@@ -5,7 +5,7 @@ publish_to: "none" #Dont remove this!
 version: 1.0.4+1
 
 environment:
-  sdk: ">=3.2.0 <4.0.0"
+  sdk: ">=3.12.0 <4.0.0"
 
 dependencies:
   flutter:
@@ -76,16 +76,7 @@ dependencies:
     git:
       url: https://github.com/frostnova721/commentum_client
 
-  flutter_js: ^0.8.7
-
-dependency_overrides:
-  # The latest hosted sync_http release declares Dart <3.0 despite upstream
-  # supporting Dart 3.7+. flutter_js depends on ^0.3.0, so pin the compatible
-  # upstream revision until a Dart 3-compatible release is published.
-  sync_http:
-    git:
-      url: https://github.com/google/sync_http.dart.git
-      ref: 6666fff944221891182e1f80bf56569338164d72
+  flutter_qjs_next: ^1.5.2
 
 dev_dependencies:
   flutter_test:

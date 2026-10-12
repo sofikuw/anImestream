@@ -69,6 +69,10 @@ This fork uses GitHub Actions and Apple's macOS runner.
 
 The workflow intentionally uses `--no-codesign`; signing/installing the IPA is a separate step.
 
+## JavaScript provider repositories
+
+Manage Providers accepts versioned HTTPS catalogs for JavaScript anime providers. See [the repository format and provider API](docs/provider-repository-format.md) before adding a catalog.
+
 ## Project name
 
 The iOS application display name is **anImestream**.

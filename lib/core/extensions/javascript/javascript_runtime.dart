@@ -1,27 +1,37 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter_js/flutter_js.dart' as flutter_js;
+import 'package:flutter_qjs_next/flutter_qjs.dart' as quickjs;
 
-/// Bounds the data crossing the JavaScript/Dart boundary.
-///
-/// These limits do not stop an infinite loop inside JavaScriptCore. The
-/// flutter_js iOS API does not expose an interruptible execution deadline;
-/// extension execution must not be enabled for untrusted repositories until
-/// that gap is addressed and verified on an iOS device.
+/// Bounds both script execution and the data crossing the JavaScript/Dart
+/// boundary. The engine deadline is enforced inside QuickJS, so it also
+/// interrupts synchronous loops that would block a Dart Future timeout.
 class JavaScriptRuntimeLimits {
   const JavaScriptRuntimeLimits({
     this.maxRequestIdBytes = 128,
     this.maxSourceBytes = 256 * 1024,
     this.maxInputBytes = 128 * 1024,
     this.maxOutputBytes = 1024 * 1024,
+    this.maxHttpRequestsPerExecution = 12,
+    this.maxAsyncExecutionTime = const Duration(seconds: 25),
+    this.maxSynchronousExecutionTime = const Duration(seconds: 5),
+    this.maxJavaScriptHeapBytes = 64 * 1024 * 1024,
   });
 
   final int maxRequestIdBytes;
   final int maxSourceBytes;
   final int maxInputBytes;
   final int maxOutputBytes;
+  final int maxHttpRequestsPerExecution;
+
+  /// Bounds awaited I/O and asynchronous provider work.
+  final Duration maxAsyncExecutionTime;
+  final Duration maxSynchronousExecutionTime;
+  final int maxJavaScriptHeapBytes;
 }
+
+typedef JavaScriptHttpRequestHandler =
+    FutureOr<Object?> Function(Map<String, Object?> request);
 
 /// A single script invocation. [source] is a function body that can
 /// read the JSON-decoded [input] value and must return a JSON-compatible value.
@@ -79,28 +89,67 @@ class JavaScriptEngineResult {
 
 /// Engine seam kept independent of the selected JavaScript implementation.
 abstract interface class JavaScriptExecutionEngine {
+  void setHttpRequestHandler(JavaScriptHttpRequestHandler handler);
+
   Future<JavaScriptEngineResult> evaluate(String source);
 
   void dispose();
 }
 
-/// JavaScriptCore-backed runtime used by the current iOS app.
+/// QuickJS runtime with a native interrupt deadline and bounded heap.
 ///
-/// Network/XHR support is disabled and this adapter registers no Dart
-/// callbacks, so extension code receives no application secrets, filesystem
-/// access, or native API bridge.
-class FlutterJsExecutionEngine implements JavaScriptExecutionEngine {
-  FlutterJsExecutionEngine()
-      : _runtime = flutter_js.getJavascriptRuntime(xhr: false);
+/// Web APIs are disabled. The only optional capability is the bounded,
+/// allowlisted provider HTTP bridge supplied by the caller.
+class QuickJsExecutionEngine implements JavaScriptExecutionEngine {
+  QuickJsExecutionEngine({
+    int timeoutMs = 5000,
+    int memoryLimitBytes = 64 * 1024 * 1024,
+  }) : _runtime = quickjs.getJavascriptRuntime(
+          xhr: false,
+          timeout: timeoutMs,
+          memoryLimit: memoryLimitBytes,
+          webApis: const quickjs.JsWebApis.none(),
+        ) {
+    _runtime.onMessage(_httpRequestChannel, (dynamic arguments) {
+      if (arguments is! Map) {
+        throw const FormatException('HTTP bridge payload must be an object.');
+      }
+      final handler = _httpRequestHandler;
+      if (handler == null) {
+        throw StateError('The JavaScript HTTP bridge is not configured.');
+      }
+      return handler(Map<String, Object?>.from(arguments));
+    });
+  }
 
-  final flutter_js.JavascriptRuntime _runtime;
+  static const String _httpRequestChannel = 'animestream_provider_http';
+  final quickjs.JavascriptRuntime _runtime;
+  JavaScriptHttpRequestHandler? _httpRequestHandler;
+
+  @override
+  void setHttpRequestHandler(JavaScriptHttpRequestHandler handler) {
+    _httpRequestHandler = handler;
+  }
 
   @override
   Future<JavaScriptEngineResult> evaluate(String source) async {
     final result = _runtime.evaluate(source);
+    if (result.isError) {
+      return JavaScriptEngineResult(
+        output: result.stringResult,
+        isError: true,
+      );
+    }
+    if (result.isPromise) {
+      // Resolve the returned async IIFE and any bounded host-bridge calls.
+      final resolved = await _runtime.handlePromise(result);
+      return JavaScriptEngineResult(
+        output: resolved.stringResult,
+        isError: resolved.isError,
+      );
+    }
     return JavaScriptEngineResult(
-      output: result.stringResult,
-      isError: result.isError,
+      output: _runtime.jsonStringify(result),
     );
   }
 
@@ -118,15 +167,28 @@ class JavaScriptRuntime {
   JavaScriptRuntime({
     JavaScriptExecutionEngine? engine,
     this.limits = const JavaScriptRuntimeLimits(),
-  }) : _engine = engine ?? FlutterJsExecutionEngine();
+    JavaScriptHttpRequestHandler? httpRequestHandler,
+  })  : _engine = engine ??
+            QuickJsExecutionEngine(
+              timeoutMs: limits.maxSynchronousExecutionTime.inMilliseconds,
+              memoryLimitBytes: limits.maxJavaScriptHeapBytes,
+            ),
+        _httpRequestHandler = httpRequestHandler {
+    _engine.setHttpRequestHandler(_handleHttpRequest);
+  }
 
   final JavaScriptExecutionEngine _engine;
   final JavaScriptRuntimeLimits limits;
+  final JavaScriptHttpRequestHandler? _httpRequestHandler;
 
   Future<void> _queue = Future<void>.value();
   Future<void>? _disposeFuture;
+  String? _activeRequestId;
+  int _activeHttpRequestCount = 0;
   bool _disposing = false;
   bool _disposed = false;
+
+  bool get isDisposed => _disposed || _disposing;
 
   Future<JavaScriptExecutionResponse> execute(
     JavaScriptExecutionRequest request,
@@ -187,8 +249,28 @@ class JavaScriptRuntime {
 
     final JavaScriptEngineResult engineResult;
     try {
-      engineResult = await _engine.evaluate(_buildScript(request, inputJson));
+      _activeRequestId = request.requestId;
+      _activeHttpRequestCount = 0;
+      engineResult = await _engine
+          .evaluate(_buildScript(request, inputJson))
+          .timeout(
+        limits.maxAsyncExecutionTime + const Duration(seconds: 5),
+        onTimeout: () {
+          _poison();
+          throw JavaScriptExecutionException(
+            'JavaScript engine did not complete within '
+            '${limits.maxAsyncExecutionTime.inSeconds + 5}s.',
+            requestId: request.requestId,
+          );
+        },
+      );
     } catch (error, stackTrace) {
+      final message = error.toString().toLowerCase();
+      if (message.contains('interrupt') ||
+          message.contains('timeout') ||
+          message.contains('out of memory')) {
+        _poison();
+      }
       Error.throwWithStackTrace(
         JavaScriptExecutionException(
           'JavaScript engine failed: $error',
@@ -196,6 +278,9 @@ class JavaScriptRuntime {
         ),
         stackTrace,
       );
+    } finally {
+      _activeRequestId = null;
+      _activeHttpRequestCount = 0;
     }
 
     if (utf8.encode(engineResult.output).length > limits.maxOutputBytes) {
@@ -205,6 +290,12 @@ class JavaScriptRuntime {
       );
     }
     if (engineResult.isError) {
+      final message = engineResult.output.toLowerCase();
+      if (message.contains('interrupt') ||
+          message.contains('timeout') ||
+          message.contains('out of memory')) {
+        _poison();
+      }
       throw JavaScriptExecutionException(
         engineResult.output,
         requestId: request.requestId,
@@ -234,6 +325,12 @@ class JavaScriptRuntime {
     }
     if (decoded['ok'] != true) {
       final error = decoded['error'];
+      if (error is String &&
+          (error.toLowerCase().contains('interrupted') ||
+              error.toLowerCase().contains('timeout') ||
+              error.toLowerCase().contains('out of memory'))) {
+        _poison();
+      }
       throw JavaScriptExecutionException(
         error is String ? error : 'JavaScript execution failed.',
         requestId: request.requestId,
@@ -258,19 +355,33 @@ class JavaScriptRuntime {
   ) {
     final requestId = jsonEncode(request.requestId);
     final inputLiteral = jsonEncode(inputJson);
+    final httpRequest = _httpRequestHandler == null
+        ? '''
+    const httpRequest = () =>
+      Promise.reject(new Error('The JavaScript HTTP bridge is disabled.'));
+'''
+        : '''
+    const httpRequest = (request) => {
+      if (request === null || typeof request !== 'object') {
+        return Promise.reject(new Error('HTTP request must be an object.'));
+      }
+      return sendMessage(
+        'animestream_provider_http',
+        JSON.stringify({ ...request, requestId })
+      );
+    };
+''';
     return '''
-(() => {
+((async () => {
   const requestId = $requestId;
+  const nativePromise = Promise;
   try {
     const input = JSON.parse($inputLiteral);
-    const value = (() => {
+${httpRequest}
+    globalThis.__ANIMESTREAM_HTTP_REQUEST__ = httpRequest;
+    const value = await nativePromise.resolve((async () => {
 ${request.source}
-    })();
-    if (value !== null && typeof value.then === 'function') {
-      throw new Error(
-        'Promise results are not supported in this proof of concept.',
-      );
-    }
+    })());
     const encodedValue = JSON.stringify(value);
     if (encodedValue === undefined) {
       throw new Error('The script must return a JSON-compatible value.');
@@ -293,8 +404,43 @@ ${request.source}
       error: message
     });
   }
-})()
+})())
 ''';
+  }
+
+  Future<Object?> _handleHttpRequest(Map<String, Object?> payload) async {
+    final activeRequestId = _activeRequestId;
+    if (activeRequestId == null || payload['requestId'] != activeRequestId) {
+      throw StateError('HTTP request is not associated with an active call.');
+    }
+    final handler = _httpRequestHandler;
+    if (handler == null) {
+      throw UnsupportedError('The JavaScript HTTP bridge is disabled.');
+    }
+    _activeHttpRequestCount++;
+    if (_activeHttpRequestCount > limits.maxHttpRequestsPerExecution) {
+      throw JavaScriptExecutionException(
+        'HTTP request limit (${limits.maxHttpRequestsPerExecution}) exceeded.',
+        requestId: activeRequestId,
+      );
+    }
+    final request = Map<String, Object?>.from(payload)..remove('requestId');
+    if (utf8.encode(jsonEncode(request)).length > limits.maxInputBytes) {
+      throw JavaScriptExecutionException(
+        'HTTP request payload exceeds ${limits.maxInputBytes} bytes.',
+        requestId: activeRequestId,
+      );
+    }
+    return handler(request);
+  }
+
+  /// A timed-out JS promise may still be running in the shared context. Dispose
+  /// that context instead of allowing its late callbacks into a later request.
+  void _poison() {
+    _disposing = true;
+    if (_disposed) return;
+    _engine.dispose();
+    _disposed = true;
   }
 
   Future<void> dispose() {

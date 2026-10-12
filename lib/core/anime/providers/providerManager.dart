@@ -18,6 +18,13 @@ class ProviderManager {
     return (await _providersPreferences.getProvider(providerIdentifier))?.code;
   }
 
+  /// Get an installed provider's complete manifest-backed details.
+  Future<ProviderDetails?> getSavedProviderDetails(
+    String providerIdentifier,
+  ) async {
+    return _providersPreferences.getProvider(providerIdentifier);
+  }
+
   /// Get the list of all saved providers.
   Future<List<ProviderDetails>> getSavedProviders() async {
     return await _providersPreferences.listAllProviders();

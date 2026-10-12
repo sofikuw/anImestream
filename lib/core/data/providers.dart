@@ -7,9 +7,14 @@ class ProvidersPreferences {
 
   Future<ProviderDetails?> getProvider(String identifier) async {
     final box = await Hive.openBox(_boxKey);
-    final Map<String, dynamic>? provider = (await box.get(identifier) as Map).cast();
-    await box.close();
-    return ProviderDetails?.fromMap(provider!);
+    try {
+      final saved = await box.get(identifier);
+      if (saved is! Map) return null;
+      final provider = Map<String, dynamic>.from(saved);
+      return ProviderDetails.fromMap(provider);
+    } finally {
+      await box.close();
+    }
   }
 
   Future<List<ProviderDetails>> listAllProviders() async {

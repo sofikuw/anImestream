@@ -242,6 +242,86 @@ void main() {
       await runtime.dispose();
     });
 
+    test('routes only HTTP bridge messages for the active execution', () async {
+      late _FakeJavaScriptExecutionEngine engine;
+      engine = _FakeJavaScriptExecutionEngine((_) async {
+        final bridge = engine.httpRequestHandler!;
+        final response = await bridge(<String, Object?>{
+          'requestId': 'request-http',
+          'url': 'https://provider.example.test/search',
+        });
+        expect(response, <String, Object?>{'statusCode': 200});
+        return JavaScriptEngineResult(
+          output: jsonEncode(<String, Object?>{
+            'requestId': 'request-http',
+            'ok': true,
+            'value': true,
+          }),
+        );
+      });
+      final runtime = JavaScriptRuntime(
+        engine: engine,
+        httpRequestHandler: (request) async {
+          expect(request, <String, Object?>{
+            'url': 'https://provider.example.test/search',
+          });
+          return <String, Object?>{'statusCode': 200};
+        },
+      );
+
+      await runtime.execute(
+        const JavaScriptExecutionRequest(
+          requestId: 'request-http',
+          source: 'return true;',
+        ),
+      );
+      await expectLater(
+        engine.httpRequestHandler!(<String, Object?>{
+          'requestId': 'stale-request',
+          'url': 'https://provider.example.test/search',
+        }),
+        throwsStateError,
+      );
+      await runtime.dispose();
+    });
+
+    test('disposes a timed-out context so late async work cannot be reused',
+        () async {
+      final engine = _FakeJavaScriptExecutionEngine(
+        (_) async => JavaScriptEngineResult(
+          output: jsonEncode(<String, Object?>{
+            'requestId': 'request-timeout',
+            'ok': false,
+            'error': 'InternalError: interrupted',
+          }),
+        ),
+      );
+      final runtime = JavaScriptRuntime(engine: engine);
+
+      await expectLater(
+        runtime.execute(
+          const JavaScriptExecutionRequest(
+            requestId: 'request-timeout',
+            source: 'return new Promise(() => {});',
+          ),
+        ),
+        throwsA(isA<JavaScriptExecutionException>()),
+      );
+      expect(runtime.isDisposed, isTrue);
+      expect(engine.disposeCount, 1);
+      await expectLater(
+        runtime.execute(
+          const JavaScriptExecutionRequest(
+            requestId: 'request-after-timeout',
+            source: 'return true;',
+          ),
+        ),
+        throwsA(isA<StateError>()),
+      );
+      await runtime.dispose();
+      expect(engine.disposeCount, 1);
+    });
+
     test('disposes once and refuses subsequent work', () async {
       final engine = _FakeJavaScriptExecutionEngine(
         (_) async => JavaScriptEngineResult(
@@ -276,7 +356,13 @@ class _FakeJavaScriptExecutionEngine implements JavaScriptExecutionEngine {
 
   final Future<JavaScriptEngineResult> Function(String source) onEvaluate;
   final List<String> scripts = <String>[];
+  JavaScriptHttpRequestHandler? httpRequestHandler;
   int disposeCount = 0;
+
+  @override
+  void setHttpRequestHandler(JavaScriptHttpRequestHandler handler) {
+    httpRequestHandler = handler;
+  }
 
   @override
   Future<JavaScriptEngineResult> evaluate(String source) {

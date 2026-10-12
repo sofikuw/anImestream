@@ -16,7 +16,8 @@ enum HiveBox {
   animeInfo("animeInfo"),
   misc("misc"),
   downloadHistory("download_history"),
-  animeProviders("anime_providers");
+  animeProviders("anime_providers"),
+  providerRepositories("provider_repositories");
 
   final String _rawName;
 

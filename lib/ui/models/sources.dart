@@ -67,8 +67,40 @@ class SourceManager {
   Future<void> loadProviders({bool clearBeforeLoading = true}) async {
     final providers = await ProviderManager().getSavedProviders();
     if (clearBeforeLoading) _sources.clear();
-    _sources.addAll(providers);
+    final builtInIdentifiers =
+        inbuiltSources.map((provider) => provider.identifier).toSet();
+    _sources.addAll(
+      providers.where(
+        (provider) =>
+            provider.enabled &&
+            provider.scriptType.toLowerCase() == 'javascript' &&
+            !builtInIdentifiers.contains(provider.identifier),
+      ),
+    );
   }
+
+  Future<void> refreshInstalledProviders() async {
+    final builtInIdentifiers =
+        inbuiltSources.map((provider) => provider.identifier).toSet();
+    _sources.removeWhere(
+      (provider) => !builtInIdentifiers.contains(provider.identifier),
+    );
+    final installed = await ProviderManager().getSavedProviders();
+    _sources.addAll(
+      installed
+          .where(
+            (provider) =>
+                provider.enabled &&
+                provider.scriptType.toLowerCase() == 'javascript',
+          )
+          .where(
+            (provider) => !builtInIdentifiers.contains(provider.identifier),
+          ),
+    );
+  }
+
+  Future<void> disposeProvider(String identifier) =>
+      _plugin.disposeProvider(identifier);
 
   Future<List<Map<String, String?>>> searchInSource(String source, String query) async {
     if (query.isEmpty) throw new Exception("ERR_EMPTY_QUERY");
@@ -94,8 +126,14 @@ class SourceManager {
   }
 
   Future<AnimeProvider> _getProvider(String identifier) async {
-    final AnimeProvider? provider = _useInbuiltProviders ? getClass(identifier) : await _plugin.getProvider(identifier);
-    if (provider == null) throw Exception("$identifier Provider doesnt exist!");
+    if (_useInbuiltProviders) {
+      final builtIn = sources[identifier.replaceAll("_inbuilt", "")];
+      if (builtIn != null) return builtIn;
+    }
+    final provider = await _plugin.getProvider(identifier);
+    if (provider == null) {
+      throw Exception("$identifier Provider doesnt exist!");
+    }
     return provider;
   }
 }

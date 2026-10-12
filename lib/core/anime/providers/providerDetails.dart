@@ -8,6 +8,11 @@ class ProviderDetails {
   final String? icon;
   final String? code;
   final bool supportDownloads;
+  final String scriptType;
+  final List<String> allowedHosts;
+  final bool enabled;
+  final String? repositoryUrl;
+  final String? sourceSha256;
 
   ProviderDetails({
     required this.name,
@@ -16,7 +21,12 @@ class ProviderDetails {
     this.icon,
     this.code,
     this.supportDownloads = false,
-  });
+    this.scriptType = 'dart',
+    List<String> allowedHosts = const <String>[],
+    this.enabled = true,
+    this.repositoryUrl,
+    this.sourceSha256,
+  }) : allowedHosts = List<String>.unmodifiable(allowedHosts);
 
   ProviderDetails copyWith({
     String? name,
@@ -25,6 +35,11 @@ class ProviderDetails {
     String? icon,
     String? code,
     bool? supportDownloads,
+    String? scriptType,
+    List<String>? allowedHosts,
+    bool? enabled,
+    String? repositoryUrl,
+    String? sourceSha256,
   }) {
     return ProviderDetails(
       name: name ?? this.name,
@@ -33,6 +48,11 @@ class ProviderDetails {
       icon: icon ?? this.icon,
       code: code ?? this.code,
       supportDownloads: supportDownloads ?? this.supportDownloads,
+      scriptType: scriptType ?? this.scriptType,
+      allowedHosts: allowedHosts ?? this.allowedHosts,
+      enabled: enabled ?? this.enabled,
+      repositoryUrl: repositoryUrl ?? this.repositoryUrl,
+      sourceSha256: sourceSha256 ?? this.sourceSha256,
     );
   }
 
@@ -44,6 +64,11 @@ class ProviderDetails {
       'icon': icon,
       'code': code,
       'supportDownloads': supportDownloads,
+      'scriptType': scriptType,
+      'allowedHosts': allowedHosts,
+      'enabled': enabled,
+      'repositoryUrl': repositoryUrl,
+      'sourceSha256': sourceSha256,
     };
   }
 
@@ -55,6 +80,13 @@ class ProviderDetails {
       icon: map['icon'] != null ? map['icon'] as String : null,
       code: map['code'] != null ? map['code'] as String : null,
       supportDownloads: (map['supportDownloads'] ?? false) as bool,
+      scriptType: (map['scriptType'] as String?) ?? 'dart',
+      allowedHosts: map['allowedHosts'] is List
+          ? (map['allowedHosts'] as List).whereType<String>().toList()
+          : const <String>[],
+      enabled: (map['enabled'] ?? true) as bool,
+      repositoryUrl: map['repositoryUrl'] as String?,
+      sourceSha256: map['sourceSha256'] as String?,
     );
   }
 
@@ -64,7 +96,7 @@ class ProviderDetails {
 
   @override
   String toString() {
-    return 'ProviderDetails(name: $name, identifier: $identifier, version: $version, icon: $icon, code: $code, supportDownloads: $supportDownloads)';
+    return 'ProviderDetails(name: $name, identifier: $identifier, version: $version, icon: $icon, code: $code, supportDownloads: $supportDownloads, scriptType: $scriptType, allowedHosts: $allowedHosts, enabled: $enabled, repositoryUrl: $repositoryUrl, sourceSha256: $sourceSha256)';
   }
 
   @override
@@ -74,7 +106,12 @@ class ProviderDetails {
       version.hashCode ^
       icon.hashCode ^
       code.hashCode ^
-      supportDownloads.hashCode;
+      supportDownloads.hashCode ^
+      scriptType.hashCode ^
+      Object.hashAll(allowedHosts) ^
+      enabled.hashCode ^
+      repositoryUrl.hashCode ^
+      sourceSha256.hashCode;
   }
 
   @override
@@ -87,6 +124,19 @@ class ProviderDetails {
       other.version == version &&
       other.icon == icon &&
       other.code == code &&
-      other.supportDownloads == supportDownloads;
+      other.supportDownloads == supportDownloads &&
+      other.scriptType == scriptType &&
+      _sameHosts(other.allowedHosts, allowedHosts) &&
+      other.enabled == enabled &&
+      other.repositoryUrl == repositoryUrl &&
+      other.sourceSha256 == sourceSha256;
+  }
+
+  static bool _sameHosts(List<String> left, List<String> right) {
+    if (left.length != right.length) return false;
+    for (var index = 0; index < left.length; index++) {
+      if (left[index] != right[index]) return false;
+    }
+    return true;
   }
 }

@@ -31,6 +31,6 @@ class Settings {
     });
     currentUserSettings = SettingsModal.fromMap(currentSettings);
     await box.put(HiveKey.settings.name, currentSettings);
-    if (box.isOpen) await box.close;
+    if (box.isOpen) await box.close();
   }
 }

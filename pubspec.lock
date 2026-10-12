@@ -383,14 +383,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.4.1"
-  flutter_js:
-    dependency: "direct main"
-    description:
-      name: flutter_js
-      sha256: "046428059ac7bef71e305dc35fc24be933b684684a43e83eab7ebd0dc407ad85"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.8.7"
   flutter_launcher_icons:
     dependency: "direct dev"
     description:
@@ -420,6 +412,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.4.8"
+  flutter_qjs_next:
+    dependency: "direct main"
+    description:
+      name: flutter_qjs_next
+      sha256: "e5fd66c5abdb3cb81cb6700e3cc203abb5353b244ec8e6a16ba0304faf1f21b5"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.5.2"
   flutter_secure_storage:
     dependency: "direct main"
     description:
@@ -1196,15 +1196,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.4.0+1"
-  sync_http:
-    dependency: "direct overridden"
-    description:
-      path: "."
-      ref: "6666fff944221891182e1f80bf56569338164d72"
-      resolved-ref: "6666fff944221891182e1f80bf56569338164d72"
-      url: "https://github.com/google/sync_http.dart.git"
-    source: git
-    version: "0.3.2-wip"
   term_glyph:
     dependency: transitive
     description:
