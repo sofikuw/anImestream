@@ -127,7 +127,8 @@ class SourceManager {
 
   Future<AnimeProvider> _getProvider(String identifier) async {
     if (_useInbuiltProviders) {
-      final builtIn = sources[identifier.replaceAll("_inbuilt", "")];
+      final builtIn =
+          inbuiltAnimeProviders[identifier.replaceAll("_inbuilt", "")];
       if (builtIn != null) return builtIn;
     }
     final provider = await _plugin.getProvider(identifier);
@@ -138,7 +139,7 @@ class SourceManager {
   }
 }
 
-final Map<String, AnimeProvider> sources = {
+final Map<String, AnimeProvider> inbuiltAnimeProviders = {
   "animepahe": AnimePahe(),
   "animeonsen": AnimeOnsen(),
   "gojo": Gojo(),
@@ -148,8 +149,12 @@ final Map<String, AnimeProvider> sources = {
   "anidb": AniDB(),
 };
 
+/// Compatibility bridge for callers of the old top-level `sources` map.
+/// Delete once nothing outside this file references it.
+Map<String, AnimeProvider> get sources => inbuiltAnimeProviders;
+
 AnimeProvider getClass(String source) {
-  final match = sources[source.replaceAll("_inbuilt", "")]; // for ignoring _inbuilt suffix
+  final match = inbuiltAnimeProviders[source.replaceAll("_inbuilt", "")]; // for ignoring _inbuilt suffix
   if (match == null) {
     throw Exception("Invalid Source!");
   }
