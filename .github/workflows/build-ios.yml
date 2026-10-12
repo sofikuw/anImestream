@@ -11,7 +11,9 @@ on:
 jobs:
   build-ios:
     name: Build & Package Unsigned IPA
-    runs-on: macos-14
+    # Keep the iOS SDK aligned with the known-good master build. macos-14
+    # ships an older SDK that cannot compile device_info_plus 13.2.0.
+    runs-on: macos-latest
 
     steps:
       - name: Checkout Repository
@@ -28,6 +30,7 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.47.1'
           channel: 'stable'
           cache: true
 
