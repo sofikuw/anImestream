@@ -1,0 +1,68 @@
+{
+  "name": "Animestream Official Community Repository",
+  "formatVersion": "1.0.0",
+  "description": "Verified dynamic extensions for Animestream and Mangayomi-compatible sources.",
+  "extensions": [
+    {
+      "id": "animestream_gogoanime",
+      "name": "GogoAnime",
+      "version": "1.2.0",
+      "apiVersion": "1.0.0",
+      "type": "anime",
+      "description": "Stream anime with multiple server mirrors, sub, and dub options.",
+      "author": "Animestream Community",
+      "iconUrl": "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=128",
+      "lang": "en",
+      "manifestUrl": "extensions/gogoanime.json",
+      "codeUrl": "extensions/gogoanime.js",
+      "capabilities": [
+        "searchAnime",
+        "popularAnime",
+        "latestAnime",
+        "animeDetails",
+        "episodes",
+        "videoSources"
+      ]
+    },
+    {
+      "id": "animestream_mangadex",
+      "name": "MangaDex",
+      "version": "1.1.4",
+      "apiVersion": "1.0.0",
+      "type": "manga",
+      "description": "High-quality manga reader extension supporting chapter pagination and HD images.",
+      "author": "Mangayomi Community",
+      "iconUrl": "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?w=128",
+      "lang": "en",
+      "manifestUrl": "extensions/mangadex.json",
+      "codeUrl": "extensions/mangadex.js",
+      "capabilities": [
+        "searchManga",
+        "popularManga",
+        "latestManga",
+        "mangaDetails",
+        "chapters",
+        "mangaPages"
+      ]
+    },
+    {
+      "id": "animestream_allinone",
+      "name": "All-Stream Universal",
+      "version": "1.0.2",
+      "apiVersion": "1.0.0",
+      "type": "both",
+      "description": "Dual provider supporting both anime video streaming and manga chapter reader.",
+      "author": "Animestream Core",
+      "iconUrl": "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=128",
+      "lang": "en",
+      "manifestUrl": "extensions/universal.json",
+      "codeUrl": "extensions/universal.js",
+      "capabilities": [
+        "searchAnime",
+        "videoSources",
+        "searchManga",
+        "mangaPages"
+      ]
+    }
+  ]
+}

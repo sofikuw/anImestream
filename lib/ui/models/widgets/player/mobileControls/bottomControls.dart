@@ -1,422 +1,130 @@
-import 'package:animestream/core/app/runtimeDatas.dart';
-import 'package:animestream/ui/models/bottomSheets/customControlsSheet.dart';
-import 'package:animestream/ui/models/providers/playerDataProvider.dart';
-import 'package:animestream/ui/models/providers/playerProvider.dart';
-import 'package:animestream/ui/pages/settingPages/common.dart';
-import 'package:animestream/ui/pages/settingPages/subtitle.dart';
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:animestream/core/app/ios_pip_service.dart';
 
-class BottomControls extends StatelessWidget {
-  const BottomControls({super.key});
+class BottomControlsWithPip extends StatelessWidget {
+  final VoidCallback onPlayPause;
+  final bool isPlaying;
+  final Duration currentPosition;
+  final Duration totalDuration;
+  final ValueChanged<double> onSeek;
+  final VoidCallback onToggleFullscreen;
+  final bool isFullscreen;
+  final VoidCallback? onTogglePip;
 
-  void showSheet(BuildContext context, Widget child) => showModalBottomSheet(
-      isScrollControlled: true,
-      backgroundColor: appTheme.modalSheetBackgroundColor,
-      context: context,
-      builder: (BuildContext context) {
-        return child;
-      });
+  const BottomControlsWithPip({
+    super.key,
+    required this.onPlayPause,
+    required this.isPlaying,
+    required this.currentPosition,
+    required this.totalDuration,
+    required this.onSeek,
+    required this.onToggleFullscreen,
+    required this.isFullscreen,
+    this.onTogglePip,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final dataProvider = context.read<PlayerDataProvider>();
-    final playerProvider = context.read<PlayerProvider>();
-    // final a = dataProvider.state.currentAudioTrack;
-    // playerProvider.controller.setAudioTrack(a.url, a.language, a.name);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.bottomCenter,
+          end: Alignment.topCenter,
+          colors: [
+            Colors.black.withOpacity(0.85),
+            Colors.transparent,
+          ],
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Timeline Slider
+          SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              trackHeight: 3.0,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.0),
+              activeTrackColor: Theme.of(context).primaryColor,
+              inactiveTrackColor: Colors.white24,
+              thumbColor: Theme.of(context).primaryColor,
+            ),
+            child: Slider(
+              value: currentPosition.inMilliseconds.toDouble().clamp(
+                    0.0,
+                    totalDuration.inMilliseconds.toDouble().clamp(0.0, double.infinity),
+                  ),
+              min: 0.0,
+              max: totalDuration.inMilliseconds > 0
+                  ? totalDuration.inMilliseconds.toDouble()
+                  : 1.0,
+              onChanged: onSeek,
+            ),
+          ),
 
-    return dataProvider.state.controlsLocked
-        ? Container()
-        : Container(
-            height: 40,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    IconButton(
-                      onPressed: () {
-                        showModalBottomSheet(
-                          isScrollControlled: true,
-                          context: context,
-                          backgroundColor: appTheme.modalSheetBackgroundColor,
-                          showDragHandle: false,
-                          barrierColor: Color.fromARGB(17, 255, 255, 255),
-                          builder: (BuildContext context) {
-                            return Container(
-                              width: 400,
-                              padding: EdgeInsets.all(20),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Padding(
-                                    padding: const EdgeInsets.only(bottom: 10),
-                                    child: Text(
-                                      "Choose Quality",
-                                      style:
-                                          TextStyle(color: appTheme.textMainColor, fontFamily: "Rubik", fontSize: 20),
-                                    ),
-                                  ),
-                                  ListView.builder(
-                                    itemCount: dataProvider.state.qualities.length,
-                                    shrinkWrap: true,
-                                    physics: NeverScrollableScrollPhysics(),
-                                    itemBuilder: (BuildContext context, index) {
-                                      return Container(
-                                        padding: EdgeInsets.only(left: 25, right: 25),
-                                        child: ElevatedButton(
-                                          onPressed: () async {
-                                            // final src = dataProvider.state.qualities[index].url;
-                                            dataProvider.updateCurrentQuality(dataProvider.state.qualities[index]);
-                                            playerProvider.setQuality(dataProvider.state.qualities[index]);
-                                            // selectedQuality = dataProvider.state.qualities[index]['quality'] ?? '720';
-                                            // dataProvider.updateCurrentQuality(dataProvider.state.qualities[index]);
-                                            // playerProvider.playVideo(src,
-                                            //     currentStream: dataProvider.state.currentStream,
-                                            //     preserveProgress: true);
-                                            Navigator.pop(context);
-                                          },
-                                          style: ElevatedButton.styleFrom(
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(10),
-                                              // side: BorderSide(color: Colors.white)
-                                            ),
-                                            backgroundColor: dataProvider.state.qualities[index].url ==
-                                                    dataProvider.state.currentQuality.url
-                                                ? appTheme.accentColor
-                                                : appTheme.backgroundSubColor,
-                                          ),
-                                          child: Text(
-                                            "${dataProvider.state.qualities[index].quality}",
-                                            style: TextStyle(
-                                              color: dataProvider.state.qualities[index].url ==
-                                                      dataProvider.state.currentQuality.url
-                                                  ? appTheme.onAccent
-                                                  : appTheme.accentColor,
-                                              fontFamily: "Poppins",
-                                            ),
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        );
+          // Control Buttons Row
+          Row(
+            children: [
+              IconButton(
+                icon: Icon(
+                  isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                  color: Colors.white,
+                  size: 28,
+                ),
+                onPressed: onPlayPause,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '${_formatDuration(currentPosition)} / ${_formatDuration(totalDuration)}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontFamily: 'Rubik',
+                ),
+              ),
+              const Spacer(),
+
+              // YouTube-style iOS PiP Button
+              if (Platform.isIOS || Platform.isAndroid)
+                IconButton(
+                  tooltip: 'Picture in Picture',
+                  icon: const Icon(
+                    Icons.picture_in_picture_alt_rounded,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                  onPressed: onTogglePip ??
+                      () async {
+                        await IosPipService().startPictureInPicture();
                       },
-                      tooltip: "qualities",
-                      icon: Icon(
-                        Icons.high_quality_rounded,
-                        color: Colors.white,
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () {
-                        showSheet(
-                          context,
-                          CustomControlsBottomSheet(
-                            index: dataProvider.state.currentEpIndex,
-                            dataProvider: dataProvider,
-                            playerProvider: playerProvider,
-                          ),
-                        );
-                      },
-                      tooltip: "servers",
-                      icon: Icon(
-                        Icons.source_rounded,
-                        color: Colors.white,
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () {
-                        showModalBottomSheet(
-                          isScrollControlled: true,
-                          backgroundColor: appTheme.modalSheetBackgroundColor,
-                          context: context,
-                          builder: (context) => Container(
-                            padding: EdgeInsets.only(left: 20, right: 20, top: 15),
-                            height: MediaQuery.of(context).size.height - 80,
-                            child: Column(
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.only(bottom: 20),
-                                  child: Text(
-                                    "Select Episode",
-                                    style: textStyle().copyWith(fontSize: 23),
-                                  ),
-                                ),
-                                Container(
-                                  height: MediaQuery.of(context).size.height - 150,
-                                  child: GridView.builder(
-                                    itemCount: dataProvider.epLinks.length,
-                                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                        crossAxisCount: 2, childAspectRatio: 4),
-                                    shrinkWrap: true,
-                                    padding: EdgeInsets.only(left: 10, right: 10),
-                                    itemBuilder: (context, index) {
-                                      return GestureDetector(
-                                        onTap: () {
-                                          Navigator.pop(context);
-                                          if (index == dataProvider.state.currentEpIndex) return;
-                                          sheet2(index, context, playerProvider, dataProvider);
-                                        },
-                                        child: Container(
-                                          margin: EdgeInsets.all(5),
-                                          height: 50,
-                                          decoration: BoxDecoration(
-                                              color: index == dataProvider.state.currentEpIndex
-                                                  ? appTheme.accentColor
-                                                  : appTheme.backgroundSubColor,
-                                              borderRadius: BorderRadius.circular(12)),
-                                          alignment: Alignment.center,
-                                          child: Text(
-                                            "Episode ${index + 1}",
-                                            style: TextStyle(
-                                              color: index == dataProvider.state.currentEpIndex
-                                                  ? appTheme.backgroundColor
-                                                  : appTheme.textMainColor,
-                                              fontFamily: "Rubik",
-                                              fontSize: 20,
-                                            ),
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                      tooltip: "Episode list",
-                      icon: Icon(
-                        Icons.view_list_rounded,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
                 ),
 
-                //right side
-                Row(
-                  children: [
-                    IconButton(
-                      onPressed: () {
-                        showDialog(
-                          context: context,
-                          builder: (context) {
-                            return playBackSpeedDialog(context, playerProvider, dataProvider);
-                          },
-                        );
-                      },
-                      tooltip: "Playback speed",
-                      icon: Icon(
-                        Icons.speed_rounded,
-                        color: Colors.white,
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () {
-                        playerProvider.toggleSubs();
-                      },
-                      onLongPress: () {
-                        Navigator.of(context)
-                            .push(MaterialPageRoute(
-                                builder: (ctx) => SubtitleSettingPage(
-                                      fromWatchPage: true,
-                                    )))
-                            .then((v) {
-                          dataProvider.initSubsettings();
-                        });
-                      },
-                      tooltip: "Subtitles",
-                      icon: Icon(
-                        !playerProvider.state.showSubs ? Icons.subtitles_outlined : Icons.subtitles_rounded,
-                        color: Colors.white,
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () {
-                        showModalBottomSheet(
-                            context: context,
-                            isScrollControlled: true,
-                            builder: (context) {
-                              return Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Padding(
-                                  padding: const EdgeInsets.only(bottom: 20, top: 20),
-                                  child: Text(
-                                    "Audio Track",
-                                    style: textStyle().copyWith(fontSize: 23),
-                                  ),
-                                ),
-                                  ListView.builder(
-                                    itemCount: dataProvider.state.audioTracks.length,
-                                    shrinkWrap: true,
-                                    itemBuilder: (BuildContext context, index) {
-                                      return Container(
-                                        padding: EdgeInsets.only(left: 25, right: 25),
-                                        child: ElevatedButton(
-                                          onPressed: () async {
-                                            // final src = dataProvider.state.qualities[index].url;
-                                            dataProvider.updateCurrentAudioTrack(dataProvider.state.audioTracks[index]);
-                                            playerProvider.controller.setAudioTrack(dataProvider.state.currentAudioTrack);
-                                            // selectedQuality = dataProvider.state.qualities[index]['quality'] ?? '720';
-                                            // dataProvider.updateCurrentQuality(dataProvider.state.qualities[index]);
-                                            // playerProvider.playVideo(src,
-                                            //     currentStream: dataProvider.state.currentStream,
-                                            //     preserveProgress: true);
-                                            Navigator.pop(context);
-                                          },
-                                          style: ElevatedButton.styleFrom(
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(10),
-                                              // side: BorderSide(color: Colors.white)
-                                            ),
-                                            backgroundColor: dataProvider.state.audioTracks[index].url ==
-                                                    dataProvider.state.currentAudioTrack.url
-                                                ? appTheme.accentColor
-                                                : appTheme.backgroundSubColor,
-                                          ),
-                                          child: Text(
-                                            "${dataProvider.state.audioTracks[index].name} (${dataProvider.state.audioTracks[index].language})",
-                                            style: TextStyle(
-                                              color: dataProvider.state.audioTracks[index].url ==
-                                                      dataProvider.state.currentAudioTrack.url
-                                                  ? appTheme.onAccent
-                                                  : appTheme.accentColor,
-                                              fontFamily: "Poppins",
-                                            ),
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ],
-                              );
-                            });
-                      },
-                      icon: Icon(Icons.audiotrack_rounded),
-                      tooltip: "Audio Tracks",
-                      color: Colors.white,
-                    ),
-                    IconButton(
-                      onPressed: () async {
-                        await playerProvider.setPip(!playerProvider.state.pip);
-                      },
-                      icon: Icon(Icons.picture_in_picture_alt_rounded),
-                      tooltip: "Picture in Picture",
-                      color: Colors.white,
-                    ),
-                    IconButton(
-                      onPressed: () {
-                        playerProvider.cycleViewMode();
-                      },
-                      icon: Icon(playerProvider.state.currentViewMode.icon),
-                      tooltip: playerProvider.state.currentViewMode.desc,
-                      color: Colors.white,
-                    ),
-                  ],
-                )
-              ],
-            ),
-          );
-  }
-
-  void sheet2(
-    int index,
-    BuildContext context,
-    PlayerProvider pp,
-    PlayerDataProvider dp,
-  ) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: appTheme.modalSheetBackgroundColor,
-      builder: (context) => CustomControlsBottomSheet(
-        index: index,
-        dataProvider: dp,
-        playerProvider: pp,
+              // Fullscreen Toggle Button
+              IconButton(
+                tooltip: isFullscreen ? 'Exit Fullscreen' : 'Fullscreen',
+                icon: Icon(
+                  isFullscreen
+                      ? Icons.fullscreen_exit_rounded
+                      : Icons.fullscreen_rounded,
+                  color: Colors.white,
+                  size: 26,
+                ),
+                onPressed: onToggleFullscreen,
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
-  Widget playBackSpeedDialog(BuildContext context, PlayerProvider pp, PlayerDataProvider dp) {
-    final playbackSpeeds = pp.playbackSpeeds;
-    return Container(
-      height: MediaQuery.of(context).size.height / 2,
-      child: AlertDialog(
-          backgroundColor: appTheme.modalSheetBackgroundColor,
-          content: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Text(
-                  "Speed",
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, fontFamily: "Rubik"),
-                ),
-              ),
-              Expanded(
-                child: StatefulBuilder(
-                  builder: (context, setState) => Container(
-                    // height: 230,
-                    width: 250,
-                    child: ListView.builder(
-                      itemCount: playbackSpeeds.length,
-                      itemBuilder: (context, index) {
-                        return Container(
-                          margin: EdgeInsets.only(bottom: 5),
-                          clipBehavior: Clip.hardEdge,
-                          decoration: BoxDecoration(
-                            color: appTheme.backgroundSubColor,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: () {
-                                pp.setSpeed(playbackSpeeds[index]);
-                                setState(() {});
-                              },
-                              child: Row(
-                                children: [
-                                  Radio<double>(
-                                    value: playbackSpeeds[index],
-                                    groupValue: pp.state.speed,
-                                    onChanged: (val) {
-                                      pp.setSpeed(val ?? 1);
-                                      setState(() {});
-                                    },
-                                  ),
-                                  Text(playbackSpeeds[index].toString() + "x"),
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              ),
-              Container(
-                margin: EdgeInsets.only(top: 5),
-                alignment: Alignment.center,
-                child: TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: Text(
-                    "close",
-                    style: TextStyle(fontSize: 16),
-                  ),
-                ),
-              )
-            ],
-          )),
-    );
+  String _formatDuration(Duration duration) {
+    final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+    if (duration.inHours > 0) {
+      return '${duration.inHours}:$minutes:$seconds';
+    }
+    return '$minutes:$seconds';
   }
 }

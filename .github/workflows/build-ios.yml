@@ -1,167 +1,75 @@
-name: Build and Release iOS
+name: Build Unsigned iOS IPA
 
 on:
-  workflow_dispatch:
-    inputs:
-      create_release:
-        description: Create GitHub Release
-        required: false
-        type: boolean
-        default: true
-      tag_name:
-        description: Existing tag to build (empty = current branch/commit)
-        required: false
-        type: string
-        default: ''
   push:
-    tags:
-      - 'v*'
-
-env:
-  FLUTTER_VERSION: '3.47.1'
+    branches: [ master, main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ master, main ]
+  workflow_dispatch:
 
 jobs:
   build-ios:
-    name: Build iOS Unsigned IPA
-    runs-on: macos-latest
-    permissions:
-      contents: read
-    outputs:
-      version: ${{ steps.version.outputs.version }}
-      build_number: ${{ steps.version.outputs.build_number }}
-      tag: ${{ steps.version.outputs.tag }}
+    name: Build & Package Unsigned IPA
+    runs-on: macos-14
+
     steps:
-      - name: Checkout
+      - name: Checkout Repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          submodules: recursive
 
-      - name: Select source tag
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name != '' }}
-        env:
-          TAG_NAME: ${{ inputs.tag_name }}
-        run: |
-          git check-ref-format "refs/tags/$TAG_NAME"
-          git rev-parse --verify "refs/tags/$TAG_NAME^{commit}"
-          git checkout --detach "refs/tags/$TAG_NAME"
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
 
-      - name: Setup Flutter
+      - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: stable
+          flutter-version: '3.24.3'
+          channel: 'stable'
           cache: true
 
-      - name: Get dependencies
+      - name: Check Environment & Dependencies
+        run: |
+          flutter --version
+          xcodebuild -version
+          pod --version
+
+      - name: Install Flutter Dependencies
         run: flutter pub get
 
-      - name: Prepare Dart defines
-        env:
-          SIMKL_CLIENT_SECRET: ${{ secrets.SIMKL_CLIENT_SECRET }}
-          SIMKL_CLIENT_ID: ${{ secrets.SIMKL_CLIENT_ID }}
-          COMMENTUM_API_URL: ${{ secrets.COMMENTUM_API_URL }}
-          DISCORD_APP_ID: ${{ secrets.DISCORD_APP_ID }}
+      - name: Run Static Analysis and Unit Tests
         run: |
-          jq -n \
-            --arg SIMKL_CLIENT_SECRET "$SIMKL_CLIENT_SECRET" \
-            --arg SIMKL_CLIENT_ID "$SIMKL_CLIENT_ID" \
-            --arg COMMENTUM_API_URL "$COMMENTUM_API_URL" \
-            --arg DISCORD_APP_ID "$DISCORD_APP_ID" \
-            '{
-              SIMKL_CLIENT_SECRET: $SIMKL_CLIENT_SECRET,
-              SIMKL_CLIENT_ID: $SIMKL_CLIENT_ID,
-              COMMENTUM_API_URL: $COMMENTUM_API_URL,
-              DISCORD_APP_ID: $DISCORD_APP_ID
-            }' > "$RUNNER_TEMP/animestream-dart-defines.json"
+          flutter analyze --no-fatal-infos
+          flutter test test/extension_system_test.dart test/manga_feature_test.dart
 
-      - name: Read version
-        id: version
-        shell: bash
-        env:
-          INPUT_TAG_NAME: ${{ inputs.tag_name }}
+      - name: Build iOS App (Unsigned Release)
         run: |
-          VERSION=$(sed -n 's/^version: \([^+]*\)+.*/\1/p' pubspec.yaml | head -n1)
-          BUILD_NUMBER=$(sed -n 's/^version: [^+]*+\([0-9][0-9]*\).*/\1/p' pubspec.yaml | head -n1)
+          flutter build ios --no-codesign --release
 
-          if [ -z "$VERSION" ] || [ -z "$BUILD_NUMBER" ]; then
-            echo "Could not read version/build number from pubspec.yaml"
-            exit 1
-          fi
-
-          TAG="v$VERSION"
-
-          # For tag builds, make sure the tag matches pubspec.yaml.
-          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
-            PUSHED_TAG="${GITHUB_REF#refs/tags/}"
-            if [ "$PUSHED_TAG" != "$TAG" ]; then
-              echo "Tag $PUSHED_TAG does not match pubspec version $VERSION"
-              exit 1
-            fi
-          elif [ -n "$INPUT_TAG_NAME" ] && [ "$INPUT_TAG_NAME" != "$TAG" ]; then
-            echo "Selected tag $INPUT_TAG_NAME does not match pubspec version $VERSION"
-            exit 1
-          fi
-
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-
-      - name: Build iOS app
+      - name: Package Unsigned IPA for Sideloading
         run: |
-          flutter build ios \
-            --release \
-            --no-codesign \
-            --dart-define-from-file="$RUNNER_TEMP/animestream-dart-defines.json" \
-            --build-number=${{ steps.version.outputs.build_number }} \
-            --build-name=${{ steps.version.outputs.version }}
-
-      - name: Package unsigned IPA
-        shell: bash
-        run: |
-          set -euo pipefail
-          APP_PATH="build/ios/iphoneos/Runner.app"
-          IPA_PATH="anImestream-${{ steps.version.outputs.version }}-ios-unsigned.ipa"
-          test -d "$APP_PATH"
-          rm -rf Payload
           mkdir -p Payload
-          ditto "$APP_PATH" Payload/Runner.app
-          ditto -c -k --sequesterRsrc --keepParent Payload "$IPA_PATH"
-          unzip -tq "$IPA_PATH"
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          zip -r animestream-unsigned.ipa Payload
+          ls -lh animestream-unsigned.ipa
 
-      - name: Upload IPA artifact
+      - name: Upload Unsigned IPA Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: anImestream-ios-unsigned
-          path: anImestream-*-ios-unsigned.ipa
+          name: animestream-unsigned-ipa
+          path: animestream-unsigned.ipa
           if-no-files-found: error
-          retention-days: 30
 
-  create-release:
-    name: Create GitHub Release
-    needs: build-ios
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    if: >-
-      ${{
-        (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
-        (github.event_name == 'workflow_dispatch' && inputs.create_release == true)
-      }}
-    steps:
-      - name: Download IPA artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: anImestream-ios-unsigned
-          path: release-files
-
-      - name: Create GitHub Release
+      - name: Publish GitHub Release (On Tags)
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ needs.build-ios.outputs.tag }}
-          name: anImestream ${{ needs.build-ios.outputs.tag }}
-          generate_release_notes: true
+          files: animestream-unsigned.ipa
+          name: Release ${{ github.ref_name }}
           draft: false
-          prerelease: ${{ contains(needs.build-ios.outputs.version, '-') }}
-          files: release-files/anImestream-*-ios-unsigned.ipa
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          prerelease: false
+          generate_release_notes: true
