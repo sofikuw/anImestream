@@ -13,8 +13,9 @@ http.Client createPublicHttpsClient({
 }) {
   final client = HttpClient()
     ..connectionTimeout = connectionTimeout
-    ..findProxy = (_) => 'DIRECT'
-    ..connectionFactory = (uri, proxyHost, proxyPort) async {
+    ..findProxy = (_) => 'DIRECT';
+
+  client.connectionFactory = (uri, proxyHost, proxyPort) async {
       if (uri.scheme != 'https' || proxyHost != null || proxyPort != null) {
         throw const FormatException('Only direct HTTPS connections are allowed.');
       }
