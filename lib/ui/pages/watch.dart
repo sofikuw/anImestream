@@ -1,180 +1,32 @@
+import 'dart:async';
 import 'dart:io';
-import 'package:flutter/material.dart';
-import 'package:animestream/core/commons/enums.dart';
-import 'package:animestream/core/app/ios_pip_service.dart';
-import 'package:animestream/ui/models/playerControllers/videoController.dart';
+
+import 'package:animestream/core/app/logging.dart';
+import 'package:animestream/core/app/runtimeDatas.dart';
+import 'package:animestream/core/data/animeSpecificPreference.dart';
+import 'package:animestream/core/data/types.dart';
 import 'package:animestream/ui/models/playerControllers/betterPlayer.dart';
-import 'package:animestream/ui/models/providers/playerDataProvider.dart';
-import 'package:animestream/ui/models/providers/playerProvider.dart';
 import 'package:animestream/ui/models/widgets/player/controls.dart';
-import 'package:animestream/ui/models/widgets/player/mobileControls/bottomControls.dart';
+import 'package:animestream/ui/models/widgets/player/gestureOverlay.dart';
+import 'package:animestream/ui/models/widgets/subtitles/subViewer.dart';
+import 'package:better_player/better_player.dart';
+import 'package:flutter/gestures.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-class WatchPage extends StatefulWidget {
-  final String animeTitle;
-  final String episodeNumber;
-  final String videoUrl;
+import 'package:animestream/core/commons/enums.dart';
+import 'package:animestream/core/data/watching.dart';
+import 'package:animestream/ui/models/widgets/player/playerUtils.dart';
+import 'package:animestream/ui/models/providers/playerDataProvider.dart';
+import 'package:animestream/ui/models/providers/playerProvider.dart';
+import 'package:animestream/ui/models/providers/appProvider.dart';
+import 'package:animestream/ui/models/playerControllers/videoController.dart';
+import 'package:screen_brightness/screen_brightness.dart';
 
-  const WatchPage({
-    super.key,
-    required this.animeTitle,
-    required this.episodeNumber,
-    required this.videoUrl,
-  });
-
-  @override
-  State<WatchPage> createState() => _WatchPageState();
-}
-
-class _WatchPageState extends State<WatchPage> with WidgetsBindingObserver {
-  late BetterPlayerControllerWrapper _playerWrapper;
-  final IosPipService _pipService = IosPipService();
-  bool _isPlaying = true;
-  bool _isFullscreen = false;
-  Duration _position = Duration.zero;
-  Duration _duration = const Duration(minutes: 24);
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-
-    _playerWrapper = BetterPlayerControllerWrapper();
-    _playerWrapper.initialize(
-      url: widget.videoUrl,
-      autoPlay: true,
-      aspectRatio: 16 / 9,
-    );
-
-    // Ensure YouTube-style swipe-to-home PiP is enabled on iOS
-    if (Platform.isIOS) {
-      _pipService.setAutoPipEnabled(true);
-    }
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    super.didChangeAppLifecycleState(state);
-
-    // On iOS, if video is playing when user swipes up to home or switches apps,
-    // ensure Picture-in-Picture stays active like YouTube!
-    if (Platform.isIOS && _isPlaying) {
-      if (state == AppLifecycleState.inactive || state == AppLifecycleState.paused) {
-        if (!_pipService.isPipActive) {
-          _pipService.startPictureInPicture();
-        }
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _playerWrapper.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder<bool>(
-      valueListenable: _pipService.isPipActiveNotifier,
-      builder: (context, isInPip, child) {
-        // When active in PiP mode, iOS renders the floating window over other apps
-        if (isInPip) {
-          return const Scaffold(
-            backgroundColor: Colors.black,
-            body: Center(
-              child: Text(
-                'Playing in Picture-in-Picture',
-                style: TextStyle(color: Colors.white70, fontSize: 14),
-              ),
-            ),
-          );
-        }
-
-        return Scaffold(
-          backgroundColor: Colors.black,
-          appBar: _isFullscreen
-              ? null
-              : AppBar(
-                  backgroundColor: Colors.black,
-                  title: Text('${widget.animeTitle} - Ep ${widget.episodeNumber}'),
-                  actions: [
-                    IconButton(
-                      tooltip: 'Picture in Picture',
-                      icon: const Icon(Icons.picture_in_picture_alt_rounded),
-                      onPressed: () => _playerWrapper.enterPictureInPicture(),
-                    ),
-                  ],
-                ),
-          body: SafeArea(
-            child: Column(
-              children: [
-                // Video Player Area
-                AspectRatio(
-                  aspectRatio: 16 / 9,
-                  child: Stack(
-                    alignment: Alignment.bottomCenter,
-                    children: [
-                      Container(
-                        color: Colors.black87,
-                        child: const Center(
-                          child: Icon(Icons.movie_rounded, color: Colors.white30, size: 48),
-                        ),
-                      ),
-                      BottomControlsWithPip(
-                        isPlaying: _isPlaying,
-                        currentPosition: _position,
-                        totalDuration: _duration,
-                        isFullscreen: _isFullscreen,
-                        onPlayPause: () => setState(() => _isPlaying = !_isPlaying),
-                        onSeek: (value) => setState(() => _position = Duration(milliseconds: value.toInt())),
-                        onToggleFullscreen: () => setState(() => _isFullscreen = !_isFullscreen),
-                        onTogglePip: () => _playerWrapper.enterPictureInPicture(),
-                      ),
-                    ],
-                  ),
-                ),
-                if (!_isFullscreen) ...[
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          widget.animeTitle,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        OutlinedButton.icon(
-                          icon: const Icon(Icons.picture_in_picture_alt_rounded, size: 18),
-                          label: const Text('Watch in PiP'),
-                          style: OutlinedButton.styleFrom(foregroundColor: Colors.white),
-                          onPressed: () => _playerWrapper.enterPictureInPicture(),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-/// The app's streaming/download flow passes a VideoController and provider
-/// state to Watch. Keep this contract alongside the standalone WatchPage.
 class Watch extends StatefulWidget {
   final VideoController controller;
   final bool localSource;
-
   const Watch({
     super.key,
     required this.controller,
@@ -185,112 +37,850 @@ class Watch extends StatefulWidget {
   State<Watch> createState() => _WatchState();
 }
 
-class _WatchState extends State<Watch> {
-  String? _error;
-  bool _ready = false;
+class _WatchState extends State<Watch> with WidgetsBindingObserver {
+  late VideoController controller;
+  bool _wasPlayingBeforeBackground = false;
 
   @override
   void initState() {
     super.initState();
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    SystemChrome.setPreferredOrientations(const [
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
-    ]);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _initialize());
-  }
+    setWatchMode();
 
-  Future<void> _initialize() async {
-    final dataProvider = context.read<PlayerDataProvider>();
-    dataProvider.initSubsettings();
-    try {
-      final stream = dataProvider.state.currentStream;
-      if (widget.localSource) {
-        await widget.controller.initiateVideo(stream.url, offline: true);
-      } else {
-        await dataProvider.extractCurrentStreamQualities();
-        final quality = dataProvider.getPreferredQualityStreamFromQualities();
-        dataProvider.updateCurrentQuality(quality);
-        await widget.controller.initiateVideo(
-          quality.url,
-          headers: stream.customHeaders,
-        );
-        widget.controller.setQuality(quality);
-      }
+    controller = widget.controller;
 
-      final duration = widget.controller.duration ?? 0;
-      final resumePercent = (dataProvider.lastWatchDuration ?? 0).clamp(0, 100);
-      if (duration > 0 && resumePercent > 0) {
-        await widget.controller.seekTo(
-          Duration(milliseconds: (duration * resumePercent / 100).round()),
-        );
-      }
-      widget.controller.addListener(_updatePlaybackState);
-      if (!mounted) return;
-      context.read<PlayerProvider>().toggleControlsVisibility(action: true);
-      setState(() => _ready = true);
-    } catch (error) {
-      if (mounted) setState(() => _error = error.toString());
-    }
-  }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initialize();
+      _initCallbacks(context);
+    });
 
-  void _updatePlaybackState() {
-    if (!mounted) return;
-    final duration = widget.controller.duration ?? 0;
-    final position = widget.controller.position ?? 0;
-    final dataProvider = context.read<PlayerDataProvider>();
-    dataProvider.update(dataProvider.state.copyWith(
-      currentTimeStamp: _formatTime(position),
-      maxTimeStamp: _formatTime(duration),
-      sliderValue: position ~/ 1000,
-    ));
-    context.read<PlayerProvider>().updatePlayState(
-          widget.controller.isBuffering == true
-              ? PlayerState.buffering
-              : widget.controller.isPlaying == true
-                  ? PlayerState.playing
-                  : PlayerState.paused,
-        );
-  }
-
-  String _formatTime(int milliseconds) {
-    final seconds = milliseconds ~/ 1000;
-    return '${seconds ~/ 60}:${(seconds % 60).toString().padLeft(2, '0')}';
+    WidgetsBinding.instance.addObserver(this);
   }
 
   @override
-  void dispose() {
-    widget.controller.removeListener(_updatePlaybackState);
-    widget.controller.dispose();
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    SystemChrome.setPreferredOrientations(DeviceOrientation.values);
-    super.dispose();
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    if (!Platform.isIOS || !mounted) return;
+
+    final playerProvider = context.read<PlayerProvider>();
+    if (state == AppLifecycleState.inactive) {
+      if (controller.isPlaying ?? false) {
+        _wasPlayingBeforeBackground = true;
+        if ((currentUserSettings?.enablePipOnMinimize ?? true) && !playerProvider.state.pip) {
+          unawaited(playerProvider.setPip(true));
+        }
+      }
+    } else if (state == AppLifecycleState.paused) {
+      // BetterPlayer lifecycle pausing is disabled on iOS so PiP can finish
+      // starting before the app backgrounds. Pause only when PiP is not active.
+      if (!playerProvider.state.pip && (controller.isPlaying ?? false)) {
+        _wasPlayingBeforeBackground = true;
+        unawaited(controller.pause());
+      }
+    } else if (state == AppLifecycleState.resumed) {
+      if (_wasPlayingBeforeBackground) {
+        if (!playerProvider.state.pip) {
+          unawaited(controller.play());
+        }
+        playerProvider.toggleControlsVisibility(action: true);
+        _wasPlayingBeforeBackground = false;
+      }
+    }
+  }
+
+  final _channel = MethodChannel('animestream.app/utils');
+
+  void _initCallbacks(BuildContext context) {
+    _channel.setMethodCallHandler((call) async {
+      if (call.method == "onUserLeaveHint") {
+        if (currentUserSettings?.enablePipOnMinimize ?? true) {
+          context.read<PlayerProvider>().setPip(true);
+        }
+      }
+    });
+  }
+
+  void setWatchMode() {
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+  }
+
+  void _initialize() async {
+    /// Set black title bar
+    context.read<AppProvider>().setTitlebarColor(appTheme.backgroundColor);
+
+    final dataProvider = context.read<PlayerDataProvider>();
+
+    Logs.player.log("Initializing stream ${dataProvider.state.currentStream}");
+
+    dataProvider.initSubsettings();
+
+    if (!widget.localSource) {
+      await dataProvider.extractCurrentStreamQualities();
+
+      final q = dataProvider.getPreferredQualityStreamFromQualities();
+
+      dataProvider.updateCurrentQuality(q);
+
+      await controller.initiateVideo(dataProvider.state.currentStream.url,
+          headers: dataProvider.state.currentStream.customHeaders);
+
+      _markPlayerReady();
+      controller.setQuality(q);
+
+      // Fetch those skips
+      dataProvider.getSkipTimesForCurrentEpisode(videoDuration: (controller.duration ?? 0).toDouble());
+
+      if (dataProvider.state.audioTracks.isNotEmpty) {
+        // gamble on this setting :)
+        dataProvider.updateCurrentAudioTrack(dataProvider.state.audioTracks.first);
+        controller.setAudioTrack(dataProvider.state.currentAudioTrack);
+      } else {
+        Logs.player.log("Couldnt find seperate audio tracks for this stream");
+      }
+    } else {
+      await controller.initiateVideo(dataProvider.state.currentStream.url, offline: true);
+      _markPlayerReady();
+    }
+
+    final lastWatchPct = (dataProvider.lastWatchDuration ?? 0).clamp(0, 100);
+    final totalMs = controller.duration ?? 0;
+    final lastWatchDuration = totalMs <= 0 ? 0 : ((lastWatchPct / 100) * totalMs).toInt();
+
+    // await dataProvider.updateDiscordPresence();
+
+    // A zero-position seek is unnecessary and can fail before AVPlayer reports
+    // a duration. Keep controls usable even when resume seeking is unavailable.
+    if (lastWatchDuration > 0 && totalMs > 0) {
+      try {
+        await controller.seekTo(Duration(milliseconds: lastWatchDuration));
+      } catch (e) {
+        Logs.player.log("Could not restore playback position: $e");
+      }
+    }
+
+    if (mounted) context.read<PlayerProvider>().toggleSubs(action: dataProvider.state.currentStream.subtitle != null);
+
+    if (Platform.isAndroid || Platform.isIOS) {
+      try {
+        (controller as BetterPlayerWrapper).controller.addEventsListener((ev) {
+          if (ev.betterPlayerEventType == BetterPlayerEventType.pipStop) {
+            Future.delayed(Duration(milliseconds: 250), () {
+              if (mounted) {
+                context.read<PlayerProvider>().resetPipState();
+                context.read<PlayerProvider>().toggleControlsVisibility(action: true);
+                setWatchMode();
+                context.read<PlayerProvider>().handleWakelock();
+              }
+            });
+          }
+        });
+      } catch (e) {
+        Logs.player.log("PiP listener couldnt be added: ${e.toString()}");
+      }
+    } else if (Platform.isWindows || Platform.isLinux) {
+      await dataProvider.startRPC();
+      await dataProvider.updatePresence();
+    }
+  }
+
+  void _markPlayerReady() {
+    if (!mounted || isInitiated) return;
+    setState(() {
+      isInitiated = true;
+    });
+    context.read<PlayerProvider>().toggleControlsVisibility(action: true);
+    controller.addListener(_listener);
+  }
+
+  void _listener() {
+    if (!mounted) return;
+
+    final playerProvider = context.read<PlayerProvider>();
+    final dataProvider = context.read<PlayerDataProvider>();
+
+    if (playerProvider.state.controlsVisible) {
+      hideControlsOnTimeout(dataProvider, playerProvider);
+    }
+
+    final playState = (controller.isBuffering ?? false)
+        ? PlayerState.buffering
+        : (controller.isPlaying ?? false)
+            ? PlayerState.playing
+            : PlayerState.paused;
+
+    playerProvider.updatePlayState(playState);
+
+    final currentPositionInSeconds = (controller.position ?? 0) ~/ 1000;
+    final durationInSeconds = (controller.duration ?? 0) ~/ 1000;
+
+    final newState = dataProvider.state.copyWith(
+      currentTimeStamp: getFormattedTime(currentPositionInSeconds),
+      maxTimeStamp: getFormattedTime(durationInSeconds),
+      sliderValue: currentPositionInSeconds,
+    );
+
+    // Update timestamps and slider position
+    dataProvider.update(newState);
+
+    playerProvider.handleWakelock(); // Yes, it handles wakelock state
+
+    final currentPositionMs = controller.position ?? 0;
+    final durationMs = controller.duration ?? 0;
+
+    if (!widget.localSource && durationMs > 0) {
+      final currentByTotal = currentPositionMs / durationMs;
+      if (currentByTotal >= 0.75 && !dataProvider.state.preloadStarted && (controller.isPlaying ?? false)) {
+        dataProvider.preloadNextEpisode();
+        updateWatching(
+          dataProvider.showId,
+          dataProvider.showTitle,
+          dataProvider.state.currentEpIndex + 1,
+          dataProvider.altDatabases,
+        );
+      }
+    }
+
+    final finalEpReached = dataProvider.state.currentEpIndex + 1 == dataProvider.epLinks.length;
+
+    //play the loaded episode if equal to duration
+    final endToleranceMs = durationMs > 0 ? (durationMs < 10000 ? durationMs ~/ 10 : 1000) : 0;
+    final playbackReachedEnd = durationMs > 0 &&
+        currentPositionMs > 0 &&
+        currentPositionMs >= durationMs - endToleranceMs;
+    if (!finalEpReached && playbackReachedEnd) {
+      if (controller.isPlaying ?? false) {
+        controller.pause();
+      }
+      playerProvider.playPreloadedEpisode(dataProvider);
+    }
+
+    if ((currentUserSettings?.autoOpEdSkip ?? false) && !_isSkippingOpOrEd) {
+      final isAtOp = dataProvider.state.opSkip != null &&
+          currentPositionInSeconds >= dataProvider.state.opSkip!.start &&
+          currentPositionInSeconds <= dataProvider.state.opSkip!.end;
+
+      final isAtEd = dataProvider.state.edSkip != null &&
+          currentPositionInSeconds >= dataProvider.state.edSkip!.start &&
+          currentPositionInSeconds <= dataProvider.state.edSkip!.end - 1;
+
+      if (isAtOp) {
+        _isSkippingOpOrEd = true;
+        Logs.player
+            .log("Auto skipping OP from ${dataProvider.state.opSkip!.start}s to ${dataProvider.state.opSkip!.end}s");
+        playerProvider
+            .fastForward(dataProvider.state.opSkip!.end - currentPositionInSeconds + 1)
+            .then((_) => _isSkippingOpOrEd = false);
+      } else if (isAtEd) {
+        _isSkippingOpOrEd = true;
+        Logs.player
+            .log("Auto skipping ED from ${dataProvider.state.edSkip!.start}s to ${dataProvider.state.edSkip!.end}s");
+        playerProvider
+            .fastForward(dataProvider.state.edSkip!.end - currentPositionInSeconds)
+            .then((_) => _isSkippingOpOrEd = false);
+      }
+    }
+  }
+
+  // Mutex to avoid multiple skips at once
+  bool _isSkippingOpOrEd = false;
+
+  bool get isDesktop => Platform.isWindows || Platform.isLinux;
+
+  void hideControlsOnTimeout(PlayerDataProvider dp, PlayerProvider pp, {int timeoutSeconds = 5}) {
+    if (_controlsTimer == null && (controller.isPlaying ?? false)) {
+      _controlsTimer = Timer(Duration(seconds: timeoutSeconds), () {
+        if (controller.isPlaying ?? false) {
+          pp.toggleControlsVisibility(action: false);
+        }
+        _controlsTimer = null;
+      });
+    }
+  }
+
+  Timer? _controlsTimer = null;
+
+  Timer? pointerHideTimer = null;
+
+  // This is required to avoid *controller is not initiate error*
+  bool isInitiated = false;
+
+  // Just a smol logic to handle taps since gesture dectector doesnt do the job with double taps
+  Timer? _tapTimer;
+  bool _waitingForSecondTap = false;
+  static const Duration _doubleTapWindow = Duration(milliseconds: 300);
+  static const Duration _maxSurfaceTapDuration = Duration(milliseconds: 500);
+  final Map<int, Offset> _surfacePointerOrigins = {};
+  final Map<int, Duration> _surfacePointerStartTimes = {};
+  final Set<int> _movedSurfacePointers = {};
+  final Set<int> _controlPointerIds = {};
+
+  bool _showRewindAnim = false;
+  bool _showForwardAnim = false;
+  Timer? _animTimer;
+
+  void _showFastForwardAnim(bool isForward) {
+    skipCount++;
+
+    _animTimer?.cancel();
+
+    setState(() {
+      if (isForward) {
+        _showForwardAnim = true;
+        _showRewindAnim = false;
+      } else {
+        _showRewindAnim = true;
+        _showForwardAnim = false;
+      }
+    });
+
+    _animTimer = Timer(Duration(milliseconds: 500), () {
+      if (mounted) {
+        setState(() {
+          _showRewindAnim = false;
+          _showForwardAnim = false;
+        });
+      }
+    });
+  }
+
+  void _onSurfacePointerDown(PointerDownEvent event) {
+    _surfacePointerOrigins[event.pointer] = event.localPosition;
+    _surfacePointerStartTimes[event.pointer] = event.timeStamp;
+    _movedSurfacePointers.remove(event.pointer);
+  }
+
+  void _onSurfacePointerMove(PointerMoveEvent event) {
+    final origin = _surfacePointerOrigins[event.pointer];
+    if (origin != null && (event.localPosition - origin).distance > 18) {
+      _movedSurfacePointers.add(event.pointer);
+    }
+  }
+
+  void _onSurfacePointerUp(PointerUpEvent event) {
+    final origin = _surfacePointerOrigins.remove(event.pointer);
+    final startedAt = _surfacePointerStartTimes.remove(event.pointer);
+    final moved = _movedSurfacePointers.remove(event.pointer);
+    if (origin == null || startedAt == null || moved || event.timeStamp - startedAt >= _maxSurfaceTapDuration) {
+      return;
+    }
+
+    _handleSurfaceTap(event.localPosition);
+  }
+
+  void _onSurfacePointerCancel(PointerCancelEvent event) {
+    _surfacePointerOrigins.remove(event.pointer);
+    _surfacePointerStartTimes.remove(event.pointer);
+    _movedSurfacePointers.remove(event.pointer);
+  }
+
+  void _onControlPointerDown(PointerDownEvent event) {
+    _tapTimer?.cancel();
+    _tapTimer = null;
+    _waitingForSecondTap = false;
+    _controlPointerIds.add(event.pointer);
+  }
+
+  void _onControlPointerUp(PointerUpEvent event) {
+    _controlPointerIds.remove(event.pointer);
+  }
+
+  void _onControlPointerCancel(PointerCancelEvent event) {
+    _controlPointerIds.remove(event.pointer);
+  }
+
+  void _handleSurfaceTap(Offset position) {
+    if (!mounted || !isInitiated) return;
+
+    if (_waitingForSecondTap) {
+      _waitingForSecondTap = false;
+      _tapTimer?.cancel();
+      _tapTimer = null;
+      _handleSurfaceDoubleTap(position);
+      return;
+    }
+
+    _handleSingleTap();
+    _waitingForSecondTap = true;
+    _tapTimer?.cancel();
+    _tapTimer = Timer(_doubleTapWindow, () {
+      _waitingForSecondTap = false;
+      _tapTimer = null;
+    });
+  }
+
+  void _handleSurfaceDoubleTap(Offset position) {
+    final width = MediaQuery.sizeOf(context).width;
+    if (position.dx < width * 0.33) {
+      _handleDoubleTapLeft();
+    } else if (position.dx > width * 0.66) {
+      _handleDoubleTapRight();
+    } else {
+      _handleDoubleTap();
+    }
+  }
+
+  void _handleDoubleTapLeft() {
+    final playerProvider = context.read<PlayerProvider>();
+    final dataProvider = context.read<PlayerDataProvider>();
+    if (dataProvider.state.controlsLocked || isDesktop) return;
+    if (!(currentUserSettings?.doubleTapToSkip ?? true)) return;
+
+    playerProvider.fastForward(-(currentUserSettings?.skipDuration ?? 10));
+    if (!_showRewindAnim) skipCount = 0;
+    _showFastForwardAnim(false);
+  }
+
+  void _handleDoubleTapRight() {
+    final playerProvider = context.read<PlayerProvider>();
+    final dataProvider = context.read<PlayerDataProvider>();
+    if (dataProvider.state.controlsLocked || isDesktop) return;
+    if (!(currentUserSettings?.doubleTapToSkip ?? true)) return;
+
+    playerProvider.fastForward(currentUserSettings?.skipDuration ?? 10);
+    if (!_showForwardAnim) skipCount = 0;
+    _showFastForwardAnim(true);
+  }
+
+  void _handleSingleTap() {
+    if (!mounted || !isInitiated) return;
+
+    final playerProvider = context.read<PlayerProvider>();
+    if (playerProvider.state.controlsVisible) {
+      playerProvider.toggleControlsVisibility(action: false);
+      _controlsTimer?.cancel();
+      _controlsTimer = null;
+      return;
+    }
+
+    _showControlsAndResetTimer();
+  }
+
+  void _showControlsAndResetTimer() {
+    if (!mounted || !isInitiated) return;
+    final playerProvider = context.read<PlayerProvider>();
+    if (!playerProvider.state.controlsVisible) {
+      playerProvider.toggleControlsVisibility(action: true);
+    }
+    _controlsTimer?.cancel();
+    _controlsTimer = null;
+    hideControlsOnTimeout(context.read<PlayerDataProvider>(), playerProvider);
+  }
+
+  void _handleDoubleTap() {
+    if (!isDesktop) return;
+    if (context.read<PlayerProvider>().state.pip) return;
+    final themeProvider = context.read<AppProvider>();
+    themeProvider.setFullScreen(!themeProvider.isFullScreen);
+  }
+
+  bool hidePointer = false;
+
+  // for tap gesures
+  bool lTapped = false, rTapped = false;
+
+  bool spedUp = false;
+
+  int skipCount = 0;
+
+  // double? _lastSpeedChangeOffset = 0.0;
+  double lastSpeed = 1.0;
+
+  double? _displayVolume;
+  double? _displayBrightness;
+  Timer? _indicatorTimer;
+
+  void _showIndicator({double? volume, double? brightness}) {
+    setState(() {
+      if (volume != null) _displayVolume = volume;
+      if (brightness != null) _displayBrightness = brightness;
+    });
+
+    _indicatorTimer?.cancel();
+    _indicatorTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) {
+        setState(() {
+          _displayVolume = null;
+          _displayBrightness = null;
+        });
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          Center(child: widget.controller.getWidget()),
-          if (_ready) const Controls(),
-          if (_error != null)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(
-                  'Unable to start playback:\n$_error',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.white),
-                ),
+    final playerProvider = context.watch<PlayerProvider>();
+    final playerDataProvider = context.watch<PlayerDataProvider>();
+
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, result) async {
+        // save the last watched duration
+        if (isInitiated && (controller.duration ?? 0) > 0) {
+          final pos = (controller.position ?? 0).toDouble();
+          final dur = controller.duration!.toDouble();
+          double watchPercentage = (dur <= 0) ? 0.0 : (pos / dur);
+          watchPercentage = watchPercentage.clamp(0.0, 1.0);
+          await saveAnimeSpecificPreference(
+            playerDataProvider.showId.toString(),
+            AnimeSpecificPreference(
+              lastWatchDuration: {playerDataProvider.state.currentEpIndex + 1: watchPercentage * 100},
+            ),
+          );
+        }
+        await context.read<AppProvider>()
+          ..setFullScreen(false)
+          ..setTitlebarColor(null);
+
+        await playerDataProvider.stopRPC();
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: Padding(
+          padding: EdgeInsets.only(top: MediaQuery.paddingOf(context).top),
+          child: GestureOverlay(
+            isDesktop: isDesktop,
+            controlsLocked: playerDataProvider.state.controlsLocked,
+            enableHoldToSpeedUp: currentUserSettings?.enableHoldToSpeedUp ?? true,
+            getInitialBrightness: () => ScreenBrightness.instance.application,
+            getInitialVolume: () async => playerProvider.state.volume,
+            onBrightnessUpdate: (val) {
+              ScreenBrightness.instance.setApplicationScreenBrightness(val);
+              _showIndicator(brightness: val);
+            },
+            onSpeedChange: (increase) {
+              final currSpeed = playerProvider.state.speed;
+              if (increase) {
+                playerProvider
+                    .setSpeed(playerProvider.playbackSpeeds.firstWhere((s) => s > currSpeed, orElse: () => currSpeed));
+              } else {
+                playerProvider.setSpeed(
+                    playerProvider.playbackSpeeds.lastWhere((s) => s < currSpeed && s >= 2, orElse: () => currSpeed));
+              }
+              print(increase);
+            },
+            onSpeedUpStart: () {
+              if (playerProvider.state.playerState == PlayerState.playing &&
+                  !isDesktop &&
+                  _controlPointerIds.isEmpty &&
+                  !playerDataProvider.state.controlsLocked) {
+                spedUp = true;
+                lastSpeed = playerProvider.state.speed;
+                playerProvider.setSpeed(2.0);
+              }
+            },
+            onSpeedUpEnd: () {
+              if (!spedUp || isDesktop) return;
+              spedUp = false;
+              if (playerProvider.state.speed < 2) return;
+              // reset speed
+              playerProvider.setSpeed(lastSpeed);
+              print("Reduced speed to: ${playerProvider.state.speed}x");
+            },
+            onVerticalDragEnd: () {},
+            onVolumeUpdate: (val) {
+              playerProvider.updateVolume(val);
+              _showIndicator(volume: val);
+            },
+            onPointerHover: (event) {
+              // show controls on mouse movement
+              if (!playerProvider.state.controlsVisible) playerProvider.toggleControlsVisibility(action: true);
+              hideControlsOnTimeout(playerDataProvider, playerProvider, timeoutSeconds: 3);
+
+              // Hide the pointer when controls arent visible and mouse is unmoved for 3 seconds
+              // if (playerProvider.state.controlsVisible) return;
+              if (hidePointer) {
+                setState(() {
+                  hidePointer = false;
+                });
+              }
+              pointerHideTimer?.cancel();
+              pointerHideTimer = Timer(Duration(seconds: 3), () {
+                if (mounted && !hidePointer)
+                  setState(() {
+                    hidePointer = true;
+                    pointerHideTimer = null;
+                  });
+              });
+            },
+            child: MouseRegion(
+              cursor: playerProvider.state.controlsVisible || !hidePointer
+                  ? SystemMouseCursors.basic
+                  : SystemMouseCursors.none,
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: Listener(
+                      behavior: HitTestBehavior.opaque,
+                      onPointerDown: _onSurfacePointerDown,
+                      onPointerMove: _onSurfacePointerMove,
+                      onPointerUp: _onSurfacePointerUp,
+                      onPointerCancel: _onSurfacePointerCancel,
+                      child: Player(controller),
+                    ),
+                  ),
+                  if (playerProvider.state.showSubs && playerDataProvider.state.currentStream.subtitle != null)
+                    SubViewer(
+                      controller: controller,
+                      format: SubtitleFormat.fromName(
+                          playerDataProvider.state.currentStream.subtitleFormat ?? SubtitleFormat.ASS.name),
+                      subtitleSource: playerDataProvider.state.currentStream.subtitle!,
+                      settings: playerDataProvider.subtitleSettings,
+                      headers: playerDataProvider.state.currentStream.customHeaders,
+                      isOffline: widget.localSource,
+                    ),
+                  isInitiated
+                      ? AnimatedOpacity(
+                          duration: Duration(milliseconds: 150),
+                          opacity: playerProvider.state.controlsVisible ? 1 : 0,
+                          child: Stack(
+                            children: [
+                              IgnorePointer(ignoring: true, child: overlay()),
+                              IgnorePointer(
+                                ignoring: !playerProvider.state.controlsVisible,
+                                child: Listener(
+                                  onPointerDown: _onControlPointerDown,
+                                  onPointerUp: _onControlPointerUp,
+                                  onPointerCancel: _onControlPointerCancel,
+                                  child: Controls(),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : (isDesktop)
+                          ? Column(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 10, left: 10),
+                                  child: IconButton(
+                                      onPressed: () => Navigator.pop(context),
+                                      icon: Icon(
+                                        Icons.arrow_back,
+                                        color: Colors.white,
+                                        size: 35,
+                                      )),
+                                ),
+                                PlayerLoadingWidget(),
+                                SizedBox.shrink()
+                              ],
+                            )
+                          : Container(),
+                  _buildSpeedIndicator(),
+                  _skipIndicators(),
+                  _buildVolumeBrightnessIndicators(),
+                ],
               ),
             ),
-          if (!_ready && _error == null)
-            const Center(child: CircularProgressIndicator()),
-        ],
+          ),
+        ),
       ),
     );
+  }
+
+  Widget _buildVolumeBrightnessIndicators() {
+    if (_displayVolume == null && _displayBrightness == null) return const SizedBox.shrink();
+
+    final isVolume = _displayVolume != null;
+    final value = isVolume ? _displayVolume! : _displayBrightness!;
+    final icon = isVolume ? (value == 0 ? Icons.volume_off : Icons.volume_up) : Icons.light_mode;
+
+    return IgnorePointer(
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          decoration: BoxDecoration(
+            color: appTheme.backgroundSubColor.withAlpha(220),
+            borderRadius: BorderRadius.circular(50),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: Colors.white, size: 28),
+              const SizedBox(width: 16),
+              Text(
+                "${(value * 100).toInt()}%",
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontFamily: "Rubik",
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Align _buildSpeedIndicator() {
+    return Align(
+      alignment: Alignment.topCenter,
+      child: Container(
+        width: 200,
+        alignment: Alignment.topCenter,
+        padding: EdgeInsets.only(top: 10),
+        child: IgnorePointer(
+          ignoring: true,
+          child: AnimatedOpacity(
+              opacity: spedUp ? 1 : 0,
+              duration: Duration(milliseconds: 100),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                _playbackSpeedIndicator(),
+                _playbackSpeedSlider(),
+              ])),
+        ),
+      ),
+    );
+  }
+
+  Widget _playbackSpeedSlider() {
+    final speed = context.read<PlayerProvider>().state.speed;
+    final playbackSpeeds = context.read<PlayerProvider>().playbackSpeeds;
+    if (playbackSpeeds.last <= 2) return const SizedBox.shrink();
+    final divisions = playbackSpeeds.where((e) => e >= 2).length - 1;
+    return SliderTheme(
+      data: SliderThemeData(
+        thumbShape: RoundSliderThumbShape(enabledThumbRadius: 5),
+        trackHeight: 4,
+        activeTrackColor: Colors.transparent,
+        inactiveTrackColor: Colors.transparent,
+        thumbColor: appTheme.accentColor,
+        year2023: false,
+      ),
+      child: Slider(
+        value: speed.clamp(2, playbackSpeeds.last).toDouble(),
+        min: 2,
+        max: playbackSpeeds.last,
+        divisions: divisions > 0 ? divisions : null,
+        label: "${speed}x",
+        onChanged: (value) {
+          context.read<PlayerProvider>().setSpeed(value);
+        },
+      ),
+    );
+  }
+
+  Widget _playbackSpeedIndicator() {
+    return Container(
+      padding: EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: appTheme.backgroundSubColor.withAlpha(100),
+        borderRadius: BorderRadius.circular(100),
+      ),
+      child: Text(
+        "${context.read<PlayerProvider>().state.speed}x",
+        style: TextStyle(
+          fontFamily: "Rubik",
+          fontSize: 14,
+        ),
+      ),
+    );
+  }
+
+  IgnorePointer _skipIndicators() {
+    return IgnorePointer(
+      ignoring: true,
+      child: Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 100),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              AnimatedOpacity(
+                duration: Duration(milliseconds: 400),
+                curve: Curves.easeInOut,
+                opacity: _showRewindAnim ? 1 : 0,
+                child: Container(
+                  padding: EdgeInsets.all(15),
+                  decoration: BoxDecoration(
+                    // color: appTheme.backgroundSubColor.withAlpha(200),
+                    borderRadius: BorderRadius.circular(25),
+                  ),
+                  child: Text(
+                    "- ${(currentUserSettings?.skipDuration ?? 10) * skipCount}s",
+                    style: TextStyle(
+                      fontFamily: "Rubik",
+                      fontSize: 23,
+                    ),
+                  ),
+                ),
+              ),
+              AnimatedOpacity(
+                duration: Duration(milliseconds: 400),
+                opacity: _showForwardAnim ? 1 : 0,
+                curve: Curves.easeInOut,
+                child: Container(
+                  padding: EdgeInsets.all(15),
+                  decoration: BoxDecoration(
+                    // color: appTheme.backgroundSubColor.withAlpha(200),
+                    borderRadius: BorderRadius.circular(25),
+                  ),
+                  child: Text(
+                    "+ ${(currentUserSettings?.skipDuration ?? 10) * skipCount}s",
+                    style: TextStyle(
+                      fontFamily: "Rubik",
+                      fontSize: 23,
+                    ),
+                  ),
+                ),
+              )
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Container overlay() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+            colors: [
+              Color.fromARGB(220, 0, 0, 0),
+              Colors.transparent,
+            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            stops: [0.0, 0.7]),
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+            gradient: LinearGradient(
+                colors: [
+                  Color.fromARGB(220, 0, 0, 0),
+                  Colors.transparent,
+                ],
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                stops: [0.0, 0.7])),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    SystemChrome.setPreferredOrientations(
+        [DeviceOrientation.portraitUp, DeviceOrientation.landscapeRight, DeviceOrientation.landscapeLeft]);
+    if (controller.duration != null && controller.duration! > 0) {
+      //store the exact percentage of watched
+      if (!widget.localSource) print("SAVED WATCH DURATION");
+    }
+
+    controller.removeListener(_listener);
+    controller.dispose();
+    _controlsTimer?.cancel();
+    _tapTimer?.cancel();
+
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 }

@@ -199,44 +199,7 @@ class _MobileControlsState extends State<MobileControls> {
                                 ),
                               ),
                             ),
-                            BottomControlsWithPip(
-                              onPlayPause: () {
-                                if (provider.controller.isPlaying == true) {
-                                  provider.controller.pause();
-                                } else {
-                                  provider.controller.play();
-                                }
-                              },
-                              isPlaying: provider.controller.isPlaying ?? false,
-                              currentPosition: Duration(
-                                milliseconds: provider.controller.position ?? 0,
-                              ),
-                              totalDuration: Duration(
-                                milliseconds: provider.controller.duration ?? 0,
-                              ),
-                              onSeek: (milliseconds) {
-                                provider.controller.seekTo(
-                                  Duration(milliseconds: milliseconds.round()),
-                                );
-                              },
-                              onToggleFullscreen: () {
-                                final isLandscape =
-                                    MediaQuery.of(context).orientation == Orientation.landscape;
-                                SystemChrome.setPreferredOrientations(
-                                  isLandscape
-                                      ? const [DeviceOrientation.portraitUp]
-                                      : const [
-                                          DeviceOrientation.landscapeLeft,
-                                          DeviceOrientation.landscapeRight,
-                                        ],
-                                );
-                              },
-                              isFullscreen:
-                                  MediaQuery.of(context).orientation == Orientation.landscape,
-                              onTogglePip: () {
-                                provider.setPip(!provider.state.pip);
-                              },
-                            ),
+                            BottomControls(),
                           ],
                         ),
                       ),

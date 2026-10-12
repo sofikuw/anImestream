@@ -327,7 +327,7 @@ class _AnimeStreamState extends State<AnimeStream> {
                 iconTheme: IconThemeData(color: appTheme.textMainColor)),
             home: ChangeNotifierProvider(
               create: (context) => MainNavProvider(),
-              child: Platform.isWindows || Platform.isLinux ? AppWrapper(firstPage: MainNavPage()) : MainNavPage(),
+              child: Platform.isWindows || Platform.isLinux ? AppWrapper(firstPage: MainNavigator()) : MainNavigator(),
             ),
             debugShowCheckedModeBanner: false,
           );

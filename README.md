@@ -1,167 +1,96 @@
-# anImestream (v1.0.6)
+# anImestream
 
-> A modern anime streaming and manga reading client written in Flutter/Dart, featuring a **Mangayomi-inspired JavaScript Extension System**, full **Manga Reader**, and native **YouTube-style iOS Picture-in-Picture (PiP)**.
+**An iOS-focused fork of Animestream.**
 
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
-[![Flutter](https://img.shields.io/badge/flutter-v3.24.3-blue.svg)](https://flutter.dev)
-[![iOS Target](https://img.shields.io/badge/iOS-15.0%2B-orange.svg)]()
-[![Extension API](https://img.shields.io/badge/Extension%20API-v1.0.0-purple.svg)]()
-[![License](https://img.shields.io/badge/license-GPLv3-green.svg)]()
+anImestream is a Flutter application for streaming anime with AniList tracking, based on the original [Animestream](https://github.com/frostnova721/animestream) project by **FrostNova (frostnova721)**.
 
----
+This fork is maintained by **sofikuw** and is focused on producing an iOS build while keeping the upstream application's core functionality intact.
 
-## 🌟 What's New in v1.0.6
+> The original project is licensed under the GNU General Public License v3.0. This fork remains under GPL-3.0 and preserves the original author's attribution. See [LICENSE](LICENSE).
 
-- 🧩 **Mangayomi-Inspired JavaScript Extension System**: Add and run third-party JavaScript extensions from custom GitHub repositories without rebuilding the iOS IPA whenever source scripts update.
-- 📖 **Complete Manga Tab**: Integrated manga browsing, search with provider filters, details with chapter tracking, and a full-featured reader.
-- 📜 **Versatile Manga Reader**: Supports **Vertical Continuous (Webtoon)** reading, **Horizontal Page-by-Page (LTR / RTL)** reading, page slider, chapter switching, and reading progress caching.
-- 🛡️ **Safe Atomic Installer & Rollback**: Automatic sandbox testing, API validation (v1.x), and instant rollback to the last known-good version if an update fails.
-- ⚡ **Zero-Dependency iOS Runtime**: Utilizes Apple's native `JavaScriptCore.framework` via Swift, requiring no external C++ binaries or CocoaPods, ensuring smooth unsigned IPA sideloading.
-- 📺 **YouTube-Style iOS Picture-in-Picture**: Preserved seamless background transition with inline auto-start (`canStartPictureInPictureAutomaticallyFromInline`).
+## Authors
 
----
+- **Original author:** [FrostNova / frostnova721](https://github.com/frostnova721)
+- **Fork author / iOS maintainer:** [sofikuw](https://github.com/sofikuw)
 
-## 🏗️ Architecture Overview
+## iOS support status
 
-```
-anImestream Architecture
-├── UI & Presentation Layer (Flutter Widgets)
-│   ├── Anime Home, Discover & Video Player
-│   ├── Manga Home, Search & Chapter Reader
-│   └── Settings & Manage Extensions (Repository Browser)
-│
-├── Adapter & Provider Abstraction Layer
-│   ├── JsAnimeProviderAdapter ───► Standard VideoSource & AnimeDetails
-│   ├── JsMangaProviderAdapter ───► Standard MangaDetails & MangaPages
-│   └── Built-in Providers (e.g., AniKoto) Coexist via ProviderRegistry
-│
-├── Extension Management & Security Layer
-│   ├── RepositoryManager (HTTPS catalog fetch & index.json caching)
-│   ├── SafeExtensionInstaller (atomic download, validation, dry-run, rollback)
-│   └── ExtensionManager (persistence, activation, and context lifecycle)
-│
-└── Sandboxed Execution Engine
-    ├── iOS: JavaScriptCoreBridge.swift (Native Apple JavaScriptCore)
-    ├── Android / Desktop: QuickJS / Dart runtime bridge
-    └── Strict 15s execution timeout & isolated memory contexts
-```
+The upstream application is multi-platform, but some parts of its implementation are Android-specific. This table lists the current availability in this iOS fork:
 
----
+| Feature | iOS status | Notes |
+| --- | --- | --- |
+| Anime streaming | ✅ Supported | iOS and Android use the BetterPlayer backend; desktop uses FVP. |
+| AniList tracking | ✅ Supported | Shared Flutter functionality. |
+| Search / discovery / lists | ✅ Supported | Shared Flutter functionality. |
+| Picture in Picture | ✅ Supported | iOS 15 and later; use the player PiP control or enable Auto Picture-in-Picture in player settings. |
+| Double-tap-to-seek | ✅ Supported | Optional iOS and Android setting; double-tap the left or right side to seek. |
+| Player gestures | ✅ Supported | Optional iOS and Android setting; swipe vertically on the left for brightness and right for volume. |
+| Hold for 2× speed | ✅ Supported | Optional iOS and Android setting; hold the video to temporarily play at 2×, then release to restore the previous speed. |
+| Old navbar | ❌ Android-only | The upstream implementation and navbar transparency are Android-specific. |
+| Anime downloads | ✅ Supported  | This fork now can download animes in ios. |
+| Android TV support | ❌ Android-only | TV detection and related storage handling use Android APIs. |
+| Desktop window controls / RPC | ❌ Not applicable | Windows/Linux-specific functionality was removed from this fork's platform projects. |
 
-## 🚀 Key Features
+### Important
 
-### 1. Dynamic JavaScript Extensions
-- Interpreted inside an isolated `JSContext` at runtime.
-- Supports independent capabilities: `searchAnime`, `popularAnime`, `latestAnime`, `animeDetails`, `videoSources`, `searchManga`, `popularManga`, `mangaDetails`, `chapters`, `mangaPages`.
-- Safe host APIs: `http.get()`, `http.post()`, `console.log()`, `atob()`, `btoa()`.
+The table describes the **current state of this fork**. Several limitations are inherited from Android-oriented upstream code and are not limitations of iOS itself.
 
-### 2. Full Manga Support
-- **Manga Home**: Trending carousels, latest releases, and continue reading tiles.
-- **Search & Filter**: Search across multiple sources with genre and status filters.
-- **Reader Engine**:
-  - Vertical Continuous (infinite scroll webtoon mode).
-  - Horizontal LTR & RTL paged modes.
-  - InteractiveViewer pinch-to-zoom.
-  - Page jump slider and chapter navigation drawer.
-  - Progress persistence and chapter read indicators.
+This fork enables the native iOS Picture-in-Picture player path. The iOS deployment target is 15.0 to match Flutter 3.47.1's iOS minimum.
 
-### 3. Repository-Based Extension Manager
-- Browse configured remote extension repositories.
-- One-click install and update.
-- Enable/disable toggles to suspend sources without deleting files.
-- Add custom GitHub Pages or Raw HTTPS repository URLs.
+## What was removed for the iOS fork
 
-### 4. Native iOS Picture-in-Picture
-- Supports inline automatic PiP transition when swiping to the iOS home screen.
-- Configured with `AVAudioSessionCategoryPlayback` and background audio modes.
+The repository no longer carries platform projects/build tooling that are not required for the iOS build:
 
----
+- Android project
+- Windows project
+- Linux project
+- macOS project
+- Web project
+- Linux installer script
+- Cross-platform `astrm` build scripts
+- Android/Linux/Windows release-build workflow logic
+- Windows installer configuration/tooling
+- Release notification workflow from the upstream project
 
-## 📂 Project Structure
+The shared Dart source remains largely intact so that the fork does not unnecessarily diverge from the original application.
 
-```
-animestream/
-├── .github/workflows/
-│   └── build-ios.yml               # GitHub Actions unsigned IPA build & release
-├── ios/
-│   └── Runner/
-│       ├── AppDelegate.swift       # Registers PiP & JavaScriptCore bridges
-│       ├── Info.plist              # Background audio & App Transport Security
-│       ├── JavaScriptCoreBridge.swift # Native Apple JavaScriptCore Swift plugin
-│       └── PiPManager.swift        # iOS 15+ inline auto-PiP controller
-├── lib/
-│   ├── core/
-│   │   ├── extensions/
-│   │   │   ├── manager/            # ExtensionManager, RepositoryManager, SafeInstaller
-│   │   │   ├── models/             # ExtensionManifest, ExtensionCatalog, MangaModels
-│   │   │   └── runtime/            # JsRuntimeBridge (Dart <-> JS execution engine)
-│   │   ├── anime/providers/        # JsAnimeProviderAdapter & built-in providers
-│   │   ├── manga/providers/        # MangaProvider interface & JsMangaProviderAdapter
-│   │   └── app/                    # PiP service, logging, and environment settings
-│   └── ui/
-│       ├── pages/
-│       │   ├── mainNav.dart        # Main navigation shell with new Manga tab
-│       │   ├── manga/              # MangaHomePage, MangaSearchPage, MangaReaderPage
-│       │   └── settingPages/       # ManageExtensionsPage (repo browser & installer)
-│       └── models/playerControllers/
-├── sample_repo/                    # Sample repository template
-│   ├── index.json                  # Catalog index
-│   └── extensions/
-│       ├── gogoanime.js            # Sample anime streaming extension
-│       └── mangadex.js             # Sample manga reader extension
-├── test/
-│   ├── extension_system_test.dart  # Unit tests for manifest, catalog, and JS runtime
-│   └── manga_feature_test.dart     # Unit tests for manga models and progress tracking
-├── EXTENSION_API.md                # Complete API v1.0.0 specification
-├── GUIDE_CREATE_EXTENSION.md       # Developer guide for creating JS extensions
-├── GUIDE_HOST_REPOSITORY.md        # Guide for hosting repositories on GitHub
-└── GUIDE_INSTALLATION_MANAGEMENT.md # Guide for installing, updating, and disabling sources
-```
+## Building the unsigned iOS IPA
 
----
+This fork uses GitHub Actions and Apple's macOS runner.
 
-## 🛠️ Building for iOS (Unsigned Sideloading IPA)
+1. Fork/clone this repository.
+2. Add the required repository secrets:
+   - `SIMKL_CLIENT_SECRET`
+   - `SIMKL_CLIENT_ID`
+   - `COMMENTUM_API_URL`
+   - `DISCORD_APP_ID`
+3. Open **Actions → Build iOS Unsigned IPA → Run workflow**.
+4. Download the generated `anImestream-*-ios-unsigned.ipa` artifact.
 
-### Prerequisites
-- macOS with Xcode 15+
-- Flutter 3.24.3+
+The workflow intentionally uses `--no-codesign`; signing/installing the IPA is a separate step.
 
-### Step-by-Step Build Commands
-```bash
-# 1. Fetch dependencies
-flutter pub get
+## Project name
 
-# 2. Run test suites
-flutter test test/extension_system_test.dart test/manga_feature_test.dart
+The iOS application display name is **anImestream**.
 
-# 3. Build release iOS app without codesigning
-flutter build ios --no-codesign --release
+The internal Dart package name remains `animestream` because Dart package identifiers are conventionally lowercase and changing it would require a much larger source-wide refactor with no benefit to the iOS build.
 
-# 4. Package into unsigned IPA
-mkdir -p Payload
-cp -r build/ios/iphoneos/Runner.app Payload/
-zip -r animestream-unsigned.ipa Payload
-```
+## Upstream
 
-### Sideloading onto iPhone / iPad
-The resulting `animestream-unsigned.ipa` can be installed directly using any standard sideloading tool:
-- **AltStore / AltServer**: Install via Mail plugin / AltServer sideload.
-- **Sideloadly**: Drag and drop `animestream-unsigned.ipa` and sign with your free Apple ID.
-- **TrollStore** (iOS 14.0 - 16.6.1): Direct install without 7-day expiration.
-- **Scarlet / Feather / Esign**: Direct on-device signing.
+This project is derived from:
 
----
+**Animestream** — https://github.com/frostnova721/animestream
 
-## 🧪 Testing
+The upstream project is heavily inspired by Saikou and was originally built as a multi-platform Flutter application.
 
-Run static analysis and automated unit tests:
-```bash
-flutter analyze --no-fatal-infos
-flutter test
-```
+## License
 
----
+This fork is licensed under the **GNU General Public License v3.0 (GPL-3.0)**, the same license as the original project.
 
-## 📄 License
-This project is licensed under the terms of the GNU General Public License v3.0.
-All dynamic third-party extensions are executed client-side inside an isolated sandbox.
+GPLv3 permits modification and redistribution while requiring covered derivative works to preserve the license's copyleft terms.
+
+See [LICENSE](LICENSE) for the complete license text.
+
+## Disclaimer
+
+This project does not host or provide anime content. It accesses third-party sources/APIs. Users are responsible for complying with applicable laws, terms of service, and copyright requirements when using the application.
