@@ -106,9 +106,17 @@ jobs:
           echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
-      - name: Build unsigned iOS app
+      - name: Bypass Xcode Development Team Enforcement
+        run: |
+          # Force Xcode to ignore the Development Team and Provisioning Profile requirements
+          echo "CODE_SIGNING_ALLOWED=NO" >> ios/Flutter/Release.xcconfig
+          echo "CODE_SIGNING_REQUIRED=NO" >> ios/Flutter/Release.xcconfig
+          echo "CODE_SIGN_IDENTITY=\"\"" >> ios/Flutter/Release.xcconfig
+          echo "EXPANDED_CODE_SIGN_IDENTITY=\"\"" >> ios/Flutter/Release.xcconfig
+          
+      - name: Build raw iOS App bundle
         run: flutter build ios --release --no-codesign
-
+        
       - name: Package into unsigned IPA
         run: |
           mkdir -p Payload
@@ -120,6 +128,7 @@ jobs:
         with:
           name: unsigned-app
           path: unsigned-app.ipa
+
 
 
   create-release:
