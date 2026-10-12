@@ -1,6 +1,6 @@
 import 'dart:convert';
-import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import '../models/extension_catalog.dart';
 import '../models/extension_manifest.dart';
 
@@ -93,15 +93,10 @@ class RepositoryManager extends ChangeNotifier {
           ? repoUrl
           : '${repoUrl.endsWith('/') ? repoUrl.substring(0, repoUrl.length - 1) : repoUrl}/index.json';
 
-      final dio = Dio(BaseOptions(
-        connectTimeout: const Duration(seconds: 10),
-        receiveTimeout: const Duration(seconds: 15),
-        responseType: ResponseType.plain,
-      ));
-      final response = await dio.get(indexUrl);
+      final response = await http.get(Uri.parse(indexUrl)).timeout(const Duration(seconds: 10));
 
-      if (response.statusCode == 200 && response.data != null) {
-        final dynamic decoded = jsonDecode(response.data.toString());
+      if (response.statusCode == 200 && response.body.isNotEmpty) {
+        final dynamic decoded = jsonDecode(response.body);
         if (decoded is Map<String, dynamic>) {
           final repo = ExtensionRepository.fromJson(decoded, repoUrl);
           _cachedRepos[repoUrl] = repo;

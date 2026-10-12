@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:dio/dio.dart';
+import 'package:http/http.dart' as http;
 import '../models/extension_catalog.dart';
 import '../models/extension_manifest.dart';
 import '../runtime/js_runtime_bridge.dart';
@@ -68,18 +68,12 @@ class SafeExtensionInstaller {
     final extId = item.id;
     onProgress?.call(InstallProgress(extensionId: extId, status: 'Fetching manifest...', progress: 0.1));
 
-    final dio = Dio(BaseOptions(
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 15),
-      responseType: ResponseType.plain,
-    ));
-
     // 1. Download Manifest
     ExtensionManifest manifest;
     try {
-      final manifestRes = await dio.get(item.manifestUrl);
-      if (manifestRes.statusCode == 200 && manifestRes.data != null) {
-        final decoded = jsonDecode(manifestRes.data.toString()) as Map<String, dynamic>;
+      final manifestRes = await http.get(Uri.parse(item.manifestUrl)).timeout(const Duration(seconds: 10));
+      if (manifestRes.statusCode == 200 && manifestRes.body.isNotEmpty) {
+        final decoded = jsonDecode(manifestRes.body) as Map<String, dynamic>;
         manifest = ExtensionManifest.fromJson(decoded);
       } else {
         // Fallback construct from catalog item
@@ -130,9 +124,9 @@ class SafeExtensionInstaller {
     onProgress?.call(InstallProgress(extensionId: extId, status: 'Downloading JavaScript payload...', progress: 0.5));
     String jsCode;
     try {
-      final codeRes = await dio.get(item.codeUrl);
-      if (codeRes.statusCode == 200 && codeRes.data != null && codeRes.data.toString().isNotEmpty) {
-        jsCode = codeRes.data.toString();
+      final codeRes = await http.get(Uri.parse(item.codeUrl)).timeout(const Duration(seconds: 15));
+      if (codeRes.statusCode == 200 && codeRes.body.isNotEmpty) {
+        jsCode = codeRes.body;
       } else {
         jsCode = generateDefaultExtensionJs(manifest);
       }
