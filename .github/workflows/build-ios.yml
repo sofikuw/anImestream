@@ -106,35 +106,21 @@ jobs:
           echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
-      - name: Build iOS app
-        run: |
-          flutter build ios \
-            --release \
-            --no-codesign \
-            --dart-define-from-file="$RUNNER_TEMP/animestream-dart-defines.json" \
-            --build-number=${{ steps.version.outputs.build_number }} \
-            --build-name=${{ steps.version.outputs.version }}
+      - name: Build unsigned iOS app
+        run: flutter build ios --release --no-codesign
 
-      - name: Package unsigned IPA
-        shell: bash
+      - name: Package into unsigned IPA
         run: |
-          set -euo pipefail
-          APP_PATH="build/ios/iphoneos/Runner.app"
-          IPA_PATH="anImestream-${{ steps.version.outputs.version }}-ios-unsigned.ipa"
-          test -d "$APP_PATH"
-          rm -rf Payload
           mkdir -p Payload
-          ditto "$APP_PATH" Payload/Runner.app
-          ditto -c -k --sequesterRsrc --keepParent Payload "$IPA_PATH"
-          unzip -tq "$IPA_PATH"
+          mv build/ios/iphoneos/Runner.app Payload/
+          zip -r -q unsigned-app.ipa Payload
 
-      - name: Upload IPA artifact
+      - name: Upload unsigned IPA
         uses: actions/upload-artifact@v4
         with:
-          name: anImestream-ios-unsigned
-          path: anImestream-*-ios-unsigned.ipa
-          if-no-files-found: error
-          retention-days: 30
+          name: unsigned-app
+          path: unsigned-app.ipa
+
 
   create-release:
     name: Create GitHub Release
