@@ -28,7 +28,17 @@ class JavaScriptProviderHttp {
     'authorization',
     'connection',
     'content-length',
-    'cookie',
+    // 'cookie' used to be blocked here. Providers that authorise playback
+    // with a Cookie header -- AnimeHeaven's gate.php sends a cookie with key=<gateKey>
+    // -- cannot work with it blocked.
+    //
+    // This does not expose the app's sessions: the runtime's client is a bare
+    // HttpClient() with no cookie jar, so it shares no state with AniList,
+    // SimKL or any other session in the app. A provider can only set its own
+    // cookie, never read one. Header-name and value validation (which rejects
+    // CR/LF, and so blocks header injection) still runs before this list.
+    //
+    // 'authorization' stays blocked until a provider genuinely needs it.
     'host',
     'proxy-authorization',
     'transfer-encoding',
