@@ -418,9 +418,16 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
     return Container(
       margin: EdgeInsets.only(top: 30),
       child: DropdownMenu(
-        // The manifest the current provider was built from, so the field shows
+                // The manifest the current provider was built from, so the field shows
         // the source the chapters actually came from.
-        initialSelection: _provider?.details,
+        //
+        // `_provider` is the MangaChapterProvider *interface*, which carries no
+        // manifest -- `details` only exists on the concrete
+        // JavaScriptMangaProvider. So it is read off the installed list by id
+        // instead of off the provider.
+        initialSelection: _installed
+            .where((installed) => installed.identifier == _provider?.providerId)
+            .firstOrNull,
         dropdownMenuEntries: getSourceDropdownList(contentType: 'manga'),
         width: 300,
         textStyle: TextStyle(
