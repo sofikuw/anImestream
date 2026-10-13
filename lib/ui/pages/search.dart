@@ -400,7 +400,7 @@ class _SearchState extends State<Search> {
 
                 // The manga variant routes itself, so it needs no wrapper.
                 if (hit.isManga) {
-                  return Container(
+                  return Center(
                     child: Cards.animeCard(
                       int.tryParse(hit.id) ?? 0,
                       nativeTitle ? hit.title['native'] ?? title : title,
@@ -418,7 +418,7 @@ class _SearchState extends State<Search> {
                   );
                 }
 
-                return Container(
+                return Center(
                   child: Cards.animeCard(
                     int.tryParse(hit.id) ?? 0,
                     nativeTitle ? hit.title['native'] ?? title : title,

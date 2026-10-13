@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:animestream/core/database/types.dart';
 import 'package:animestream/ui/models/widgets/cards.dart';
+import 'package:animestream/ui/pages/mangaDetails.dart';
 import 'package:flutter/material.dart';
 
 class ScrollingList {
@@ -44,8 +45,16 @@ class ScrollingList {
     );
   }
 
-  static SizedBox animeCards(
-      BuildContext context, int splitWidth, ScrollController controller, String title, List<DatabaseRelatedRecommendation> list) {
+  /// A titled horizontal rail of related / recommended titles.
+  ///
+  /// AniList reports anime and manga through the same
+  /// [DatabaseRelatedRecommendation] -- `type` is the only thing that separates
+  /// them, and a MANGA relation's `id` is an AniList *manga* id. Building every
+  /// row as an anime card sent a manga tap to `Info(id:)`, an anime details page
+  /// for an id that does not exist there. Manga rows now route to
+  /// [MangaDetailsPage].
+  static SizedBox animeCards(BuildContext context, int splitWidth, ScrollController controller, String title,
+      List<DatabaseRelatedRecommendation> list) {
     final size = MediaQuery.sizeOf(context);
     return SizedBox(
       width: size.width / (size.width > splitWidth ? 1.75 : 1.3),
@@ -75,8 +84,29 @@ class ScrollingList {
               scrollDirection: Axis.horizontal,
               itemBuilder: (context, index) {
                 final it = list[index];
-                return Cards.animeCard(it.id, it.title['english'] ?? it.title['romaji']!, it.cover,
-                    isMobile: !Platform.isWindows, rating: it.rating, subText: it.relationType);
+                final cardTitle = it.title['english'] ?? it.title['romaji'] ?? '';
+                // Case-insensitive: AniList reports MediaType as "MANGA", but
+                // nothing here should depend on that having stayed uppercase.
+                final isManga = it.type.toUpperCase() == 'MANGA';
+                return Cards.animeCard(
+                  it.id,
+                  cardTitle,
+                  it.cover,
+                  isMobile: !Platform.isWindows,
+                  rating: it.rating,
+                  subText: it.relationType,
+                  isAnime: !isManga,
+                  shouldNavigate: !isManga,
+                  // AnimeCard consults onTap before isAnime, so a non-null onTap
+                  // is what actually routes the manga row.
+                  onTap: isManga
+                      ? () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => MangaDetailsPage(id: it.id.toString()),
+                            ),
+                          )
+                      : null,
+                );
               },
             ),
           ),

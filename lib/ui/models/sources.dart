@@ -162,9 +162,20 @@ AnimeProvider getClass(String source) {
   return match;
 }
 
-List<DropdownMenuEntry> getSourceDropdownList() {
+/// The entries offered by a source picker.
+///
+/// Filtered by content type, because a provider manifest declares what it can
+/// serve and this list used to ignore that: a MangaDex install appeared in the
+/// *anime* source dropdown, where selecting it could only ever fail. The filter
+/// reads [ProviderDetails.contentTypes], which defaults to `['anime']` -- so the
+/// built-in Dart providers, which never set it, keep behaving exactly as before.
+///
+/// The default keeps every existing call site working unchanged. A manga source
+/// picker passes `contentType: 'manga'`; that is the only hook it needs.
+List<DropdownMenuEntry> getSourceDropdownList({String contentType = 'anime'}) {
   List<DropdownMenuEntry> widget = [];
-  final sources = SourceManager.instance.sources;
+  final sources = SourceManager.instance.sources
+      .where((source) => source.contentTypes.contains(contentType));
   int count = 0;
   for (final source in sources) {
     widget.add(
