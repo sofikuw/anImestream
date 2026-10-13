@@ -86,6 +86,7 @@ class JsAnimeProviderManifest {
     required this.entrypointSha256,
     required this.allowedHosts,
     required this.supportDownloads,
+    required this.contentTypes,
     required this.repositoryUrl,
     required this.codeUrl,
   });
@@ -98,6 +99,10 @@ class JsAnimeProviderManifest {
   final String entrypointSha256;
   final List<String> allowedHosts;
   final bool supportDownloads;
+
+  /// Declared content types. Anime-only manifests stay anime-only here, so the
+  /// manga side can never pick up a provider that did not ask for it.
+  final List<String> contentTypes;
   final String repositoryUrl;
   final Uri codeUrl;
 
@@ -135,10 +140,18 @@ class JsAnimeProviderManifest {
       );
     }
 
-    final contentTypes = map['contentTypes'];
-    if (contentTypes is! List || !contentTypes.contains('anime')) {
+    final rawContentTypes = map['contentTypes'];
+    if (rawContentTypes is! List || rawContentTypes.isEmpty) {
       throw const FormatException(
-        'Provider must declare anime in contentTypes.',
+        'Provider must declare at least one content type.',
+      );
+    }
+    final declaredContentTypes =
+        rawContentTypes.whereType<String>().toList(growable: false);
+    if (declaredContentTypes.isEmpty ||
+        !declaredContentTypes.every(_supportedContentTypes.contains)) {
+      throw const FormatException(
+        'contentTypes may only contain anime and/or manga.',
       );
     }
 
@@ -219,10 +232,13 @@ class JsAnimeProviderManifest {
       entrypointSha256: digest,
       allowedHosts: List<String>.unmodifiable(hosts),
       supportDownloads: supportDownloads,
+      contentTypes: List<String>.unmodifiable(declaredContentTypes),
       repositoryUrl: repository.indexUrl,
       codeUrl: codeUrl,
     );
   }
+
+  static const Set<String> _supportedContentTypes = {'anime', 'manga'};
 
   static String _requiredString(
     Object? value,

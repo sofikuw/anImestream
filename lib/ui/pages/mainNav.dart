@@ -13,6 +13,7 @@ import 'package:animestream/ui/models/widgets/cards.dart';
 import 'package:animestream/ui/models/snackBar.dart';
 import 'package:animestream/ui/pages/discover.dart';
 import 'package:animestream/ui/pages/home.dart';
+import 'package:animestream/ui/pages/manga.dart';
 import 'package:animestream/ui/pages/search.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -53,8 +54,8 @@ class MainNavigatorState extends State<MainNavigator> with TickerProviderStateMi
     provider.init();
   }
 
-  final _floatyBarController = FloatyBottomBarController(length: 3);
-  final _barController = AnimeStreamBottomBarController(length: 3);
+  final _floatyBarController = FloatyBottomBarController(length: 4);
+  final _barController = AnimeStreamBottomBarController(length: 4);
 
   bool popInvoked = false;
   // late bool tv;
@@ -183,6 +184,14 @@ class MainNavigatorState extends State<MainNavigator> with TickerProviderStateMi
                           style: TextStyle(fontSize: 18),
                         ),
                       ),
+                      NavigationRailDestination(
+                        icon: Icon(Icons.menu_book_rounded,
+                            color: _barController.currentIndex == 3 ? appTheme.onAccent : appTheme.textMainColor),
+                        label: Text(
+                          "Manga",
+                          style: TextStyle(fontSize: 18),
+                        ),
+                      ),
                     ],
                     selectedIndex: _barController.currentIndex,
                   ),
@@ -198,6 +207,7 @@ class MainNavigatorState extends State<MainNavigator> with TickerProviderStateMi
                           mainNavProvider: mainNavProvider,
                         ),
                         Search(),
+                        Manga(),
                       ],
                     ),
                   ),
@@ -226,6 +236,9 @@ class MainNavigatorState extends State<MainNavigator> with TickerProviderStateMi
                   Search(
                     key: ValueKey("2"),
                   ),
+                  Manga(
+                    key: ValueKey("3"),
+                  ),
                 ],
               ),
               AnimeStreamBottomBar(
@@ -236,7 +249,8 @@ class MainNavigatorState extends State<MainNavigator> with TickerProviderStateMi
                 items: [
                   BottomBarItem(title: 'Home', icon: Icon(Icons.home)),
                   BottomBarItem(title: 'Discover', icon: Icon(Icons.auto_awesome)),
-                  BottomBarItem(title: 'Search', icon: Icon(Icons.search))
+                  BottomBarItem(title: 'Search', icon: Icon(Icons.search)),
+                  BottomBarItem(title: 'Manga', icon: Icon(Icons.menu_book_rounded))
                 ],
                 controller: _barController,
               )
@@ -259,6 +273,9 @@ class MainNavigatorState extends State<MainNavigator> with TickerProviderStateMi
                   Search(
                     key: ValueKey("2"),
                   ),
+                  Manga(
+                    key: ValueKey("3"),
+                  ),
                 ],
               ),
               FloatyBottomBar(
@@ -271,6 +288,7 @@ class MainNavigatorState extends State<MainNavigator> with TickerProviderStateMi
                   FloatyBarItem(title: 'Home', icon: Icons.home),
                   FloatyBarItem(title: 'Discover', icon: Icons.auto_awesome),
                   FloatyBarItem(title: 'Search', icon: Icons.search),
+                  FloatyBarItem(title: 'Manga', icon: Icons.menu_book_rounded),
                 ],
               )
             ],

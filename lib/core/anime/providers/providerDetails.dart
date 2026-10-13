@@ -14,6 +14,12 @@ class ProviderDetails {
   final String? repositoryUrl;
   final String? sourceSha256;
 
+  /// Content types this provider serves: "anime" and/or "manga".
+  ///
+  /// Defaults to ["anime"] so records written before this field existed -- and
+  /// the built-in Dart providers -- keep behaving as anime-only.
+  final List<String> contentTypes;
+
   ProviderDetails({
     required this.name,
     required this.identifier,
@@ -26,7 +32,9 @@ class ProviderDetails {
     this.enabled = true,
     this.repositoryUrl,
     this.sourceSha256,
-  }) : allowedHosts = List<String>.unmodifiable(allowedHosts);
+    List<String> contentTypes = const <String>['anime'],
+  })  : allowedHosts = List<String>.unmodifiable(allowedHosts),
+        contentTypes = List<String>.unmodifiable(contentTypes);
 
   ProviderDetails copyWith({
     String? name,
@@ -40,6 +48,7 @@ class ProviderDetails {
     bool? enabled,
     String? repositoryUrl,
     String? sourceSha256,
+    List<String>? contentTypes,
   }) {
     return ProviderDetails(
       name: name ?? this.name,
@@ -53,6 +62,7 @@ class ProviderDetails {
       enabled: enabled ?? this.enabled,
       repositoryUrl: repositoryUrl ?? this.repositoryUrl,
       sourceSha256: sourceSha256 ?? this.sourceSha256,
+      contentTypes: contentTypes ?? this.contentTypes,
     );
   }
 
@@ -69,6 +79,7 @@ class ProviderDetails {
       'enabled': enabled,
       'repositoryUrl': repositoryUrl,
       'sourceSha256': sourceSha256,
+      'contentTypes': contentTypes,
     };
   }
 
@@ -87,6 +98,9 @@ class ProviderDetails {
       enabled: (map['enabled'] ?? true) as bool,
       repositoryUrl: map['repositoryUrl'] as String?,
       sourceSha256: map['sourceSha256'] as String?,
+      contentTypes: map['contentTypes'] is List
+          ? (map['contentTypes'] as List).whereType<String>().toList()
+          : const <String>['anime'],
     );
   }
 
@@ -109,6 +123,7 @@ class ProviderDetails {
       supportDownloads.hashCode ^
       scriptType.hashCode ^
       Object.hashAll(allowedHosts) ^
+      Object.hashAll(contentTypes) ^
       enabled.hashCode ^
       repositoryUrl.hashCode ^
       sourceSha256.hashCode;
@@ -127,6 +142,7 @@ class ProviderDetails {
       other.supportDownloads == supportDownloads &&
       other.scriptType == scriptType &&
       _sameHosts(other.allowedHosts, allowedHosts) &&
+      _sameHosts(other.contentTypes, contentTypes) &&
       other.enabled == enabled &&
       other.repositoryUrl == repositoryUrl &&
       other.sourceSha256 == sourceSha256;
