@@ -8,7 +8,6 @@ import 'package:animestream/core/manga/types.dart';
 import 'package:animestream/ui/models/widgets/cards.dart';
 import 'package:animestream/ui/models/widgets/loader.dart';
 import 'package:animestream/ui/pages/mangaReader.dart';
-import 'package:animestream/ui/pages/settingPages/common.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 

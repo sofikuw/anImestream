@@ -176,7 +176,7 @@ class _MangaState extends State<Manga> {
                 else ...{
                   for (var index = 0; index < _sectionTitles.length; index++) ...{
                     _titleAndList(_sectionTitles[index], _sections[_sectionTitles[index]]!,
-                        state: _states[_sectionTitles[index]]),
+                        state: _states[_sectionTitles[index]] ?? LoadingState.loaded),
                     if (index != _sectionTitles.length - 1) divider(),
                   },
                   if (_allFailed) _attribution(),
