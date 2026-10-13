@@ -169,6 +169,7 @@ class ProviderCatalogService {
       scriptType: 'javascript',
       allowedHosts: manifest.allowedHosts,
       contentTypes: manifest.contentTypes,
+      contentTypes: manifest.contentTypes,
       enabled: enabled,
       repositoryUrl: repository.indexUrl,
       sourceSha256: manifest.entrypointSha256,

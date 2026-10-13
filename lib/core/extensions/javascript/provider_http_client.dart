@@ -27,49 +27,21 @@ http.Client createPublicHttpsClient({
           'The HTTPS hostname did not resolve exclusively to public IP addresses.',
         );
       }
-      final tasks = <ConnectionTask<Socket>>[];
-      var cancelled = false;
-      final attemptTimeout = connectionTimeout < const Duration(seconds: 3)
-          ? connectionTimeout
-          : const Duration(seconds: 3);
-
-      Future<Socket> connect() async {
-        Object? lastError;
-        for (final address in addresses) {
-          if (cancelled) {
-            throw SocketException('HTTPS connection attempt was cancelled.');
-          }
-          final task = await Socket.startConnect(address, uri.port);
-          tasks.add(task);
-          if (cancelled) {
-            task.cancel();
-            throw SocketException('HTTPS connection attempt was cancelled.');
-          }
-          try {
-            final socket = await task.socket.timeout(attemptTimeout);
-            if (cancelled) {
-              socket.destroy();
-              throw SocketException('HTTPS connection attempt was cancelled.');
-            }
-            return socket;
-          } catch (error) {
-            lastError = error;
-            task.cancel();
-          }
-        }
-        if (lastError != null) throw lastError;
-        throw SocketException('No public HTTPS address could be reached.');
-      }
-
-      return ConnectionTask.fromSocket<Socket>(
-        connect(),
-        () {
-          cancelled = true;
-          for (final task in tasks) {
-            task.cancel();
-          }
-        },
-      );
+      // TLS has to happen here. HttpClient expects this factory to return a
+      // socket that is ready to carry HTTPS, and Socket.startConnect returns a
+      // PLAINTEXT socket -- so the client spoke TLS over an already-open plain
+      // connection and every request failed with HTTP 400.
+      //
+      // SecureSocket.startConnect performs the handshake and validates the
+      // certificate against uri.host.
+      //
+      // Trade-off: the addresses vetted above are no longer the socket that is
+      // connected, so Dart resolves uri.host a second time. The lookup is now a
+      // pre-flight check rejecting hostnames that resolve to private or
+      // reserved space, rather than a hard IP pin. To restore a true pin,
+      // connect plaintext to one vetted address and then upgrade with
+      // SecureSocket.secure(socket, host: uri.host).
+      return SecureSocket.startConnect(uri.host, uri.port);
     };
   return IOClient(client);
 }
