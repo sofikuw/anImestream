@@ -16,7 +16,10 @@ import 'package:animestream/ui/models/snackBar.dart';
 import 'package:animestream/ui/models/widgets/cards.dart';
 import 'package:animestream/ui/models/widgets/cards/animeCard.dart';
 import 'package:animestream/ui/pages/mangaDetails.dart';
-import 'package:flutter/widgets.dart';
+// material, not widgets: the manga rail card pushes a MaterialPageRoute, and
+// MaterialPageRoute is declared in material.dart. widgets.dart does not export
+// it, so `flutter/widgets.dart` alone fails to resolve the route.
+import 'package:flutter/material.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
 
 class MainNavProvider extends ChangeNotifier {

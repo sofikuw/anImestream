@@ -169,6 +169,14 @@ class Cards {
     );
   }
 
+  /// The wide "Continue Watching"-style row card.
+  ///
+  /// [contentType] and [routeId] existed on [AnimeCardExtended] from the start
+  /// of the manga work but were never passed through this factory, so every
+  /// caller that went through it -- `home.dart`'s rails in particular -- could
+  /// not route a manga row: the argument did not exist to pass, and the row
+  /// fell back to the anime info page. Widening the factory is the fix; the
+  /// card itself already knew what to do with both.
   static AnimeCardExtended animeCardExtended(
     int id,
     String title,
@@ -181,6 +189,8 @@ class Cards {
     int? watchedEpisodeCount,
     int? totalEpisodes,
     String? bannerImageUrl,
+    String contentType = 'anime',
+    String? routeId,
   }) =>
       AnimeCardExtended(
         id: id,
@@ -193,5 +203,7 @@ class Cards {
         shouldNavigate: shouldNavigate,
         totalEpisodes: totalEpisodes,
         watchedEpisodeCount: watchedEpisodeCount,
+        contentType: contentType,
+        routeId: routeId,
       );
 }
