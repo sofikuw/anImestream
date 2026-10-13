@@ -233,6 +233,20 @@ class AnilistManga implements MangaMetadataSource {
       }
     }
 
+    // The summary keeps one title for card display; the details page needs
+    // every title the manifest knows, because the manga extension on the other
+    // side matches against whichever one its own catalogue uses.
+    final titles = info['title'];
+    final alternateTitles = <String>[];
+    String? nativeTitle;
+    if (titles is Map) {
+      nativeTitle = titles['native'] is String ? titles['native'] as String : null;
+      for (final key in const ['english', 'romaji', 'native']) {
+        final value = titles[key];
+        if (value is String && value.trim().isNotEmpty) alternateTitles.add(value);
+      }
+    }
+
     final mediaListEntry = info['mediaListEntry'];
     final volumes = info['volumes'];
     final description = info['description'];
@@ -255,6 +269,8 @@ class AnilistManga implements MangaMetadataSource {
       volumes: volumes is int ? volumes : null,
       startDate: _formatDate(info['startDate']),
       endDate: _formatDate(info['endDate']),
+      alternateTitles: alternateTitles,
+      nativeTitle: nativeTitle,
       mediaListStatus:
           mediaListEntry is Map ? mediaListEntry['status']?.toString() : null,
       listId: mediaListEntry is Map && mediaListEntry['id'] is int

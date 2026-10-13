@@ -17,9 +17,15 @@ import 'package:pull_to_refresh/pull_to_refresh.dart';
 /// browses and searches fine with no extension installed. Chapters and pages
 /// are not available here -- see [MangaDetailsPage].
 ///
-/// Styling follows `home.dart` on purpose: same header, section title
-/// typography (Rubik 20), accent progress indicators, and the shared ghost
-/// artwork for empty/error states.
+/// Built to match `home.dart` / `discover.dart` rather than to invent a layout:
+/// the same `pagePadding` wrapper, the same `buildHeader`, the same
+/// `_titleAndList` sections with the shared accent divider, and the same
+/// `Cards.animeCard` tiles (which carry the title and rating under the cover,
+/// so the section name is never the only thing on screen).
+///
+/// The earlier version put the search field above the sections and used a
+/// fixed-height horizontal strip, which is why titles were clipped and the
+/// section spacing did not match the anime tabs.
 class Manga extends StatefulWidget {
   const Manga({super.key});
 
@@ -29,7 +35,8 @@ class Manga extends StatefulWidget {
 
 class _MangaState extends State<Manga> {
   final AnilistManga _source = AnilistManga();
-  final RefreshController _refreshController = RefreshController(initialRefresh: false);
+  final RefreshController _refreshController =
+      RefreshController(initialRefresh: false);
   final TextEditingController _searchController = TextEditingController();
 
   /// Ordered so the sections render in a stable, deliberate order.
@@ -154,28 +161,29 @@ class _MangaState extends State<Manga> {
           backgroundColor: appTheme.backgroundSubColor,
           color: appTheme.accentColor,
         ),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Same safe-area padding as Home and Discover, so the title
-              // and its download/settings buttons line up with theirs.
-              Padding(
-                padding: pagePadding(context).copyWith(left: 0),
-                child: buildHeader("Manga", context),
-              ),
-              _searchField(),
-              if (_searching)
-                _searchResultsView()
-              else ...[
-                for (var index = 0; index < _sectionTitles.length; index++) ...[
-                  _section(_sectionTitles[index]),
-                  if (index != _sectionTitles.length - 1) divider(),
-                ],
-                if (_allFailed) _attribution(),
-                footSpace(),
+        child: Container(
+          padding: pagePadding(context).copyWith(left: 0),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                buildHeader("Manga", context, afterNavigation: () {
+                  if (mounted) setState(() {});
+                }),
+                _searchField(),
+                if (_searching)
+                  _searchResultsView()
+                else ...{
+                  for (var index = 0; index < _sectionTitles.length; index++) ...{
+                    _titleAndList(_sectionTitles[index], _sections[_sectionTitles[index]]!,
+                        state: _states[_sectionTitles[index]]),
+                    if (index != _sectionTitles.length - 1) divider(),
+                  },
+                  if (_allFailed) _attribution(),
+                  footSpace(),
+                },
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -185,9 +193,11 @@ class _MangaState extends State<Manga> {
   bool get _allFailed =>
       _sectionTitles.every((title) => _states[title] == LoadingState.error);
 
+  /// Same shape as the anime search box: one rounded field, no border, in the
+  /// page's own padding rather than the section padding.
   Widget _searchField() {
     return Container(
-      margin: const EdgeInsets.only(left: 15, right: 15, bottom: 10),
+      margin: const EdgeInsets.only(left: 20, right: 20, bottom: 5),
       decoration: BoxDecoration(
         color: appTheme.backgroundSubColor,
         borderRadius: BorderRadius.circular(10),
@@ -196,11 +206,19 @@ class _MangaState extends State<Manga> {
         controller: _searchController,
         textInputAction: TextInputAction.search,
         onSubmitted: runSearch,
-        style: TextStyle(color: appTheme.textMainColor, fontFamily: "NotoSans", fontSize: 15),
+        style: TextStyle(
+          color: appTheme.textMainColor,
+          fontFamily: "NotoSans",
+          fontSize: 15,
+        ),
         decoration: InputDecoration(
           border: InputBorder.none,
           hintText: "Search manga",
-          hintStyle: TextStyle(color: appTheme.textSubColor, fontFamily: "NotoSans", fontSize: 15),
+          hintStyle: TextStyle(
+            color: appTheme.textSubColor,
+            fontFamily: "NotoSans",
+            fontSize: 15,
+          ),
           prefixIcon: Icon(Icons.search_rounded, color: appTheme.textSubColor),
           suffixIcon: _searchController.text.isEmpty
               ? null
@@ -217,41 +235,42 @@ class _MangaState extends State<Manga> {
     );
   }
 
-  Widget _searchResultsView() {
-    if (_searchState == LoadingState.loading) return _loading();
-    if (_searchState == LoadingState.error) return _empty("Aww... Something's wrong!", Icons.error_outline);
-    if (_searchResults.isEmpty) return _empty("Boo! Nothing's here!");
-
+  /// Mirrors `home.dart:_titleAndList`: title, then a horizontal list of
+  /// anime-style cards, with the same empty/loading/error treatment.
+  Widget _titleAndList(
+    String title,
+    List<MangaSummary> list, {
+    LoadingState state = LoadingState.loaded,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionTitle("Results"),
-        _grid(_searchResults),
-        footSpace(),
-      ],
-    );
-  }
-
-  Widget _section(String title) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _sectionTitle(title),
         Container(
-          height: 160,
-          child: switch (_states[title]) {
-            LoadingState.loading => _loading(),
+          padding: const EdgeInsets.only(left: 20, top: 20),
+          child: Text(
+            title,
+            style: TextStyle(
+              fontFamily: "Rubik",
+              fontSize: 22,
+              color: appTheme.textMainColor,
+            ),
+          ),
+        ),
+        Container(
+          height: 260,
+          margin: const EdgeInsets.only(top: 10),
+          child: switch (state) {
+            LoadingState.loading => Center(
+                child: CircularProgressIndicator(color: appTheme.accentColor),
+              ),
             LoadingState.error => _empty("Aww... Something's wrong!"),
-            _ => _sections[title]!.isEmpty
+            _ => list.isEmpty
                 ? _empty("Boo! Nothing's here!")
                 : ListView.builder(
-                    padding: EdgeInsets.zero,
+                    padding: const EdgeInsets.symmetric(horizontal: 15),
                     scrollDirection: Axis.horizontal,
-                    itemCount: _sections[title]!.length,
-                    itemBuilder: (context, index) => Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: _card(_sections[title]![index]),
-                    ),
+                    itemCount: list.length,
+                    itemBuilder: (context, index) => _card(list[index]),
                   ),
           },
         ),
@@ -259,35 +278,65 @@ class _MangaState extends State<Manga> {
     );
   }
 
-  Widget _sectionTitle(String title) {
-    return Container(
-      alignment: Alignment.centerLeft,
-      padding: const EdgeInsets.only(left: 15, right: 15, bottom: 4),
-      child: Text(
-        title,
-        style: TextStyle(fontFamily: "Rubik", fontSize: 20, color: appTheme.textMainColor),
-      ),
+  Widget _searchResultsView() {
+    if (_searchState == LoadingState.loading) {
+      return Container(
+        height: 260,
+        child: Center(child: CircularProgressIndicator(color: appTheme.accentColor)),
+      );
+    }
+    return _grid(
+      _searchState == LoadingState.error
+          ? const <MangaSummary>[]
+          : _searchResults,
+      error: _searchState == LoadingState.error,
     );
   }
 
-  Widget _grid(List<MangaSummary> items) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 160,
-        mainAxisExtent: 230,
-        childAspectRatio: 120 / 220,
-        mainAxisSpacing: 10,
-      ),
-      itemCount: items.length,
-      itemBuilder: (context, index) => Center(child: _card(items[index])),
+  /// Search results are a wrap-around grid: a query can return 25 titles, and a
+  /// single row would hide most of them.
+  Widget _grid(List<MangaSummary> items, {bool error = false}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.only(left: 20, top: 20),
+          child: Text(
+            "Results",
+            style: TextStyle(
+              fontFamily: "Rubik",
+              fontSize: 22,
+              color: appTheme.textMainColor,
+            ),
+          ),
+        ),
+        if (error)
+          SizedBox(height: 240, child: _empty("Aww... Something's wrong!"))
+        else if (items.isEmpty)
+          SizedBox(height: 240, child: _empty("Boo! Nothing's here!"))
+        else
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 165,
+              mainAxisExtent: 250,
+              mainAxisSpacing: 10,
+            ),
+            itemCount: items.length,
+            itemBuilder: (context, index) => _card(items[index]),
+          ),
+        footSpace(),
+      ],
     );
   }
 
-  /// Reuses the app's own anime card for visual parity, with its built-in
-  /// navigation disabled so the tap can open the manga details page instead.
+  /// The app's own anime card, with its built-in navigation replaced by the
+  /// manga details route.
+  ///
+  /// The card owns its `InkWell`, so a caller wrapping it in another one never
+  /// sees the tap -- hence `onTap` on `AnimeCard` rather than a wrapper here.
   Widget _card(MangaSummary manga) {
     final preferNative = currentUserSettings?.nativeTitle ?? false;
     return Cards.animeCard(
@@ -303,12 +352,6 @@ class _MangaState extends State<Manga> {
     );
   }
 
-  Widget _loading() {
-    return Center(
-      child: CircularProgressIndicator(color: appTheme.accentColor),
-    );
-  }
-
   /// Mirrors home.dart's empty/error treatment.
   Widget _empty(String message, [IconData? icon]) {
     return Center(
@@ -316,7 +359,8 @@ class _MangaState extends State<Manga> {
         mainAxisSize: MainAxisSize.min,
         children: [
           icon == null
-              ? Image.asset("lib/assets/images/ghost.png", color: const Color.fromARGB(255, 80, 80, 80))
+              ? Image.asset("lib/assets/images/ghost.png",
+                  color: const Color.fromARGB(255, 80, 80, 80))
               : Icon(icon, color: const Color.fromARGB(255, 80, 80, 80), size: 48),
           Padding(
             padding: const EdgeInsets.only(top: 10.0),
@@ -343,7 +387,11 @@ class _MangaState extends State<Manga> {
         child: Text(
           "Couldn't reach AniList. Check your connection and pull to refresh.",
           textAlign: TextAlign.center,
-          style: TextStyle(fontFamily: "NotoSans", fontSize: 13, color: appTheme.textSubColor),
+          style: TextStyle(
+            fontFamily: "NotoSans",
+            fontSize: 13,
+            color: appTheme.textSubColor,
+          ),
         ),
       ),
     );

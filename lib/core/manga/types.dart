@@ -117,6 +117,15 @@ class MangaDetails {
   final String? mediaListStatus;
   final int? listId;
 
+  /// The rest of AniList's title triple.
+  ///
+  /// [MangaSummary.title] carries only one of the three so cards stay short;
+  /// the details page needs the others, because a manga extension matches
+  /// against whichever title its own catalogue happens to use. Populated by
+  /// `AnilistManga.getDetails`.
+  final List<String> alternateTitles;
+  final String? nativeTitle;
+
   MangaDetails({
     required this.summary,
     this.synopsis,
@@ -129,9 +138,12 @@ class MangaDetails {
     this.endDate,
     this.mediaListStatus,
     this.listId,
+    List<String> alternateTitles = const <String>[],
+    this.nativeTitle,
   })  : authors = List<String>.unmodifiable(authors),
         characters = List<MangaCharacter>.unmodifiable(characters),
-        relations = List<MangaRelation>.unmodifiable(relations);
+        relations = List<MangaRelation>.unmodifiable(relations),
+        alternateTitles = List<String>.unmodifiable(alternateTitles);
 
   String get title => summary.title;
   String? get cover => summary.cover;
