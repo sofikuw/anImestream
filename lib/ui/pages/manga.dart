@@ -7,6 +7,7 @@ import 'package:animestream/ui/models/snackBar.dart';
 import 'package:animestream/ui/models/widgets/cards.dart';
 import 'package:animestream/ui/models/widgets/header.dart';
 import 'package:animestream/ui/pages/mangaDetails.dart';
+import 'package:animestream/ui/pages/settingPages/common.dart';
 import 'package:flutter/material.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
 
@@ -157,7 +158,12 @@ class _MangaState extends State<Manga> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              buildHeader("Manga", context),
+              // Same safe-area padding as Home and Discover, so the title
+              // and its download/settings buttons line up with theirs.
+              Padding(
+                padding: pagePadding(context).copyWith(left: 0),
+                child: buildHeader("Manga", context),
+              ),
               _searchField(),
               if (_searching)
                 _searchResultsView()
@@ -284,18 +290,15 @@ class _MangaState extends State<Manga> {
   /// navigation disabled so the tap can open the manga details page instead.
   Widget _card(MangaSummary manga) {
     final preferNative = currentUserSettings?.nativeTitle ?? false;
-    return InkWell(
-      borderRadius: BorderRadius.circular(15),
+    return Cards.animeCard(
+      int.tryParse(manga.id) ?? 0,
+      manga.title,
+      manga.cover ?? '',
+      rating: manga.rating,
+      shouldNavigate: false,
+      subText: preferNative ? null : manga.format,
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute(builder: (context) => MangaDetailsPage(id: manga.id)),
-      ),
-      child: Cards.animeCard(
-        int.tryParse(manga.id) ?? 0,
-        manga.title,
-        manga.cover ?? '',
-        rating: manga.rating,
-        shouldNavigate: false,
-        subText: preferNative ? null : manga.format,
       ),
     );
   }

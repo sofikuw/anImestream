@@ -2,10 +2,12 @@ import 'package:animestream/core/app/logging.dart';
 import 'package:animestream/core/app/runtimeDatas.dart';
 import 'package:animestream/core/commons/enums/loadingState.dart';
 import 'package:animestream/core/manga/anilistManga.dart';
+import 'package:animestream/core/manga/javascriptMangaProvider.dart';
 import 'package:animestream/core/manga/mangaProvider.dart';
 import 'package:animestream/core/manga/types.dart';
 import 'package:animestream/ui/models/snackBar.dart';
 import 'package:animestream/ui/models/widgets/cards.dart';
+import 'package:animestream/ui/pages/mangaReader.dart';
 import 'package:flutter/material.dart';
 
 /// Manga details.
@@ -16,8 +18,8 @@ import 'package:flutter/material.dart';
 /// The chapter list is gated on [chapterProvider]. AniList reports a chapter
 /// *count* (`chapters: 120`) but never a list of chapters and never page
 /// images, so with no provider there is nothing honest to render -- no chapter
-/// rows are synthesised from the count. Wiring an installed manga extension in
-/// here is the next increment.
+/// rows are synthesised from the count. An installed manga extension is
+/// discovered here, and supplies both the chapters and their pages.
 class MangaDetailsPage extends StatefulWidget {
   final String id;
 
@@ -41,9 +43,14 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
   List<MangaChapter> _chapters = [];
   LoadingState _chaptersState = LoadingState.loaded;
 
+  /// Chapters and pages. Taken from the caller when one is supplied, otherwise
+  /// discovered from an installed manga extension during [load].
+  MangaChapterProvider? _provider;
+
   @override
   void initState() {
     super.initState();
+    _provider = widget.chapterProvider;
     load();
   }
 
@@ -55,9 +62,13 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
 
     try {
       final details = await _source.getDetails(widget.id);
+      // An installed manga extension supplies the chapters and pages. Resolved
+      // once per page, not once per chapter.
+      final provider = _provider ?? await JavaScriptMangaProvider.firstInstalled();
       if (!mounted) return;
       setState(() {
         _details = details;
+        _provider = provider;
         _state = LoadingState.loaded;
       });
       await loadChapters(details);
@@ -72,7 +83,7 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
   }
 
   Future<void> loadChapters(MangaDetails details) async {
-    final provider = widget.chapterProvider;
+    final provider = _provider;
     if (provider == null) return;
 
     setState(() => _chaptersState = LoadingState.loading);
@@ -88,6 +99,16 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
       if (!mounted) return;
       setState(() => _chaptersState = LoadingState.error);
     }
+  }
+
+  @override
+  void dispose() {
+    // Only a provider this page discovered itself is this page's to release; one
+    // supplied by the caller belongs to the caller.
+    if (widget.chapterProvider == null) {
+      _provider?.dispose();
+    }
+    super.dispose();
   }
 
   @override
@@ -388,14 +409,17 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
   /// The reading gate. This is where an installed manga extension's chapters
   /// will be listed once [chapterProvider] is wired up.
   Widget _chaptersSection(MangaDetails details) {
-    final provider = widget.chapterProvider;
+    final provider = _provider;
     final totalChapters = details.totalChapters;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _sectionTitle("Chapters"),
-        if (provider == null) _noProviderGate(totalChapters) else _chapterList(),
+        if (provider == null)
+          _noProviderGate(totalChapters)
+        else
+          _chapterList(details),
       ],
     );
   }
@@ -441,13 +465,13 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
     );
   }
 
-  Widget _chapterList() {
+  Widget _chapterList(MangaDetails details) {
     return switch (_chaptersState) {
       LoadingState.loading => Padding(
           padding: const EdgeInsets.all(24),
           child: Center(child: CircularProgressIndicator(color: appTheme.accentColor)),
         ),
-      LoadingState.error => _inlineMessage("Couldn't load chapters from ${widget.chapterProvider!.providerName}."),
+      LoadingState.error => _inlineMessage("Couldn't load chapters from ${_provider!.providerName}."),
       _ => _chapters.isEmpty
           ? _inlineMessage("This provider has no chapters for this title.")
           : ListView.builder(
@@ -470,8 +494,15 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
                           style: TextStyle(fontFamily: "NotoSans", fontSize: 12, color: appTheme.textSubColor),
                         ),
                   trailing: Icon(Icons.chevron_right_rounded, color: appTheme.textSubColor),
-                  // The reader lands in the next increment.
-                  onTap: () => floatingSnackBar("Reader lands in the next stage."),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => MangaReaderPage(
+                        manga: details,
+                        chapter: chapter,
+                        provider: _provider!,
+                      ),
+                    ),
+                  ),
                 );
               },
             ),

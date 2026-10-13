@@ -151,6 +151,7 @@ class Cards {
     double? rating = null,
     bool? isMobile,
     void Function()? afterNavigation,
+    void Function()? onTap,
   }) {
     return AnimeCard(
       // context: context,
@@ -158,6 +159,7 @@ class Cards {
       title: title,
       imageUrl: imageUrl,
       afterNavigation: afterNavigation,
+      onTap: onTap,
       ongoing: ongoing,
       shouldNavigate: shouldNavigate,
       isAnime: isAnime,

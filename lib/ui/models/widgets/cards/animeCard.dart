@@ -21,12 +21,20 @@ class AnimeCard extends StatefulWidget {
   final double? rating;
   final void Function()? afterNavigation;
 
+  /// Replaces the card's built-in tap behaviour entirely.
+  ///
+  /// The card owns its InkWell, so a caller that wraps it in an InkWell of
+  /// its own never sees the tap. Callers that need different navigation -- the
+  /// manga tab, whose ids are AniList manga ids -- pass this instead.
+  final void Function()? onTap;
+
   const AnimeCard({
     super.key,
     required this.id,
     required this.title,
     required this.afterNavigation,
     required this.imageUrl,
+    this.onTap,
     this.isAnime = true,
     this.ongoing = false,
     this.rating = null,
@@ -63,6 +71,7 @@ class _AnimeCardState extends State<AnimeCard> {
         hoverColor: Colors.transparent,
         overlayColor: WidgetStatePropertyAll(Colors.transparent),
         onTap: () {
+          if (widget.onTap != null) return widget.onTap!();
           if (!widget.isAnime) return floatingSnackBar("Manga or Novels aren't supported");
           if (widget.shouldNavigate)
             Navigator.of(context)
