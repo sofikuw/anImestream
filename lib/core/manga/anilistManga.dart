@@ -15,6 +15,12 @@ import 'package:animestream/core/manga/types.dart';
 ///
 /// This source deliberately exposes no chapters or pages. AniList knows a manga
 /// has N chapters; it never lists them.
+///
+/// Shipped as a whole file rather than as a patch. The `alternateTitles` /
+/// `nativeTitle` plumbing was attempted as string edits three times and each
+/// attempt left duplicated declarations behind, because the anchor text
+/// survived its own replacement and the exactly-once guard could not see the
+/// second application. A whole file cannot drift.
 class AnilistManga implements MangaMetadataSource {
   final Anilist _anilist = Anilist();
 
@@ -127,6 +133,31 @@ class AnilistManga implements MangaMetadataSource {
     return 'Unknown';
   }
 
+  /// Every non-empty title in AniList's triple, in english/romaji/native order,
+  /// skipping the first [skip] entries.
+  ///
+  /// English leads, so a caller that already has the primary title from
+  /// [_title] passes 1 to get the rest. The details page carries these because
+  /// a manga extension matches AniList's title against its own catalogue, and
+  /// different sources key on different ones -- MangaDex indexes manhwa by
+  /// their native title as often as by the English one.
+  static List<String> _titleTriple(Object? titles, int skip) {
+    if (titles is! Map) return const <String>[];
+    final found = <String>[];
+    for (final key in const ['english', 'romaji', 'native']) {
+      final value = titles[key];
+      if (value is String && value.trim().isNotEmpty) found.add(value);
+    }
+    if (skip <= 0) return List<String>.unmodifiable(found);
+    return List<String>.unmodifiable(found.skip(skip));
+  }
+
+  static String? _nativeTitle(Object? titles) {
+    if (titles is! Map) return null;
+    final value = titles['native'];
+    return value is String && value.trim().isNotEmpty ? value : null;
+  }
+
   @override
   Future<MangaDetails> getDetails(String id) async {
     final mediaId = int.tryParse(id);
@@ -233,34 +264,6 @@ class AnilistManga implements MangaMetadataSource {
       }
     }
 
-    // The summary keeps one title for card display; the details page needs
-    // every title the manifest knows, because the manga extension on the other
-    // side matches against whichever one its own catalogue uses.
-    final titles = info['title'];
-    final alternateTitles = <String>[];
-    String? nativeTitle;
-    if (titles is Map) {
-      nativeTitle = titles['native'] is String ? titles['native'] as String : null;
-      for (final key in const ['english', 'romaji', 'native']) {
-        final value = titles[key];
-        if (value is String && value.trim().isNotEmpty) alternateTitles.add(value);
-      }
-    }
-
-    // The summary keeps one title for card display; the details page needs
-    // every title the manifest knows, because the manga extension on the other
-    // side matches against whichever one its own catalogue uses.
-    final titles = info['title'];
-    final alternateTitles = <String>[];
-    String? nativeTitle;
-    if (titles is Map) {
-      nativeTitle = titles['native'] is String ? titles['native'] as String : null;
-      for (final key in const ['english', 'romaji', 'native']) {
-        final value = titles[key];
-        if (value is String && value.trim().isNotEmpty) alternateTitles.add(value);
-      }
-    }
-
     final mediaListEntry = info['mediaListEntry'];
     final volumes = info['volumes'];
     final description = info['description'];
@@ -283,10 +286,11 @@ class AnilistManga implements MangaMetadataSource {
       volumes: volumes is int ? volumes : null,
       startDate: _formatDate(info['startDate']),
       endDate: _formatDate(info['endDate']),
-      alternateTitles: alternateTitles,
-      nativeTitle: nativeTitle,
-      alternateTitles: alternateTitles,
-      nativeTitle: nativeTitle,
+      // The summary keeps one title for card display; the details page needs
+      // every title AniList knows, because the manga extension on the other
+      // side matches against whichever one its own catalogue uses.
+      alternateTitles: _titleTriple(info['title'], 1),
+      nativeTitle: _nativeTitle(info['title']),
       mediaListStatus:
           mediaListEntry is Map ? mediaListEntry['status']?.toString() : null,
       listId: mediaListEntry is Map && mediaListEntry['id'] is int
