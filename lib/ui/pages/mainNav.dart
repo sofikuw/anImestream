@@ -13,12 +13,17 @@ import 'package:animestream/ui/models/widgets/cards.dart';
 import 'package:animestream/ui/models/snackBar.dart';
 import 'package:animestream/ui/pages/discover.dart';
 import 'package:animestream/ui/pages/home.dart';
-import 'package:animestream/ui/pages/manga.dart';
 import 'package:animestream/ui/pages/search.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+/// Three tabs: Home, Discover, Search.
+///
+/// Manga has no tab of its own. It is a content type that appears inside the
+/// existing tabs -- rails on Discover, results in Search, a Continue Reading row
+/// on Home -- so the navigation is back to the three destinations it had before
+/// manga was added, and the Manga tab's index-3 slot is gone.
 class MainNavigator extends StatefulWidget {
   const MainNavigator({super.key});
 
@@ -54,12 +59,10 @@ class MainNavigatorState extends State<MainNavigator> with TickerProviderStateMi
     provider.init();
   }
 
-  final _floatyBarController = FloatyBottomBarController(length: 4);
-  final _barController = AnimeStreamBottomBarController(length: 4);
+  final _floatyBarController = FloatyBottomBarController(length: 3);
+  final _barController = AnimeStreamBottomBarController(length: 3);
 
   bool popInvoked = false;
-  // late bool tv;
-  // bool isAndroid = Platform.isAndroid;
 
   late MainNavProvider mainNavProvider;
 
@@ -120,6 +123,9 @@ class MainNavigatorState extends State<MainNavigator> with TickerProviderStateMi
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, res) async {
+        // Index 0 is Home. With the Manga tab gone, Search is the last index --
+        // anything other than Home returns there first, which also covers a
+        // user who was on Search when they hit back.
         if (_barController.currentIndex != 0) {
           _barController.currentIndex = 0;
           return;
@@ -136,16 +142,6 @@ class MainNavigatorState extends State<MainNavigator> with TickerProviderStateMi
         body: MediaQuery.of(context).orientation == Orientation.landscape || Platform.isWindows || Platform.isLinux
             ? Row(
                 children: [
-                  // AnimeStreamNavRail(
-                  //   destinations: [
-                  //     AnimeStreamNavDestination(icon: Icons.home, label: "Home"),
-                  //     AnimeStreamNavDestination(icon: Icons.auto_awesome, label: "Discover"),
-                  //     AnimeStreamNavDestination(icon: Icons.search, label: "Search"),
-                  //   ],
-                  //   controller: _barController,
-                  //   initialIndex: 0,
-                  //   shouldExpand: false,
-                  // ),
                   NavigationRail(
                     onDestinationSelected: (value) {
                       _barController.currentIndex = value;
@@ -184,21 +180,12 @@ class MainNavigatorState extends State<MainNavigator> with TickerProviderStateMi
                           style: TextStyle(fontSize: 18),
                         ),
                       ),
-                      NavigationRailDestination(
-                        icon: Icon(Icons.menu_book_rounded,
-                            color: _barController.currentIndex == 3 ? appTheme.onAccent : appTheme.textMainColor),
-                        label: Text(
-                          "Manga",
-                          style: TextStyle(fontSize: 18),
-                        ),
-                      ),
                     ],
                     selectedIndex: _barController.currentIndex,
                   ),
                   Expanded(
                     child: BottomBarView(
                       controller: _barController,
-                      // physics: NeverScrollableScrollPhysics(),
                       children: [
                         Home(
                           mainNavProvider: mainNavProvider,
@@ -207,7 +194,6 @@ class MainNavigatorState extends State<MainNavigator> with TickerProviderStateMi
                           mainNavProvider: mainNavProvider,
                         ),
                         Search(),
-                        Manga(),
                       ],
                     ),
                   ),
@@ -236,9 +222,6 @@ class MainNavigatorState extends State<MainNavigator> with TickerProviderStateMi
                   Search(
                     key: ValueKey("2"),
                   ),
-                  Manga(
-                    key: ValueKey("3"),
-                  ),
                 ],
               ),
               AnimeStreamBottomBar(
@@ -250,7 +233,6 @@ class MainNavigatorState extends State<MainNavigator> with TickerProviderStateMi
                   BottomBarItem(title: 'Home', icon: Icon(Icons.home)),
                   BottomBarItem(title: 'Discover', icon: Icon(Icons.auto_awesome)),
                   BottomBarItem(title: 'Search', icon: Icon(Icons.search)),
-                  BottomBarItem(title: 'Manga', icon: Icon(Icons.menu_book_rounded))
                 ],
                 controller: _barController,
               )
@@ -261,7 +243,6 @@ class MainNavigatorState extends State<MainNavigator> with TickerProviderStateMi
               FloatyBarView(
                 controller: _floatyBarController,
                 children: [
-                  // NewHome(mainNavProvider: mainNavProvider),
                   Home(
                     key: ValueKey("0"),
                     mainNavProvider: mainNavProvider,
@@ -273,9 +254,6 @@ class MainNavigatorState extends State<MainNavigator> with TickerProviderStateMi
                   Search(
                     key: ValueKey("2"),
                   ),
-                  Manga(
-                    key: ValueKey("3"),
-                  ),
                 ],
               ),
               FloatyBottomBar(
@@ -283,12 +261,10 @@ class MainNavigatorState extends State<MainNavigator> with TickerProviderStateMi
                 accentColor: appTheme.accentColor,
                 backgroundColor:
                     appTheme.backgroundSubColor.withValues(alpha: currentUserSettings?.navbarTranslucency ?? 0.5),
-                // borderRadius: 12,
                 items: [
                   FloatyBarItem(title: 'Home', icon: Icons.home),
                   FloatyBarItem(title: 'Discover', icon: Icons.auto_awesome),
                   FloatyBarItem(title: 'Search', icon: Icons.search),
-                  FloatyBarItem(title: 'Manga', icon: Icons.menu_book_rounded),
                 ],
               )
             ],

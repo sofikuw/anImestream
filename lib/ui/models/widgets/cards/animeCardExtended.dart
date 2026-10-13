@@ -6,7 +6,13 @@ import 'package:flutter/material.dart';
 import 'package:animestream/core/app/runtimeDatas.dart';
 import 'package:animestream/ui/models/snackBar.dart';
 import 'package:animestream/ui/pages/info.dart';
+import 'package:animestream/ui/pages/mangaDetails.dart';
 
+/// The wide "Continue Watching"-style row card.
+///
+/// It owns its [InkWell], so a caller that wraps it in another one never sees
+/// the tap. Callers that need different navigation pass [onTap]; callers that
+/// only need a different destination pass [contentType].
 class AnimeCardExtended extends StatelessWidget {
   final int id;
   final String title;
@@ -20,6 +26,19 @@ class AnimeCardExtended extends StatelessWidget {
   final String? bannerImageUrl;
   final Color? surfaceColor;
   final double? customWidth;
+
+  /// "anime" or "manga" -- which details page this row opens.
+  final String contentType;
+
+  /// Replaces the built-in tap behaviour entirely.
+  final void Function()? onTap;
+
+  /// Overrides the built-in route's id.
+  ///
+  /// [id] stays an int because anime ids are ints everywhere in this app, but a
+  /// manga row's id may not be one. Rather than widen the field and churn every
+  /// anime call site, a manga row passes the real id here and [id] is ignored.
+  final String? routeId;
 
   const AnimeCardExtended({
     super.key,
@@ -35,7 +54,28 @@ class AnimeCardExtended extends StatelessWidget {
     this.bannerImageUrl,
     this.customWidth,
     this.surfaceColor,
+    this.contentType = 'anime',
+    this.onTap,
+    this.routeId,
   });
+
+  bool get _isManga => contentType.toLowerCase() == 'manga';
+
+  void _handleTap(BuildContext context) {
+    if (onTap != null) return onTap!();
+    if (!isAnime) return floatingSnackBar("Mangas/Novels arent supported");
+    if (!shouldNavigate) return;
+
+    final route = _isManga
+        ? MaterialPageRoute(
+            builder: (context) => MangaDetailsPage(id: routeId ?? id.toString()),
+          )
+        : MaterialPageRoute(builder: (context) => Info(id: id));
+
+    Navigator.of(context).push(route).then((val) {
+      if (afterNavigation != null) afterNavigation?.call();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,21 +89,7 @@ class AnimeCardExtended extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           focusColor: appTheme.textSubColor,
-          onTap: () async {
-            if (!isAnime) return floatingSnackBar("Mangas/Novels arent supported");
-            if (shouldNavigate)
-              Navigator.of(context)
-                  .push(
-                MaterialPageRoute(
-                  builder: (context) => Info(
-                    id: id,
-                  ),
-                ),
-              )
-                  .then((val) {
-                if (afterNavigation != null) afterNavigation?.call();
-              });
-          },
+          onTap: () => _handleTap(context),
           child: Container(
             width: customWidth ?? 305,
             height: 150,
@@ -102,14 +128,13 @@ class AnimeCardExtended extends StatelessWidget {
                           width: 100,
                           height: 130,
                           errorWidget: (context, url, error) {
-                          return Image.asset("lib/assets/images/broken_heart.png");
-                        },
+                            return Image.asset("lib/assets/images/broken_heart.png");
+                          },
                         ),
                       ),
                       Expanded(
                         child: Container(
                           padding: EdgeInsets.only(left: 15, top: 10),
-                          // width: 175,
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -128,7 +153,6 @@ class AnimeCardExtended extends StatelessWidget {
                               Container(
                                 margin: EdgeInsets.only(bottom: 15),
                                 child: Row(
-                                  // mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   crossAxisAlignment: CrossAxisAlignment.center,
                                   children: [
                                     Container(
@@ -143,7 +167,6 @@ class AnimeCardExtended extends StatelessWidget {
                                           Icon(
                                             Icons.star,
                                             color: appTheme.onAccent,
-                                            // (currentUserSettings?.darkMode ?? true) ? appTheme.backgroundColor : appTheme.textMainColor,
                                             size: 15,
                                           ),
                                           Padding(
@@ -152,7 +175,6 @@ class AnimeCardExtended extends StatelessWidget {
                                               "$rating",
                                               style: TextStyle(
                                                 color: appTheme.onAccent,
-                                                //  (currentUserSettings?.darkMode ?? true) ? appTheme.backgroundColor : appTheme.textMainColor,
                                                 fontFamily: "NotoSans",
                                                 fontWeight: FontWeight.w600,
                                                 fontSize: 14,
@@ -163,12 +185,12 @@ class AnimeCardExtended extends StatelessWidget {
                                         ],
                                       ),
                                     ),
-                                    // if (totalEpisodes != null || watchedEpisodeCount != null)
                                     Padding(
                                       padding: const EdgeInsets.only(left: 13, right: 13),
                                       child: Text(
                                         '•',
-                                        style: TextStyle(fontSize: 17, color: Theme.of(context).colorScheme.secondary),
+                                        style: TextStyle(
+                                            fontSize: 17, color: Theme.of(context).colorScheme.secondary),
                                       ),
                                     ),
                                     Container(
