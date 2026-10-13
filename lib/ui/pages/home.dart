@@ -139,6 +139,11 @@ class _HomeState extends State<Home> {
                       _titleAndList("Continue Watching", widget.mainNavProvider.recentlyWatched,
                           showRefreshIndication: refreshing),
                       divider(),
+                      // Directly under Continue Watching, as asked. Rows carry
+                      // contentType: 'manga', which is what AnimeCardExtended
+                      // routes to the manga details page.
+                      _titleAndList("Continue Reading", widget.mainNavProvider.continueReading),
+                      divider(),
                       _titleAndList("Aired This Season", widget.mainNavProvider.currentlyAiring),
                       if (widget.mainNavProvider.loggedIn) ...[
                         divider(),

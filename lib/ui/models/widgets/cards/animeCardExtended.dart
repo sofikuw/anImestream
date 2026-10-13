@@ -84,7 +84,29 @@ class AnimeCardExtended extends StatelessWidget {
       return;
     }
 
-    if (!isAnime) return floatingSnackBar("Mangas/Novels arent supported");
+    // A row that is not an anime routes to the manga details page instead of
+    // being refused. Manga is a first-class content type now, so "not an anime"
+    // no longer means "unsupported" -- the old refusal's premise is simply
+    // false, and it was a dead end from every caller that passed isAnime:
+    // false. `isAnime` survives as a routing hint: "do not open Info(id:)".
+    if (!isAnime) {
+      final mangaId = routeId ?? (id > 0 ? id.toString() : null);
+      // The one case that genuinely cannot be routed: a card built with no real
+      // id at all. Still worth saying out loud rather than swallowing the tap.
+      if (mangaId == null) {
+        return floatingSnackBar("This row has no id to open.");
+      }
+      if (!shouldNavigate) return;
+      Navigator.of(context)
+          .push(
+            MaterialPageRoute(builder: (context) => MangaDetailsPage(id: mangaId)),
+          )
+          .then((val) {
+        if (afterNavigation != null) afterNavigation?.call();
+      });
+      return;
+    }
+
     if (!shouldNavigate) return;
 
     Navigator.of(context)

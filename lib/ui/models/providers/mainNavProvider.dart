@@ -5,6 +5,7 @@ import 'package:animestream/core/app/runtimeDatas.dart';
 import 'package:animestream/core/commons/enums.dart';
 import 'package:animestream/core/commons/enums/loadingState.dart';
 import 'package:animestream/core/commons/types.dart';
+import 'package:animestream/core/data/reading.dart';
 import 'package:animestream/core/data/watching.dart';
 import 'package:animestream/core/database/anilist/anilist.dart';
 import 'package:animestream/core/database/anilist/login.dart';
@@ -55,6 +56,7 @@ class MainNavProvider extends ChangeNotifier {
 
   AnimeListData<HomePageList> _currentlyAiring = AnimeListData(title: "Currently Airing");
   AnimeListData<HomePageList> _recentlyWatched = AnimeListData(title: "Continue Watching");
+  AnimeListData<HomePageList> _continueReading = AnimeListData(title: "Continue Reading");
   AnimeListData<HomePageList> _plannedList = AnimeListData(title: "From Your Planned");
 
   // bool _homePageError = false;
@@ -97,6 +99,17 @@ class MainNavProvider extends ChangeNotifier {
   AnimeListData<HomePageList> get recentlyWatched => _recentlyWatched;
   set recentlyWatched(AnimeListData<HomePageList> value) {
     _recentlyWatched = value;
+    notifyListeners();
+  }
+
+  /// Manga progress. Local rows, newest first.
+  ///
+  /// Unlike Continue Watching, this never consults AniList: it is written from
+  /// the local reading store, so it works signed in or out. See
+  /// `core/data/reading.dart` for why that diverges from `watching.dart`.
+  AnimeListData<HomePageList> get continueReading => _continueReading;
+  set continueReading(AnimeListData<HomePageList> value) {
+    _continueReading = value;
     notifyListeners();
   }
 
@@ -276,11 +289,38 @@ class MainNavProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Reads the local reading history into [continueReading].
+  ///
+  /// Separate from and not part of `loadListsForHome`'s `Future.wait`, which
+  /// indexes its results positionally ([0], [1], [2]); a fourth entry there
+  /// would shift every existing cast. This is also the only list on Home that
+  /// is read straight from local storage, so it is the only one that cannot
+  /// fail on a network call.
+  Future<void> loadContinueReading() async {
+    try {
+      _continueReading.items = await getReadingList();
+      _continueReading.state = LoadingState.loaded;
+    } catch (e) {
+      Logs.app.log("Error loading the reading list. $e");
+      // Not an error state: an empty shelf is a normal state for a new user,
+      // and the rail renders "Nothing's here!" for it.
+      _continueReading.items = const <HomePageList>[];
+      _continueReading.state = LoadingState.loaded;
+    }
+    notifyListeners();
+  }
+
   Future<void> loadListsForHome({String? userName}) async {
     // reset the error state
     currentlyAiring.state = LoadingState.loading;
     recentlyWatched.state = LoadingState.loading;
+    continueReading.state = LoadingState.loading;
     plannedList.state = LoadingState.loading;
+
+    // Local reading rows. Loaded here rather than added to the Future.wait
+    // below, because that list is indexed positionally ([0], [1], [2]) and
+    // inserting a fourth entry would silently shift every cast after it.
+    await loadContinueReading();
 
     //get all of em data
     final futures = await Future.wait([

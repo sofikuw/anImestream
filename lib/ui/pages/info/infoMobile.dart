@@ -20,6 +20,7 @@ import 'package:animestream/ui/models/sources.dart';
 import 'package:animestream/ui/models/widgets/cards.dart';
 import 'package:animestream/ui/models/widgets/loader.dart';
 import 'package:animestream/ui/pages/info.dart';
+import 'package:animestream/ui/pages/mangaDetails.dart';
 
 class InfoMobile extends StatefulWidget {
   const InfoMobile({super.key});
@@ -1339,7 +1340,14 @@ class _InfoMobileState extends State<InfoMobile> {
           return GestureDetector(
             onTap: () {
               if (item.type.toLowerCase() != "anime") {
-                return floatingSnackBar('Mangas/Novels arent supported');
+                // A manga id is not an anime id. Open the manga details
+                // page instead of refusing to open it at all.
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => MangaDetailsPage(id: item.id.toString()),
+                  ),
+                );
+                return;
               }
 
               //only navigate if the list is being built by characterCard method.
@@ -1356,10 +1364,25 @@ class _InfoMobileState extends State<InfoMobile> {
             child: Container(
                 width: 130,
                 child: recommended
-                    ? Cards.animeCard(item.id, getTitle(item.title), item.cover, rating: item.rating)
+                    ? Cards.animeCard(
+                        item.id,
+                        getTitle(item.title),
+                        item.cover,
+                        rating: item.rating,
+                        isAnime: item.type.toLowerCase() == "anime",
+                        shouldNavigate: item.type.toLowerCase() == "anime",
+                        onTap: item.type.toLowerCase() == "anime"
+                            ? null
+                            : () => Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        MangaDetailsPage(id: item.id.toString()),
+                                  ),
+                                ),
+                      )
                     : Cards.characterCard(
                         getTitle(item.title),
-                        recommended ? item.type : item.relationType!,
+                        recommended ? item.type : item.relationType ?? item.type,
                         item.cover,
                       )),
           );
