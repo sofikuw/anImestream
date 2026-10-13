@@ -1,7 +1,7 @@
+import 'package:animestream/core/commons/enums.dart';
 import 'package:animestream/core/commons/utils.dart';
 import 'package:animestream/core/data/secureStorage.dart';
 import 'package:animestream/core/database/anilist/anilist.dart';
-import 'package:animestream/core/database/types.dart';
 import 'package:animestream/core/manga/mangaProvider.dart';
 import 'package:animestream/core/manga/types.dart';
 
@@ -270,7 +270,11 @@ class AnilistManga implements MangaMetadataSource {
     final month = raw['month'];
     final year = raw['year'];
     if (day == null && month == null && year == null) return null;
-    final monthName = month is int ? MonthnumberToMonthName(month)?['short'] : null;
+    // Kept out of the ternary on purpose: `cond ? f()?['k'] : null` does not
+    // parse, because the `?[` after the then-branch reads as a second `?`.
+    final Map<String, String>? months =
+        month is int ? MonthnumberToMonthName(month) : null;
+    final monthName = months?['short'];
     return [day ?? '', monthName ?? '', year ?? '']
         .where((part) => part.toString().trim().isNotEmpty)
         .join(' ');
