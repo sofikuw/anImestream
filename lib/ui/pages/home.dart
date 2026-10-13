@@ -13,6 +13,7 @@ import 'package:animestream/ui/models/widgets/cards.dart';
 import 'package:animestream/ui/models/widgets/header.dart';
 import 'package:animestream/ui/models/snackBar.dart';
 import 'package:animestream/ui/pages/lists.dart';
+import 'package:animestream/ui/pages/mangaDetails.dart';
 import 'package:animestream/ui/pages/settingPages/common.dart';
 import 'package:animestream/ui/pages/settingPages/stats.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
@@ -61,7 +62,7 @@ class _HomeState extends State<Home> {
         (item) => recentlyWatched.add(
           HomePageList(
             coverImage: item.coverImage,
-            id: item.id,
+            id: item.id.toString(),
             rating: item.rating,
             title: item.title,
             totalEpisodes: item.episodes,
@@ -214,12 +215,7 @@ class _HomeState extends State<Home> {
                       itemBuilder: (context, index) {
                         final item = selectedList!.items[index];
                         return Center(
-                          child: Cards.animeCard(
-                            item.id,
-                            item.title['english'] ?? item.title['romaji'] ?? "",
-                            item.coverImage,
-                            rating: item.rating,
-                          ),
+                          child: _listGridCard(item),
                         );
                       },
                     ),
@@ -227,6 +223,30 @@ class _HomeState extends State<Home> {
                 ),
               ],
             ),
+    );
+  }
+
+  /// One card in an expanded grid.
+  ///
+  /// Home rows carry a String [HomePageList.id] and a content type, so a row
+  /// has to route by that type: an anime row opens [Info], a manga row opens
+  /// [MangaDetailsPage]. This is the same shape as the horizontal rail's card,
+  /// just in a grid.
+  Widget _listGridCard(HomePageList item) {
+    final isManga = item.contentType == 'manga';
+    final title = item.title['english'] ?? item.title['romaji'] ?? "";
+    return Cards.animeCard(
+      int.tryParse(item.id) ?? 0,
+      title,
+      item.coverImage,
+      rating: item.rating,
+      isAnime: !isManga,
+      shouldNavigate: !isManga,
+      onTap: isManga
+          ? () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => MangaDetailsPage(id: item.id)),
+              )
+          : null,
     );
   }
 
@@ -331,7 +351,7 @@ class _HomeState extends State<Home> {
     return Center(
       child: Container(
         width: MediaQuery.of(context).size.width / 2,
-        margin: EdgeInsets.only(top: 15, bottom: 15),
+        margin: const EdgeInsets.only(top: 15, bottom: 15),
         height: 6,
         decoration: BoxDecoration(
           color: appTheme.accentColor.withValues(alpha: 0.6),
@@ -403,12 +423,7 @@ class _HomeState extends State<Home> {
                                 itemBuilder: (context, index) {
                                   final item = list.items[index];
                                   return Center(
-                                    child: Cards.animeCard(
-                                      item.id,
-                                      item.title['english'] ?? item.title['romaji'] ?? "",
-                                      item.coverImage,
-                                      rating: item.rating,
-                                    ),
+                                    child: _listGridCard(item),
                                   );
                                 },
                               ),
@@ -468,10 +483,19 @@ class _HomeState extends State<Home> {
                             final title = preferNative ? item.title['native'] ?? normalTitle : normalTitle;
                             return Padding(
                               padding: const EdgeInsets.all(8.0),
-                              child: Cards.animeCardExtended(item.id, title, item.coverImage, item.rating ?? 0.0,
+                              child: Cards.animeCardExtended(
+                                  // A row can be a manga. Carried through so the
+                                  // card routes to the right details page.
+                                  int.tryParse(item.id) ?? 0,
+                                  title,
+                                  item.coverImage,
+                                  item.rating ?? 0.0,
                                   bannerImageUrl: item.coverImage,
                                   watchedEpisodeCount: item.watchedEpisodeCount,
                                   totalEpisodes: item.totalEpisodes,
+                                  contentType: item.contentType,
+                                  routeId: item.id,
+                                  isAnime: item.contentType != 'manga',
                                   afterNavigation: () => getLists(userName: storedUserData?.name)),
                             );
                           })

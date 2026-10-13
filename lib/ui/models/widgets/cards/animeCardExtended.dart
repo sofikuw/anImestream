@@ -63,16 +63,35 @@ class AnimeCardExtended extends StatelessWidget {
 
   void _handleTap(BuildContext context) {
     if (onTap != null) return onTap!();
+
+    // Content type is consulted BEFORE `isAnime`.
+    //
+    // `isAnime` is a legacy gate that only ever meant "this card cannot open a
+    // details page". A manga row *can* -- it just opens a different one. Asking
+    // `isAnime` first meant every manga row routed by [contentType] fell
+    // through to the "not supported" snackbar and its [routeId] was never read,
+    // which is what made this card useless for manga rails.
+    if (_isManga) {
+      Navigator.of(context)
+          .push(
+            MaterialPageRoute(
+              builder: (context) => MangaDetailsPage(id: routeId ?? id.toString()),
+            ),
+          )
+          .then((val) {
+        if (afterNavigation != null) afterNavigation?.call();
+      });
+      return;
+    }
+
     if (!isAnime) return floatingSnackBar("Mangas/Novels arent supported");
     if (!shouldNavigate) return;
 
-    final route = _isManga
-        ? MaterialPageRoute(
-            builder: (context) => MangaDetailsPage(id: routeId ?? id.toString()),
-          )
-        : MaterialPageRoute(builder: (context) => Info(id: id));
-
-    Navigator.of(context).push(route).then((val) {
+    Navigator.of(context)
+        .push(
+          MaterialPageRoute(builder: (context) => Info(id: id)),
+        )
+        .then((val) {
       if (afterNavigation != null) afterNavigation?.call();
     });
   }

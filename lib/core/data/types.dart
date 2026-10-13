@@ -188,18 +188,45 @@ class SettingsModal {
   }
 }
 
+/// Strings rather than an enum, for the same reason [searchPageListMode] is a
+/// bool and not an enum: these are written straight into the Hive map, and a
+/// stored value that no longer maps to an enum constant would throw on read.
+/// Unknown values fall back to the default in the getters below.
+const String mangaReaderLayoutScroll = 'scroll';
+const String mangaReaderLayoutPaged = 'paged';
+
 class UserPreferencesModal {
   final EpisodeViewModes? episodesViewMode;
   final SubtitleSettings? subtitleSettings;
   final bool? preferDubs;
   final bool? searchPageListMode;
   final bool? autoSelectPreviouslyUsedServer;
+
+  /// How the manga reader lays a chapter out: [mangaReaderLayoutScroll] for a
+  /// continuous webtoon-style strip (the default), [mangaReaderLayoutPaged] for
+  /// one page at a time.
+  final String? mangaReaderLayout;
+
+  /// Page order in paged mode: "ltr" or "rtl". Meaningless while the layout is
+  /// a vertical strip, which is why the reader's settings sheet disables it
+  /// there rather than silently ignoring it.
+  final String? mangaReaderDirection;
+
+  /// Whether a page can be pinch-zoomed and panned. Paged mode only: a
+  /// scale-claiming gesture detector inside the scrolling strip competes with
+  /// the strip's own scroll gesture, and losing that fight mid-scroll is worse
+  /// than not having zoom.
+  final bool? mangaReaderZoom;
+
   UserPreferencesModal({
     this.episodesViewMode,
     this.subtitleSettings,
     this.preferDubs,
     this.searchPageListMode,
     this.autoSelectPreviouslyUsedServer,
+    this.mangaReaderLayout,
+    this.mangaReaderDirection,
+    this.mangaReaderZoom,
   });
 
   factory UserPreferencesModal.fromMap(Map<dynamic, dynamic> map) {
@@ -210,6 +237,9 @@ class UserPreferencesModal {
       preferDubs: map['preferDubs'] ?? false,
       searchPageListMode: map['searchPageListMode'] ?? false,
       autoSelectPreviouslyUsedServer: map['autoSelectPreviouslyUsedServer'] ?? false,
+      mangaReaderLayout: map['mangaReaderLayout'] as String?,
+      mangaReaderDirection: map['mangaReaderDirection'] as String?,
+      mangaReaderZoom: map['mangaReaderZoom'] ?? false,
     );
   }
 
@@ -220,6 +250,9 @@ class UserPreferencesModal {
       searchPageListMode: false,
       subtitleSettings: SubtitleSettings(),
       autoSelectPreviouslyUsedServer: false,
+      mangaReaderLayout: mangaReaderLayoutScroll,
+      mangaReaderDirection: 'ltr',
+      mangaReaderZoom: false,
     );
   }
 
@@ -230,8 +263,19 @@ class UserPreferencesModal {
       'preferDubs': preferDubs,
       'searchPageListMode': searchPageListMode,
       'autoSelectPreviouslyUsedServer': autoSelectPreviouslyUsedServer,
+      'mangaReaderLayout': mangaReaderLayout,
+      'mangaReaderDirection': mangaReaderDirection,
+      'mangaReaderZoom': mangaReaderZoom,
     };
   }
+
+  /// Paged only when it was explicitly stored as paged. Anything else -- null
+  /// on a fresh install, or a value written by a newer build -- reads as the
+  /// scroll layout, which is what the reader did before this setting existed.
+  bool get mangaReaderPaged => mangaReaderLayout == mangaReaderLayoutPaged;
+
+  /// RTL only when explicitly stored; every other value is left-to-right.
+  bool get mangaReaderRightToLeft => mangaReaderDirection == 'rtl';
 
   static EpisodeViewModes getViewModeEnum(int modeIndex) {
     switch (modeIndex) {

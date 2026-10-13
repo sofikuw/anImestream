@@ -32,12 +32,17 @@ class _DiscoverState extends State<Discover> {
   void initState() {
     super.initState();
     if (!widget.mainNavProvider.discoverDataLoaded) widget.mainNavProvider.loadDiscoverItems();
+    // Manga rail cards are built by the provider and navigate on tap, so it
+    // needs a context to push from before any of them can be built.
+    widget.mainNavProvider.attachNavigationContext(context);
     _pageController.addListener(onScroll);
   }
 
   final recentlyUpdatedScrollController = ScrollController(),
       thisSeasonScrollController = ScrollController(),
-      recommendedScrollController = ScrollController();
+      recommendedScrollController = ScrollController(),
+      mangaTrendingScrollController = ScrollController(),
+      mangaPopularScrollController = ScrollController();
 
   int currentPage = 0;
   final PageController _pageController = PageController();
@@ -194,6 +199,12 @@ class _DiscoverState extends State<Discover> {
               _scrollList(widget.mainNavProvider.thisSeason, thisSeasonScrollController),
               _itemTitle("Recommended", recommendedScrollController),
               _scrollList(widget.mainNavProvider.recommendedList, recommendedScrollController),
+              // Manga rails. Same _itemTitle/_scrollList pair as the anime
+              // rails above, so they are visually identical by construction.
+              _itemTitle("Manga trending", mangaTrendingScrollController),
+              _scrollList(widget.mainNavProvider.mangaTrendingList, mangaTrendingScrollController),
+              _itemTitle("Manga popular", mangaPopularScrollController),
+              _scrollList(widget.mainNavProvider.mangaPopularList, mangaPopularScrollController),
               footSpace(),
             ],
           ),

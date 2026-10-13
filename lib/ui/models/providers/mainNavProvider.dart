@@ -10,9 +10,12 @@ import 'package:animestream/core/database/anilist/anilist.dart';
 import 'package:animestream/core/database/anilist/login.dart';
 import 'package:animestream/core/database/anilist/queries.dart';
 import 'package:animestream/core/database/anilist/types.dart';
+import 'package:animestream/core/manga/anilistManga.dart';
+import 'package:animestream/core/manga/types.dart';
 import 'package:animestream/ui/models/snackBar.dart';
 import 'package:animestream/ui/models/widgets/cards.dart';
 import 'package:animestream/ui/models/widgets/cards/animeCard.dart';
+import 'package:animestream/ui/pages/mangaDetails.dart';
 import 'package:flutter/widgets.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
 
@@ -61,6 +64,13 @@ class MainNavProvider extends ChangeNotifier {
   List<AnimeCard> _recommendedList = [];
   List<AnimeCard> _recentlyUpdatedList = [];
   List<AnimeCard> _thisSeason = [];
+
+  /// Manga rails on Discover.
+  ///
+  /// Held as built cards, exactly like the anime rails above, because
+  /// discover.dart's _scrollList takes a finished List<AnimeCard>.
+  List<AnimeCard> _mangaTrendingList = [];
+  List<AnimeCard> _mangaPopularList = [];
 
   // datas
   List<AnilistRecommendations> _recommendedListData = [];
@@ -131,6 +141,18 @@ class MainNavProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  List<AnimeCard> get mangaTrendingList => _mangaTrendingList;
+  set mangaTrendingList(List<AnimeCard> value) {
+    _mangaTrendingList = value;
+    notifyListeners();
+  }
+
+  List<AnimeCard> get mangaPopularList => _mangaPopularList;
+  set mangaPopularList(List<AnimeCard> value) {
+    _mangaPopularList = value;
+    notifyListeners();
+  }
+
   List<CurrentlyAiringResult> get thisSeasonData => _thisSeasonData;
 
   // Methods
@@ -171,7 +193,7 @@ class MainNavProvider extends ChangeNotifier {
         loadListsForHome();
 
         // lets let the discover page be lazy loaded
-        // loadDiscoverItems(); 
+        // loadDiscoverItems();
 
         //return statement so that linter would shut up!
         return <void>{};
@@ -295,7 +317,7 @@ class MainNavProvider extends ChangeNotifier {
       (item) => recentlyWatched.items.add(
         HomePageList(
           coverImage: item.coverImage,
-          id: item.id,
+          id: item.id.toString(),
           rating: item.rating,
           title: item.title,
           watchedEpisodeCount: item.watchProgress,
@@ -314,7 +336,7 @@ class MainNavProvider extends ChangeNotifier {
       currentlyAiring.items.add(
         HomePageList(
             coverImage: item.cover,
-            id: item.id,
+            id: item.id.toString(),
             rating: item.rating,
             title: item.title,
             totalEpisodes: item.episodes,
@@ -347,7 +369,7 @@ class MainNavProvider extends ChangeNotifier {
           coverImage: item.coverImage,
           rating: item.rating,
           title: item.title,
-          id: item.id,
+          id: item.id.toString(),
           totalEpisodes: item.episodes,
           watchedEpisodeCount: item.watchProgress,
         ));
@@ -366,6 +388,63 @@ class MainNavProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Fetch the manga rails from AniList.
+  ///
+  /// Fails quietly: Discover still has three anime rails without these, so a
+  /// manga fetch error must not take the whole page down with it.
+  Future<void> getMangaDiscoverItems() async {
+    final source = AnilistManga();
+    final isMobile = !tv && isAndroid;
+
+    List<MangaSummary> trending = const <MangaSummary>[];
+    List<MangaSummary> popular = const <MangaSummary>[];
+    try {
+      trending = await source.getTrending();
+    } catch (e) {
+      Logs.app.log("Error loading manga trending: $e");
+    }
+    try {
+      popular = await source.getPopular();
+    } catch (e) {
+      Logs.app.log("Error loading manga popular: $e");
+    }
+
+    _mangaTrendingList = trending.map((manga) => _mangaCard(manga, isMobile)).toList(growable: false);
+    _mangaPopularList = popular.map((manga) => _mangaCard(manga, isMobile)).toList(growable: false);
+  }
+
+  /// A manga card for a Discover rail.
+  ///
+  /// Routes to MangaDetailsPage rather than the anime info page, which is what
+  /// `shouldNavigate: false` plus an explicit onTap does. `isAnime` stays true
+  /// because AnimeCard gates on it before it consults `onTap` -- see the note
+  /// on that field in animeCard.dart.
+  AnimeCard _mangaCard(MangaSummary manga, bool isMobile) {
+    final preferNative = currentUserSettings?.nativeTitle ?? false;
+    return Cards.animeCard(
+      int.tryParse(manga.id) ?? 0,
+      manga.title,
+      manga.cover ?? '',
+      rating: manga.rating,
+      isMobile: isMobile,
+      shouldNavigate: false,
+      subText: preferNative ? null : manga.format,
+      onTap: () => Navigator.of(_navContext!).push(
+        MaterialPageRoute(builder: (context) => MangaDetailsPage(id: manga.id)),
+      ),
+    );
+  }
+
+  /// The context a rail card navigates from.
+  ///
+  /// `Cards.animeCard` hands back a widget with no context of its own to push
+  /// with, and the provider has none either. `discover.dart` seeds this on its
+  /// first build; `_mangaCard`'s onTap only ever runs after that.
+  BuildContext? _navContext;
+  void attachNavigationContext(BuildContext context) {
+    _navContext = context;
+  }
+
   /// Load the items list for the Discover page
   Future<void> loadDiscoverItems() async {
     try {
@@ -373,6 +452,7 @@ class MainNavProvider extends ChangeNotifier {
         getTrendingList(),
         getRecentlyUpdated(),
         getRecommended(),
+        getMangaDiscoverItems(),
       ]);
       discoverDataLoaded = true;
     } catch (e) {
