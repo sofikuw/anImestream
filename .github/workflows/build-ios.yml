@@ -19,6 +19,9 @@ on:
 
 env:
   FLUTTER_VERSION: '3.47.1'
+  # Single source of truth for the artifact name. The release job downloads
+  # exactly this name, so the two jobs can never drift apart again.
+  ARTIFACT_NAME: anImestream-ios-unsigned
 
 jobs:
   build-ios:
@@ -30,6 +33,7 @@ jobs:
       version: ${{ steps.version.outputs.version }}
       build_number: ${{ steps.version.outputs.build_number }}
       tag: ${{ steps.version.outputs.tag }}
+      ipa_name: ${{ steps.version.outputs.ipa_name }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -90,6 +94,10 @@ jobs:
 
           TAG="v$VERSION"
 
+          # The release job globs for anImestream-*-ios-unsigned.ipa, so the
+          # name is derived here once and reused for both the file and the glob.
+          IPA_NAME="anImestream-${VERSION}-ios-unsigned.ipa"
+
           # For tag builds, make sure the tag matches pubspec.yaml.
           if [ "$GITHUB_EVENT_NAME" = "push" ]; then
             PUSHED_TAG="${GITHUB_REF#refs/tags/}"
@@ -102,12 +110,15 @@ jobs:
             exit 1
           fi
 
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          {
+            echo "version=$VERSION"
+            echo "build_number=$BUILD_NUMBER"
+            echo "tag=$TAG"
+            echo "ipa_name=$IPA_NAME"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Prepare iOS Build Environment
-        # Builds for the simulator first to safely generate Flutter's bridging files 
+        # Builds for the simulator first to safely generate Flutter's bridging files
         # (Generated.xcconfig) and run pod install without triggering the code-signing block.
         run: flutter build ios --debug --simulator
 
@@ -127,20 +138,20 @@ jobs:
             DEVELOPMENT_TEAM=""
 
       - name: Package into unsigned IPA
+        env:
+          IPA_NAME: ${{ steps.version.outputs.ipa_name }}
         run: |
           mkdir -p Payload
           # Target the specific derivedDataPath where xcodebuild exported the raw .app
           mv build/ios_derived/Build/Products/Release-iphoneos/Runner.app Payload/
-          zip -r -q unsigned-app.ipa Payload
+          zip -r -q "$IPA_NAME" Payload
 
       - name: Upload unsigned IPA
         uses: actions/upload-artifact@v4
         with:
-          name: unsigned-app
-          path: unsigned-app.ipa
-
-
-
+          name: ${{ env.ARTIFACT_NAME }}
+          path: ${{ steps.version.outputs.ipa_name }}
+          if-no-files-found: error
 
   create-release:
     name: Create GitHub Release
@@ -157,6 +168,7 @@ jobs:
       - name: Download IPA artifact
         uses: actions/download-artifact@v4
         with:
+          # Must match ARTIFACT_NAME in the build job exactly.
           name: anImestream-ios-unsigned
           path: release-files
 
@@ -168,6 +180,8 @@ jobs:
           generate_release_notes: true
           draft: false
           prerelease: ${{ contains(needs.build-ios.outputs.version, '-') }}
-          files: release-files/anImestream-*-ios-unsigned.ipa
+          files: release-files/${{ needs.build-ios.outputs.ipa_name }}
+          # Fail loudly instead of publishing an empty release if the asset is missing.
+          fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
