@@ -5,6 +5,8 @@ import 'package:animestream/core/commons/enums/loadingState.dart';
 import 'package:animestream/core/manga/anilistManga.dart';
 import 'package:animestream/core/manga/javascriptMangaProvider.dart';
 import 'package:animestream/core/manga/mangaProvider.dart';
+import 'package:animestream/core/data/reading.dart';
+import 'package:animestream/core/manga/mangaDownloader.dart';
 import 'package:animestream/core/manga/types.dart';
 import 'package:animestream/ui/models/sources.dart';
 import 'package:animestream/ui/models/widgets/cards.dart';
@@ -44,6 +46,20 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
 
   List<MangaChapter> _chapters = [];
   LoadingState _chaptersState = LoadingState.loaded;
+
+  /// Chapter ids that are downloaded, so a row can show its download state
+  /// without touching the filesystem.
+  Set<String> _downloaded = const <String>{};
+
+  /// The last chapter opened for this manga, or null. Drives the Kotatsu-
+  /// style fade on the chapter list: everything at or below it is dimmed and
+  /// ticked.
+  ///
+  /// Null on first paint, because it is loaded asynchronously -- the list
+  /// therefore renders un-faded for one frame before the value arrives. That
+  /// flicker is why this is nullable rather than defaulted to zero: zero would
+  /// wrongly fade nothing, and any other default would wrongly fade something.
+  double? _lastReadChapter;
 
   /// Chapters and pages. Taken from the caller when one is supplied, otherwise
   /// discovered from an installed manga extension during [load].
@@ -101,6 +117,8 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
         _state = LoadingState.loaded;
       });
       await loadChapters(details);
+      await _refreshLastRead();
+      await _refreshDownloads();
     } catch (err) {
       Logs.app.log("Error loading manga details: $err");
       if (!mounted) return;
@@ -109,6 +127,61 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
         _error = err.toString();
       });
     }
+  }
+
+  /// Re-reads the last chapter opened for this manga.
+  ///
+  /// Called on first load and again after the reader pops. The second call is
+  /// the one that matters: the value it reads is written by the tap that opens
+  /// the reader, so without it the list would show the state from before the
+  /// chapter was opened.
+  Future<void> _refreshLastRead() async {
+    final last = await getLastReadChapter(widget.id);
+    if (!mounted) return;
+    setState(() => _lastReadChapter = last);
+  }
+
+  /// Re-reads which of this manga's chapters are on disk.
+  ///
+  /// A loop rather than a directory listing: the downloader treats the presence
+  /// of a chapter's manifest as completion, and asking it per chapter is the one
+  /// definition of done that cannot disagree with what the reader will find.
+  Future<void> _refreshDownloads() async {
+    final downloaded = <String>{};
+    for (final chapter in _chapters) {
+      if (await MangaDownloader.isDownloaded(widget.id, chapter)) {
+        downloaded.add(chapter.id);
+      }
+    }
+    if (!mounted) return;
+    setState(() => _downloaded = downloaded);
+  }
+
+  /// One row's download control: downloads the chapter, or deletes it when it
+  /// is already on disk.
+  ///
+  /// A toggle rather than two buttons, matching how anime episodes behave, and
+  /// because a removed download is the same control in its other state rather
+  /// than a separate action to find.
+  Future<void> _toggleDownload(MangaChapter chapter) async {
+    if (_downloaded.contains(chapter.id)) {
+      await MangaDownloader.delete(widget.id, chapter);
+      if (mounted) {
+        setState(() => _downloaded = {..._downloaded}..remove(chapter.id));
+      }
+      return;
+    }
+
+    final provider = _provider;
+    if (provider == null) return;
+
+    await MangaDownloader.download(
+      mangaId: widget.id,
+      mangaTitle: _details?.title ?? '',
+      chapter: chapter,
+      provider: provider,
+    );
+    await _refreshDownloads();
   }
 
   Future<void> loadChapters(MangaDetails details) async {
@@ -527,14 +600,27 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
               itemCount: _chapters.length,
               itemBuilder: (context, index) {
                 final chapter = _chapters[index];
+                final chapterNumber = chapter.number;
+                final hasRead = _lastReadChapter != null &&
+                    chapterNumber != null &&
+                    chapterNumber <= _lastReadChapter!;
                 return ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+                  leading: hasRead
+                      ? Icon(
+                          Icons.check_circle_rounded,
+                          size: 18,
+                          color: appTheme.accentColor.withValues(alpha: 0.6),
+                        )
+                      : null,
                   title: Text(
                     chapter.displayTitle,
                     style: TextStyle(
                       fontFamily: "NotoSans",
                       fontSize: 15,
-                      color: appTheme.textMainColor,
+                      color: hasRead
+                          ? appTheme.textMainColor.withValues(alpha: 0.45)
+                          : appTheme.textMainColor,
                     ),
                   ),
                   subtitle: chapter.scanlator == null
@@ -547,9 +633,59 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
                             color: appTheme.textSubColor,
                           ),
                         ),
-                  trailing: Icon(
-                    Icons.chevron_right_rounded,
-                    color: appTheme.textSubColor,
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Rebuilt from the downloader's notifier, so a running
+                      // download shows its own page progress without the whole
+                      // list being setState-d on every page that lands.
+                      ValueListenableBuilder<Map<String, ChapterDownload>>(
+                        valueListenable: MangaDownloader.progress,
+                        builder: (context, progressMap, child) {
+                          final progress = progressMap[
+                              MangaDownloader.keyFor(widget.id, chapter)];
+                          final isDownloaded = _downloaded.contains(chapter.id);
+
+                          if (progress?.isBusy ?? false) {
+                            return SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: appTheme.accentColor,
+                                // Indeterminate while the page list is being
+                                // fetched, determinate once pages are landing.
+                                value: progress!.total == 0
+                                    ? null
+                                    : progress.fraction,
+                              ),
+                            );
+                          }
+
+                          return IconButton(
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            tooltip: isDownloaded ? 'Delete download' : 'Download',
+                            onPressed: _provider == null
+                                ? null
+                                : () => _toggleDownload(chapter),
+                            icon: Icon(
+                              isDownloaded
+                                  ? Icons.download_done_rounded
+                                  : Icons.download_rounded,
+                              size: 22,
+                              color: isDownloaded
+                                  ? appTheme.accentColor
+                                  : appTheme.textSubColor,
+                            ),
+                          );
+                        },
+                      ),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        color: appTheme.textSubColor,
+                      ),
+                    ],
                   ),
                   onTap: () {
                     // Recorded as "Continue Reading" progress, before the
@@ -572,15 +708,21 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
                       chapterNumber: chapter.number ?? 1,
                     );
 
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => MangaReaderPage(
-                          manga: details,
-                          chapter: chapter,
-                          provider: _provider!,
-                        ),
-                      ),
-                    );
+                    Navigator.of(context)
+                        .push(
+                          MaterialPageRoute(
+                            builder: (context) => MangaReaderPage(
+                              manga: details,
+                              chapter: chapter,
+                              provider: _provider!,
+                            ),
+                          ),
+                        )
+                        .then((_) {
+                      if (!mounted) return;
+                      _refreshLastRead();
+                      _refreshDownloads();
+                    });
                   },
                 );
               },
