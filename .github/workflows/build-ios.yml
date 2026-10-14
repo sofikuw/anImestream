@@ -1,27 +1,60 @@
 name: Build and Release iOS
 
+# Two ways in:
+#
+#   * Run workflow -- pick a branch and a release channel. The branch is the ref
+#     that gets checked out and built; a random tag is generated, the IPA is
+#     built, the tag is pushed and a GitHub Release is created against it. The
+#     random suffix is the point: every run is its own release, so the workflow
+#     can be re-run without touching pubspec.yaml.
+#   * Push a tag -- the pushed tag is the release tag, and the channel is
+#     inferred from the version (1.2.3-beta.1 publishes as a prerelease).
+#
+# `master` is the build this repository already had. `divergent` is the
+# standalone one: the same source, shipped under its own display name and iOS
+# bundle id. Which branch you pick decides both what is built and what identity
+# it carries -- see branches/README.md. The identity is applied to the working
+# tree by branches/apply-identity.sh, so the divergent branch does not have to
+# carry a hand-edited project.pbxproj.
+
 on:
   workflow_dispatch:
     inputs:
-      create_release:
-        description: Create GitHub Release
-        required: false
-        type: boolean
-        default: true
+      branch:
+        description: Branch to build
+        required: true
+        type: choice
+        options:
+          - divergent
+          - master
+        default: divergent
+      release_channel:
+        description: 'Release channel (anything but stable publishes as a prerelease)'
+        required: true
+        type: choice
+        options:
+          - stable
+          - prerelease
+          - beta
+          - alpha
+        default: stable
       tag_name:
-        description: Existing tag to build (empty = current branch/commit)
+        description: Existing tag to build instead of the branch tip (optional)
         required: false
         type: string
         default: ''
+      create_release:
+        description: Create a GitHub Release
+        required: false
+        type: boolean
+        default: true
   push:
     tags:
       - 'v*'
+      - 'divergent-v*'
 
 env:
   FLUTTER_VERSION: '3.47.1'
-  # Single source of truth for the artifact name. The release job downloads
-  # exactly this name, so the two jobs can never drift apart again.
-  ARTIFACT_NAME: anImestream-ios-unsigned
 
 jobs:
   build-ios:
@@ -33,11 +66,21 @@ jobs:
       version: ${{ steps.version.outputs.version }}
       build_number: ${{ steps.version.outputs.build_number }}
       tag: ${{ steps.version.outputs.tag }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
       ipa_name: ${{ steps.version.outputs.ipa_name }}
+      # Per-branch, so it comes from branches/<branch>/identity.env rather than a
+      # workflow-level env. The release job downloads exactly what the build job
+      # uploaded, from this one output.
+      artifact_name: ${{ steps.identity.outputs.artifact_name }}
+      display_name: ${{ steps.identity.outputs.display_name }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
+          # The selected branch is the ref that gets built. Without this the run
+          # would build whatever branch the workflow file happens to live on,
+          # which is the bug this input exists to make impossible.
+          ref: ${{ inputs.branch || github.ref }}
           fetch-depth: 0
 
       - name: Select source tag
@@ -48,6 +91,63 @@ jobs:
           git check-ref-format "refs/tags/$TAG_NAME"
           git rev-parse --verify "refs/tags/$TAG_NAME^{commit}"
           git checkout --detach "refs/tags/$TAG_NAME"
+
+      # Everything downstream reads the branch from these outputs, so an unknown
+      # branch fails here rather than silently building the old identity under
+      # the new name.
+      - name: Resolve branch identity
+        id: identity
+        shell: bash
+        run: |
+          BRANCH="${{ inputs.branch }}"
+          if [ -z "$BRANCH" ]; then
+            # A pushed tag carries its branch in its prefix.
+            case "${GITHUB_REF_NAME:-}" in
+              divergent-*) BRANCH="divergent" ;;
+              *)           BRANCH="master" ;;
+            esac
+          fi
+
+          DESCRIPTOR="branches/${BRANCH}/identity.env"
+          if [ ! -f "$DESCRIPTOR" ]; then
+            echo "No identity for branch '$BRANCH': $DESCRIPTOR is missing."
+            echo "Land the branch's identity on master before branching from it."
+            exit 1
+          fi
+
+          set -a
+          # shellcheck source=/dev/null
+          . "$DESCRIPTOR"
+          set +a
+
+          # The branch name, not the descriptor, decides the tag and artifact
+          # names: master keeps the names this repository already shipped.
+          if [ "$BRANCH" = "master" ]; then
+            TAG_PREFIX=""
+            IPA_BASENAME="anImestream"
+            ARTIFACT_NAME="anImestream-ios-unsigned"
+          else
+            TAG_PREFIX="${BRANCH}-"
+            IPA_BASENAME="anImestream-${BRANCH}"
+            ARTIFACT_NAME="anImestream-${BRANCH}-ios-unsigned"
+          fi
+
+          {
+            echo "name=$BRANCH_NAME"
+            echo "display_name=$DISPLAY_NAME"
+            echo "artifact_name=$ARTIFACT_NAME"
+            echo "ipa_basename=$IPA_BASENAME"
+            echo "tag_prefix=$TAG_PREFIX"
+            echo "apply_identity=$APPLY_IDENTITY"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "branch:      $BRANCH"
+          echo "display name: $DISPLAY_NAME"
+          echo "bundle id:    ${BUNDLE_ID:-<unchanged>}"
+
+      - name: Apply branch identity
+        if: ${{ steps.identity.outputs.apply_identity == 'true' }}
+        run: bash branches/apply-identity.sh "${{ steps.identity.outputs.name }}"
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
@@ -78,44 +178,76 @@ jobs:
               DISCORD_APP_ID: $DISCORD_APP_ID
             }' > "$RUNNER_TEMP/animestream-dart-defines.json"
 
-      - name: Read version
+      - name: Version and release tag
         id: version
         shell: bash
         env:
           INPUT_TAG_NAME: ${{ inputs.tag_name }}
+          INPUT_CHANNEL: ${{ inputs.release_channel }}
+          TAG_PREFIX: ${{ steps.identity.outputs.tag_prefix }}
+          IPA_BASENAME: ${{ steps.identity.outputs.ipa_basename }}
         run: |
-          VERSION=$(sed -n 's/^version: \([^+]*\)+.*/\1/p' pubspec.yaml | head -n1)
+          VERSION=$(sed -n 's/^version: \([^+]*\).*/\1/p' pubspec.yaml | head -n1)
           BUILD_NUMBER=$(sed -n 's/^version: [^+]*+\([0-9][0-9]*\).*/\1/p' pubspec.yaml | head -n1)
 
-          if [ -z "$VERSION" ] || [ -z "$BUILD_NUMBER" ]; then
-            echo "Could not read version/build number from pubspec.yaml"
+          if [ -z "$VERSION" ]; then
+            echo "Could not read version from pubspec.yaml"
             exit 1
           fi
 
-          TAG="v$VERSION"
+          # A version with no +build suffix is legal, and pubspec.yaml has
+          # carried one. This used to fail the whole build over a
+          # display-only number.
+          BUILD_NUMBER="${BUILD_NUMBER:-0}"
+          CHANNEL="${INPUT_CHANNEL:-stable}"
 
-          # The release job globs for anImestream-*-ios-unsigned.ipa, so the
-          # name is derived here once and reused for both the file and the glob.
-          IPA_NAME="anImestream-${VERSION}-ios-unsigned.ipa"
-
-          # For tag builds, make sure the tag matches pubspec.yaml.
           if [ "$GITHUB_EVENT_NAME" = "push" ]; then
-            PUSHED_TAG="${GITHUB_REF#refs/tags/}"
-            if [ "$PUSHED_TAG" != "$TAG" ]; then
-              echo "Tag $PUSHED_TAG does not match pubspec version $VERSION"
-              exit 1
+            # A tag was pushed: that tag is the release, as it always was.
+            TAG="${GITHUB_REF#refs/tags/}"
+          elif [ -n "$INPUT_TAG_NAME" ]; then
+            # Re-releasing a tag that already exists.
+            TAG="$INPUT_TAG_NAME"
+          else
+            # Random on purpose. The version keeps the tag readable; the eight
+            # hex characters make the run unique. That is what allows repeated
+            # runs at the same version: v1.0.6, v1.0.6-4f2ab9, v1.0.6-9c1de0...
+            SUFFIX=$(openssl rand -hex 4)
+            if [ "$CHANNEL" = "stable" ]; then
+              TAG="${TAG_PREFIX}v${VERSION}-${SUFFIX}"
+            else
+              TAG="${TAG_PREFIX}v${VERSION}-${CHANNEL}.${SUFFIX}"
             fi
-          elif [ -n "$INPUT_TAG_NAME" ] && [ "$INPUT_TAG_NAME" != "$TAG" ]; then
-            echo "Selected tag $INPUT_TAG_NAME does not match pubspec version $VERSION"
-            exit 1
           fi
+
+          # Pushed tags take their prerelease-ness from the version the pusher
+          # wrote. Manual runs take it from the channel that was picked.
+          if [ "$GITHUB_EVENT_NAME" = "push" ] && [ -z "$INPUT_CHANNEL" ]; then
+            case "$VERSION" in
+              *-*) PRERELEASE=true ;;
+              *)   PRERELEASE=false ;;
+            esac
+          elif [ "$CHANNEL" = "stable" ]; then
+            PRERELEASE=false
+          else
+            PRERELEASE=true
+          fi
+
+          SLUG=""
+          [ "$CHANNEL" = "stable" ] || SLUG="-${CHANNEL}"
+          IPA_NAME="${IPA_BASENAME}-${VERSION}${SLUG}-ios-unsigned.ipa"
 
           {
             echo "version=$VERSION"
             echo "build_number=$BUILD_NUMBER"
             echo "tag=$TAG"
+            echo "prerelease=$PRERELEASE"
             echo "ipa_name=$IPA_NAME"
           } >> "$GITHUB_OUTPUT"
+
+          echo "tag:        $TAG"
+          echo "channel:    $CHANNEL"
+          echo "prerelease: $PRERELEASE"
+          echo "ipa:        $IPA_NAME"
 
       - name: Prepare iOS Build Environment
         # Builds for the simulator first to safely generate Flutter's bridging files
@@ -149,7 +281,7 @@ jobs:
       - name: Upload unsigned IPA
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.ARTIFACT_NAME }}
+          name: ${{ steps.identity.outputs.artifact_name }}
           path: ${{ steps.version.outputs.ipa_name }}
           if-no-files-found: error
 
@@ -161,25 +293,46 @@ jobs:
       contents: write
     if: >-
       ${{
-        (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+        (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) ||
         (github.event_name == 'workflow_dispatch' && inputs.create_release == true)
       }}
     steps:
+      - name: Checkout the built commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
       - name: Download IPA artifact
         uses: actions/download-artifact@v4
         with:
-          # Must match ARTIFACT_NAME in the build job exactly.
-          name: anImestream-ios-unsigned
+          # Must match the artifact name the build job uploaded.
+          name: ${{ needs.build-ios.outputs.artifact_name }}
           path: release-files
+
+      # The tag is created here rather than left to the release action: a
+      # release created against a tag that does not exist yet is pointed at the
+      # repository's default branch, which would tag the wrong commit.
+      - name: Push the tag
+        env:
+          TAG: ${{ needs.build-ios.outputs.tag }}
+        run: |
+          git check-ref-format "refs/tags/$TAG"
+          if git rev-parse --verify --quiet "refs/tags/$TAG"; then
+            echo "Tag $TAG already exists; releasing against it."
+            exit 0
+          fi
+          git tag "$TAG"
+          git push origin "$TAG"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.build-ios.outputs.tag }}
-          name: anImestream ${{ needs.build-ios.outputs.tag }}
+          name: ${{ needs.build-ios.outputs.display_name }} ${{ needs.build-ios.outputs.tag }}
           generate_release_notes: true
           draft: false
-          prerelease: ${{ contains(needs.build-ios.outputs.version, '-') }}
+          prerelease: ${{ needs.build-ios.outputs.prerelease }}
           files: release-files/${{ needs.build-ios.outputs.ipa_name }}
           # Fail loudly instead of publishing an empty release if the asset is missing.
           fail_on_unmatched_files: true
