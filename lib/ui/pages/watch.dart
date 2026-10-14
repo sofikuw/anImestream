@@ -403,12 +403,12 @@ class _WatchState extends State<Watch> with WidgetsBindingObserver {
       return;
     }
 
-    _handleSingleTap();
     _waitingForSecondTap = true;
     _tapTimer?.cancel();
     _tapTimer = Timer(_doubleTapWindow, () {
       _waitingForSecondTap = false;
       _tapTimer = null;
+      _handleSingleTap();
     });
   }
 
