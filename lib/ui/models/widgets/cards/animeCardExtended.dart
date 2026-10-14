@@ -63,16 +63,57 @@ class AnimeCardExtended extends StatelessWidget {
 
   void _handleTap(BuildContext context) {
     if (onTap != null) return onTap!();
-    if (!isAnime) return floatingSnackBar("Mangas/Novels arent supported");
+
+    // Content type is consulted BEFORE `isAnime`.
+    //
+    // `isAnime` is a legacy gate that only ever meant "this card cannot open a
+    // details page". A manga row *can* -- it just opens a different one. Asking
+    // `isAnime` first meant every manga row routed by [contentType] fell
+    // through to the "not supported" snackbar and its [routeId] was never read,
+    // which is what made this card useless for manga rails.
+    if (_isManga) {
+      Navigator.of(context)
+          .push(
+            MaterialPageRoute(
+              builder: (context) => MangaDetailsPage(id: routeId ?? id.toString()),
+            ),
+          )
+          .then((val) {
+        if (afterNavigation != null) afterNavigation?.call();
+      });
+      return;
+    }
+
+    // A row that is not an anime routes to the manga details page instead of
+    // being refused. Manga is a first-class content type now, so "not an anime"
+    // no longer means "unsupported" -- the old refusal's premise is simply
+    // false, and it was a dead end from every caller that passed isAnime:
+    // false. `isAnime` survives as a routing hint: "do not open Info(id:)".
+    if (!isAnime) {
+      final mangaId = routeId ?? (id > 0 ? id.toString() : null);
+      // The one case that genuinely cannot be routed: a card built with no real
+      // id at all. Still worth saying out loud rather than swallowing the tap.
+      if (mangaId == null) {
+        return floatingSnackBar("This row has no id to open.");
+      }
+      if (!shouldNavigate) return;
+      Navigator.of(context)
+          .push(
+            MaterialPageRoute(builder: (context) => MangaDetailsPage(id: mangaId)),
+          )
+          .then((val) {
+        if (afterNavigation != null) afterNavigation?.call();
+      });
+      return;
+    }
+
     if (!shouldNavigate) return;
 
-    final route = _isManga
-        ? MaterialPageRoute(
-            builder: (context) => MangaDetailsPage(id: routeId ?? id.toString()),
-          )
-        : MaterialPageRoute(builder: (context) => Info(id: id));
-
-    Navigator.of(context).push(route).then((val) {
+    Navigator.of(context)
+        .push(
+          MaterialPageRoute(builder: (context) => Info(id: id)),
+        )
+        .then((val) {
       if (afterNavigation != null) afterNavigation?.call();
     });
   }
