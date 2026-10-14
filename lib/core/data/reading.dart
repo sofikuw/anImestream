@@ -3,8 +3,6 @@ import 'package:hive/hive.dart';
 import 'package:animestream/core/app/logging.dart';
 import 'package:animestream/core/commons/enums/hiveEnums.dart';
 import 'package:animestream/core/commons/types.dart';
-import 'package:animestream/core/database/anilist/login.dart';
-import 'package:animestream/core/database/handler/syncHandler.dart';
 
 final String _boxName = HiveBox.animestream.boxName;
 
@@ -28,17 +26,18 @@ const int _maxRows = 40;
 /// function writes to exactly one destination: AniList when signed in, Hive
 /// when not. The consequence is that a signed-in user has *no* local watch
 /// history. Mirrored literally, that would make this rail empty for a
-/// signed-in user.
+/// signed-in user -- and since the AniList manga path does not exist yet (see
+/// below), it would make it empty for everyone.
 ///
-/// So the local row is written unconditionally, and the AniList call is
-/// something this function *adds to* rather than chooses between. That ordering
-/// matters: the Home rail reads the local box, so the Hive write is what makes
-/// the rail work for signed-in and signed-out users alike.
+/// So the local row is written unconditionally, and an AniList call is
+/// something this function would *add* to, not choose between.
 ///
-/// The AniList half is wired: `mutateMangaList` in
-/// `core/database/handler/syncHandler.dart`, which is AniList-only on purpose --
-/// `mutateAnimeList` cannot be reused because it cross-posts to MAL and Simkl,
-/// neither of which should receive manga.
+/// The AniList half is not wired yet. It needs a `mutateMangaList` beside
+/// `mutateAnimeList` in `core/database/handler/syncHandler.dart`, and
+/// `mutateAnimeList` cannot be reused: it is anime-shaped (`id: int`) and
+/// cross-posts to MAL and Simkl, neither of which should receive manga. A new
+/// query is needed in `core/database/anilist/queries.dart` too, because
+/// `getUserAnimeList` hard-codes `type: ANIME`.
 Future<void> storeReading({
   required String id,
   required String title,
@@ -69,33 +68,6 @@ Future<void> storeReading({
     await box.put(_readingKey, reading);
     await box.close();
     Logs.app.log("Stored reading progress for $title at chapter $chapterNumber");
-
-    // ---------------------------------------------------------------- AniList
-    //
-    // Additive, and after the local write, so nothing here can cost the user
-    // their local shelf.
-    //
-    // `id` arrives as a String because the manga details page carries it as one,
-    // but AniList wants its own manga media id as an int. A provider id --
-    // MangaDex's, Ragnarok's -- is not one, so it is refused here rather than
-    // sent: a wrong id would write progress against a different title, which is
-    // worse than not syncing at all. The refusal is logged, so a mismatch shows
-    // up in the app's own log instead of looking like a sync that silently does
-    // nothing.
-    final mediaId = int.tryParse(id);
-    if (mediaId == null) {
-      Logs.app.log(
-        "Not syncing reading progress to AniList: '$id' is not an AniList media id",
-      );
-    } else if (await AniListLogin().isAnilistLoggedIn()) {
-      // AniList's `progress` is an int, and a chapter number is a double here --
-      // half chapters are a real thing in manga -- so floor it. Chapter 1.5 is
-      // read as far as AniList is concerned once chapter 1 is done.
-      await SyncHandler().mutateMangaList(
-        id: mediaId,
-        progress: chapterNumber.floor(),
-      );
-    }
   } catch (err) {
     Logs.app.log("${err.toString()} while storing reading progress");
   }
@@ -105,7 +77,7 @@ Future<void> storeReading({
 ///
 /// Built as [HomePageList] with `contentType: 'manga'`, which is the whole
 /// reason the Home rail needs no card work: `AnimeCardExtended` already routes
-/// a manga row to the manga details page off that field.
+/// a mango row to the manga details page off that field.
 ///
 /// Never throws. A storage failure returns an empty list, so a broken Hive box
 /// costs the user this one rail rather than the whole Home page.
@@ -145,34 +117,6 @@ Future<List<HomePageList>> getReadingList() async {
     Logs.app.log("${err.toString()} while reading the local reading list");
   }
   return rows;
-}
-
-/// The last chapter opened for one manga, or null if it has never been
-/// opened.
-///
-/// Read straight from the box rather than through `getReadingList`, because
-/// that returns Home-rail rows: capped at 40, shaped as cards, and without a
-/// way to ask for one title. This is a lookup by id, which is what the
-/// chapter list needs to know which rows to fade.
-///
-/// Never throws. A storage failure returns null, so a broken box costs the
-/// reader its faded rows rather than the whole chapter list.
-Future<double?> getLastReadChapter(String id) async {
-  try {
-    final box = await Hive.openBox(_boxName);
-    final reading = List<dynamic>.from(box.get(_readingKey) ?? const <dynamic>[]);
-    for (final item in reading) {
-      if (item is! Map) continue;
-      if (item['id']?.toString() != id) continue;
-      final chapter = item['chapter'];
-      await box.close();
-      return chapter is num ? chapter.toDouble() : null;
-    }
-    await box.close();
-  } catch (err) {
-    Logs.app.log("${err.toString()} while reading the last read chapter");
-  }
-  return null;
 }
 
 /// Forgets one title. The counterpart to `watching.dart`'s `removeWatching`.
