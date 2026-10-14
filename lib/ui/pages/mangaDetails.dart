@@ -5,6 +5,7 @@ import 'package:animestream/core/commons/enums/loadingState.dart';
 import 'package:animestream/core/manga/anilistManga.dart';
 import 'package:animestream/core/manga/javascriptMangaProvider.dart';
 import 'package:animestream/core/manga/mangaProvider.dart';
+import 'package:animestream/core/data/reading.dart';
 import 'package:animestream/core/manga/types.dart';
 import 'package:animestream/ui/models/sources.dart';
 import 'package:animestream/ui/models/widgets/cards.dart';
@@ -44,6 +45,16 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
 
   List<MangaChapter> _chapters = [];
   LoadingState _chaptersState = LoadingState.loaded;
+
+  /// The last chapter opened for this manga, or null. Drives the Kotatsu-
+  /// style fade on the chapter list: everything at or below it is dimmed and
+  /// ticked.
+  ///
+  /// Null on first paint, because it is loaded asynchronously -- the list
+  /// therefore renders un-faded for one frame before the value arrives. That
+  /// flicker is why this is nullable rather than defaulted to zero: zero would
+  /// wrongly fade nothing, and any other default would wrongly fade something.
+  double? _lastReadChapter;
 
   /// Chapters and pages. Taken from the caller when one is supplied, otherwise
   /// discovered from an installed manga extension during [load].
@@ -101,6 +112,7 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
         _state = LoadingState.loaded;
       });
       await loadChapters(details);
+      await _refreshLastRead();
     } catch (err) {
       Logs.app.log("Error loading manga details: $err");
       if (!mounted) return;
@@ -109,6 +121,18 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
         _error = err.toString();
       });
     }
+  }
+
+  /// Re-reads the last chapter opened for this manga.
+  ///
+  /// Called on first load and again after the reader pops. The second call is
+  /// the one that matters: the value it reads is written by the tap that opens
+  /// the reader, so without it the list would show the state from before the
+  /// chapter was opened.
+  Future<void> _refreshLastRead() async {
+    final last = await getLastReadChapter(widget.id);
+    if (!mounted) return;
+    setState(() => _lastReadChapter = last);
   }
 
   Future<void> loadChapters(MangaDetails details) async {
@@ -527,14 +551,27 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
               itemCount: _chapters.length,
               itemBuilder: (context, index) {
                 final chapter = _chapters[index];
+                final chapterNumber = chapter.number;
+                final hasRead = _lastReadChapter != null &&
+                    chapterNumber != null &&
+                    chapterNumber <= _lastReadChapter!;
                 return ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+                  leading: hasRead
+                      ? Icon(
+                          Icons.check_circle_rounded,
+                          size: 18,
+                          color: appTheme.accentColor.withValues(alpha: 0.6),
+                        )
+                      : null,
                   title: Text(
                     chapter.displayTitle,
                     style: TextStyle(
                       fontFamily: "NotoSans",
                       fontSize: 15,
-                      color: appTheme.textMainColor,
+                      color: hasRead
+                          ? appTheme.textMainColor.withValues(alpha: 0.45)
+                          : appTheme.textMainColor,
                     ),
                   ),
                   subtitle: chapter.scanlator == null
@@ -572,15 +609,19 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
                       chapterNumber: chapter.number ?? 1,
                     );
 
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => MangaReaderPage(
-                          manga: details,
-                          chapter: chapter,
-                          provider: _provider!,
-                        ),
-                      ),
-                    );
+                    Navigator.of(context)
+                        .push(
+                          MaterialPageRoute(
+                            builder: (context) => MangaReaderPage(
+                              manga: details,
+                              chapter: chapter,
+                              provider: _provider!,
+                            ),
+                          ),
+                        )
+                        .then((_) {
+                      if (mounted) _refreshLastRead();
+                    });
                   },
                 );
               },
