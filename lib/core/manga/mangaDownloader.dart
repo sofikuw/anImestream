@@ -39,11 +39,11 @@ import 'package:path_provider/path_provider.dart';
 /// wins over a fresher online copy until the user deletes it.
 class MangaDownloader {
   /// Serialised with the library: two taps on the same chapter must not race.
-  static final Map<String, DownloadProgress> _inFlight = {};
+  static final Map<String, ChapterDownload> _inFlight = {};
 
   /// Every download in this session, keyed by a stable chapter key.
-  static final ValueNotifier<Map<String, DownloadProgress>> progress =
-      ValueNotifier(const <String, DownloadProgress>{});
+  static final ValueNotifier<Map<String, ChapterDownload>> progress =
+      ValueNotifier(const <String, ChapterDownload>{});
 
   /// Identifies one chapter across restarts.
   ///
@@ -117,12 +117,12 @@ class MangaDownloader {
 
     final client = HttpClient();
     try {
-      _set(key, DownloadProgress(key: key, state: DownloadState.fetchingPages));
+      _set(key, ChapterDownload(key: key, state: DownloadState.fetchingPages));
 
       final pages = await provider.getPages(chapter);
       if (pages.isEmpty) {
         Logs.app.log('No pages for "$mangaTitle" ${chapter.displayTitle}');
-        _set(key, DownloadProgress(key: key, state: DownloadState.failed));
+        _set(key, ChapterDownload(key: key, state: DownloadState.failed));
         return false;
       }
 
@@ -139,13 +139,13 @@ class MangaDownloader {
           Logs.app.log(
             'Page ${page.index} failed for "$mangaTitle" ${chapter.displayTitle}',
           );
-          _set(key, DownloadProgress(key: key, state: DownloadState.failed));
+          _set(key, ChapterDownload(key: key, state: DownloadState.failed));
           return false;
         }
         completed++;
         _set(
           key,
-          DownloadProgress(
+          ChapterDownload(
             key: key,
             state: DownloadState.downloading,
             completed: completed,
@@ -170,12 +170,12 @@ class MangaDownloader {
         }),
       );
 
-      _set(key, DownloadProgress(key: key, state: DownloadState.done));
+      _set(key, ChapterDownload(key: key, state: DownloadState.done));
       Logs.app.log('Downloaded "$mangaTitle" ${chapter.displayTitle}');
       return true;
     } catch (err) {
       Logs.app.log('$err while downloading a manga chapter');
-      _set(key, DownloadProgress(key: key, state: DownloadState.failed));
+      _set(key, ChapterDownload(key: key, state: DownloadState.failed));
       return false;
     } finally {
       client.close();
@@ -269,7 +269,7 @@ class MangaDownloader {
       if (await dir.exists()) await dir.delete(recursive: true);
       final key = keyFor(mangaId, chapter);
       _inFlight.remove(key);
-      _set(key, DownloadProgress(key: key, state: DownloadState.absent));
+      _set(key, ChapterDownload(key: key, state: DownloadState.absent));
     } catch (err) {
       Logs.app.log('$err while deleting a downloaded chapter');
     }
@@ -295,9 +295,9 @@ class MangaDownloader {
     }
   }
 
-  static DownloadProgress? _progressFor(String key) => progress.value[key];
+  static ChapterDownload? _progressFor(String key) => progress.value[key];
 
-  static void _set(String key, DownloadProgress value) {
+  static void _set(String key, ChapterDownload value) {
     _inFlight[key] = value;
     progress.value = {...progress.value, key: value};
   }
@@ -309,14 +309,25 @@ enum DownloadState { absent, fetchingPages, downloading, done, failed }
 
 /// One chapter's download state. [completed] and [total] are per page, which is
 /// what a progress bar needs -- a chapter is many requests, not one.
+///
+/// **Named `ChapterDownload`, not `DownloadProgress`.** The obvious name
+/// collides with `flutter_cache_manager`'s `DownloadProgress`, which reaches
+/// `mangaDetails.dart` transitively through `CachedNetworkImage` -- the same
+/// import that renders the cover art. A bare `DownloadProgress` in that file is
+/// then an ambiguous reference and it does not compile, which is exactly how
+/// this was found.
+///
+/// Renaming this rather than `hide`-ing the other is deliberate: theirs is a
+/// real type that file could legitimately need one day, and hiding it would
+/// resurface later as a puzzling "undefined name" rather than as a collision.
 @immutable
-class DownloadProgress {
+class ChapterDownload {
   final String key;
   final DownloadState state;
   final int completed;
   final int total;
 
-  const DownloadProgress({
+  const ChapterDownload({
     required this.key,
     required this.state,
     this.completed = 0,
@@ -330,7 +341,7 @@ class DownloadProgress {
 
   @override
   bool operator ==(Object other) =>
-      other is DownloadProgress &&
+      other is ChapterDownload &&
       other.key == key &&
       other.state == state &&
       other.completed == completed &&
