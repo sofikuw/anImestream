@@ -50,6 +50,46 @@ class SyncHandler extends DatabaseMutation {
     return null;
   }
 
+  /// Manga reading progress, which has exactly one destination: AniList.
+  ///
+  /// `mutateAnimeList` above cannot be reused for this, and not because of its
+  /// shape. It fans out over every database -- `Databases.values` for the active
+  /// one, then each of `otherIds` -- so pointed at a manga it would post reading
+  /// progress to MAL and Simkl. Neither carries manga entries, so those writes
+  /// would either fail or, worse, succeed against a colliding id and corrupt an
+  /// unrelated anime entry.
+  ///
+  /// Nothing AniList-side needs a manga variant: `SaveMediaListEntry` takes a
+  /// `mediaId` and no `type`, so a manga media id is accepted as-is. What is
+  /// manga-specific is only the routing, which is why this lives here rather
+  /// than in `anilist/mutations.dart`.
+  ///
+  /// Never throws. Reading a chapter must not fail because a sync did -- the
+  /// caller has already written the local row by the time this runs, and an
+  /// exception escaping here would be reported as a reading error.
+  Future<DatabaseMutationResult?> mutateMangaList({
+    required int id,
+    int? progress,
+  }) async {
+    final activeDb = getActiveDatabase();
+    if (activeDb != Databases.anilist) {
+      print(
+        "[SYNC HANDLER]: manga progress is AniList-only; active database is ${activeDb.name}, not syncing",
+      );
+      return null;
+    }
+
+    try {
+      await AnilistMutations().mutateAnimeList(id: id, progress: progress);
+      print("[SYNC HANDLER]: Synced manga $id to AniList");
+    } catch (e, st) {
+      print("[SYNC HANDLER]: manga sync failed for $id: $e");
+      print(st.toString());
+    }
+
+    return null;
+  }
+
   @override
   Future<DatabaseMutationResult?> deleteAnimeEntry({required int id, List<AlternateDatabaseId>? otherIds}) async {
     final List<Databases> databases = Databases.values;
