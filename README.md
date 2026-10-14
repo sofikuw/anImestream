@@ -35,6 +35,7 @@ id — cannot live in `pubspec.yaml`, and renaming it would mean rewriting every
 
 - **Original author:** [FrostNova / frostnova721](https://github.com/frostnova721)
 - **iOS fork:** [sofikuw](https://github.com/sofikuw)
+- **This repository:** [exurtys](https://github.com/exurtys)
 
 ## iOS support status
 
@@ -137,9 +138,13 @@ first divergent release.
 
 ## License
 
-Released into the public domain under the **Unlicense** — see [LICENSE](LICENSE).
-Earlier revisions of the fork were distributed under GPL-3.0, and the
-original Animestream is GPL-3.0; that history is in the git log.
+**GNU General Public License v3.0 (GPL-3.0)** — the same license as the original
+project. GPLv3 permits modification and redistribution while requiring covered
+derivative works to preserve its copyleft terms.
+
+[LICENSE](LICENSE) is deliberately **not** part of this stage. It is already
+correct in the repository, and restaging a 35KB licence to say the same thing
+only risks replacing it with a paraphrase.
 
 ## Disclaimer
 
