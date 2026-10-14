@@ -102,3 +102,48 @@ first.
    assets they replace (`logo.png`, `logo_foreground.png`, …) and run
    `dart run flutter_launcher_icons` afterwards.
 5. Land it on `master` *before* cutting the branch from it.
+
+## Android
+
+Android is the second platform, and it shares this descriptor rather than having
+one of its own: `DISPLAY_NAME` is the iOS `CFBundleDisplayName` **and** the
+Android `android:label`, and `divergent`'s `APPLICATION_ID` is the same string as
+its `BUNDLE_ID`, because that string is legal as both.
+
+The part worth knowing is that Android splits the identifier iOS fuses into one,
+and only one half of it belongs to a branch:
+
+| | iOS | Android |
+| --- | --- | --- |
+| Install identity | `PRODUCT_BUNDLE_IDENTIFIER` (`BUNDLE_ID`) | `applicationId` (`APPLICATION_ID`) |
+| Display name | `CFBundleDisplayName` / `CFBundleName` (`DISPLAY_NAME`) | `android:label` (`DISPLAY_NAME`) |
+| Compile-time package | — | `namespace`, never changed |
+
+`namespace` is where `MainActivity.kt` lives and what `.MainActivity` in the
+manifest resolves against, so moving it means moving Kotlin source files.
+`apply-identity.sh` therefore rewrites `applicationId` only, and **asserts** that
+the namespace is still `app.animestream` — otherwise "found nothing to change" and
+"changed it" are the same output.
+
+Two consequences of that split, both intended:
+
+- A `divergent` APK installs *beside* a `master` APK, because the `applicationId`
+  differs. Without the override both would be `app.animestream`, and the second
+  install would replace the first rather than sit next to it.
+- AniList login keeps working. The OAuth redirect scheme is in the manifest and is
+  not a branch's to change, so `divergent` and `master` share it — the same reason
+  the iOS side leaves `CFBundleURLSchemes` alone.
+
+The launcher icon is the one thing that is *not* per-branch by default. The
+`android/` folder is upstream's, so its `mipmap-*` sets are upstream's artwork;
+regenerating them is what `build-android.yml`'s `regenerate_icons` input is for,
+and it runs `dart run flutter_launcher_icons` for you.
+
+Adding a branch means setting `APPLICATION_ID` next to `BUNDLE_ID`, or leaving it
+empty for "this branch keeps the install identity it already has".
+
+Note also that `android/` is **not in this repository**. It is fetched at request
+time and published by the staging val — see `androidPlatform.ts` — so a branch
+does not carry it and `git diff` will not show it. The generated file sets it
+writes to are still in the working tree during a build, which is why
+`git checkout -- .` is still the way to undo an identity.
