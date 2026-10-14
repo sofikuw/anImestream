@@ -49,6 +49,8 @@ than pretending to cover the fork's earlier life. That history is in the git log
   justified while it differs from upstream.
 - **`pushToGithub.ts` pushes a list of stages** instead of one hardcoded stage,
   in the same merge order `main.ts` uses, so a new stage lands with the same Run.
+  It writes to the **`divergent` branch only** — `master` is the
+  upstream-tracking branch and stays that way.
 
 ### Known issues — not fixed yet
 
