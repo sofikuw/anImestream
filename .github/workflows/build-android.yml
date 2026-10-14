@@ -1,0 +1,440 @@
+name: Build and Release Android
+
+# The Android half of the scheme build-ios.yml implements: pick a branch and a
+# release channel, get signed APKs and a GitHub Release tagged with a random
+# suffix, so the workflow can be re-run without touching pubspec.yaml.
+#
+# WHY THIS IS A SEPARATE WORKFLOW
+#
+# build-ios.yml has to run on `macos-latest`; this job is a far cheaper
+# `ubuntu-latest` one, and the two share no step beyond checkout. Joining them
+# would put every APK behind a macOS runner for no reason, and would couple two
+# toolchains that fail for entirely unrelated reasons. What they *do* share is the
+# branch scheme and the identity descriptor, so a branch means the same thing on
+# both platforms.
+#
+# WHERE THE ANDROID PROJECT COMES FROM
+#
+# The repository has no android/ directory in git -- it was created as an iOS
+# fork, and Flutter's platform folders are per-platform. The folder is published
+# into the archive, and pushed to the branch, by the staging val, which fetches it
+# from frostnova721/animestream at request time; see androidPlatform.ts for why it
+# cannot be staged. Two consequences land on this workflow:
+#
+#   * the folder arrives with no Gradle wrapper, because upstream's
+#     android/.gitignore excludes `gradlew` and `gradle-wrapper.jar`. Flutter
+#     regenerates them during the build from the Gradle on PATH, so GRADLE_VERSION
+#     is pinned below -- the version android/gradle/wrapper/gradle-wrapper.properties
+#     names, and the runner's preinstalled Gradle is older than the AGP 9.2.0 in
+#     android/settings.gradle.kts.
+#   * the folder carries upstream's applicationId and label. The branch's own
+#     identity is applied to the working tree below, by the same script the iOS
+#     job uses, so there is one descriptor per branch rather than two.
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Branch to build
+        required: true
+        type: choice
+        options:
+          - divergent
+          - master
+        default: divergent
+      release_channel:
+        description: 'Release channel (anything but stable publishes as a prerelease)'
+        required: true
+        type: choice
+        options:
+          - stable
+          - prerelease
+          - beta
+          - alpha
+        default: stable
+      tag_name:
+        description: Existing tag to build instead of the branch tip (optional)
+        required: false
+        type: string
+        default: ''
+      create_release:
+        description: Create a GitHub Release
+        required: false
+        type: boolean
+        default: true
+      regenerate_icons:
+        description: 'Regenerate the Android launcher icons and splash from lib/assets/icons (needed only once a branch ships its own icon)'
+        required: false
+        type: boolean
+        default: false
+  push:
+    # Disjoint from build-ios.yml's 'v*' and 'divergent-v*' on purpose: a pushed
+    # tag selects one platform's workflow, never both.
+    tags:
+      - 'android-v*'
+      - 'divergent-android-v*'
+
+env:
+  FLUTTER_VERSION: '3.47.1'
+  # android/app/build.gradle.kts compiles against 17 (VERSION_17 source/target,
+  # JVM_17 kotlin target), so the JDK is pinned rather than defaulted.
+  JAVA_VERSION: '17'
+  JAVA_DISTRIBUTION: 'temurin'
+  GRADLE_VERSION: '9.5.1'
+
+jobs:
+  build-android:
+    name: Build Android APKs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      build_number: ${{ steps.version.outputs.build_number }}
+      tag: ${{ steps.version.outputs.tag }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+      # Per-branch, so it comes from branches/<branch>/identity.env rather than a
+      # workflow-level env. The release job downloads exactly what this job
+      # uploaded, from this one output.
+      artifact_name: ${{ steps.identity.outputs.artifact_name }}
+      display_name: ${{ steps.identity.outputs.display_name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # The selected branch is the ref that gets built. Without this the run
+          # would build whatever branch the workflow file happens to live on.
+          ref: ${{ inputs.branch || github.ref }}
+          fetch-depth: 0
+
+      - name: Select source tag
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name != '' }}
+        env:
+          TAG_NAME: ${{ inputs.tag_name }}
+        run: |
+          git check-ref-format "refs/tags/$TAG_NAME"
+          git rev-parse --verify "refs/tags/$TAG_NAME^{commit}"
+          git checkout --detach "refs/tags/$TAG_NAME"
+
+      # Everything downstream reads the branch from these outputs, so an unknown
+      # branch fails here rather than silently building the old identity under
+      # the new name.
+      - name: Resolve branch identity
+        id: identity
+        shell: bash
+        run: |
+          BRANCH="${{ inputs.branch }}"
+          if [ -z "$BRANCH" ]; then
+            # A pushed tag carries its branch in its prefix.
+            case "${GITHUB_REF_NAME:-}" in
+              divergent-android-*) BRANCH="divergent" ;;
+              *)                   BRANCH="master" ;;
+            esac
+          fi
+
+          DESCRIPTOR="branches/${BRANCH}/identity.env"
+          if [ ! -f "$DESCRIPTOR" ]; then
+            echo "No identity for branch '$BRANCH': $DESCRIPTOR is missing."
+            echo "Land the branch's identity on master before branching from it."
+            exit 1
+          fi
+
+          set -a
+          # shellcheck source=/dev/null
+          . "$DESCRIPTOR"
+          set +a
+
+          # The branch name, not the descriptor, decides tag and artifact names.
+          # Android gets its own prefix so an APK tag can never be mistaken for the
+          # IPA tag of the same run -- both are random-suffixed, but they are
+          # different artefacts and the tag is what a release is pointed at.
+          if [ "$BRANCH" = "master" ]; then
+            TAG_PREFIX="android-"
+            APK_BASENAME="anImestream"
+            ARTIFACT_NAME="anImestream-android"
+          else
+            TAG_PREFIX="${BRANCH}-android-"
+            APK_BASENAME="anImestream-${BRANCH}"
+            ARTIFACT_NAME="anImestream-${BRANCH}-android"
+          fi
+
+          {
+            echo "name=$BRANCH_NAME"
+            echo "display_name=$DISPLAY_NAME"
+            echo "artifact_name=$ARTIFACT_NAME"
+            echo "apk_basename=$APK_BASENAME"
+            echo "tag_prefix=$TAG_PREFIX"
+            echo "apply_identity=$APPLY_IDENTITY"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "branch:       $BRANCH"
+          echo "display name: $DISPLAY_NAME"
+          echo "application:  ${APPLICATION_ID:-<unchanged>}"
+          echo "label:        ${DISPLAY_NAME:-<unchanged>}"
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
+          java-version: ${{ env.JAVA_VERSION }}
+
+      # Before Flutter, because the wrapper Flutter regenerates is built from the
+      # Gradle this puts on PATH.
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: ${{ env.GRADLE_VERSION }}
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Apply branch identity
+        if: ${{ steps.identity.outputs.apply_identity == 'true' }}
+        run: bash branches/apply-identity.sh "${{ steps.identity.outputs.name }}"
+
+      # Off by default, and deliberately so: this is the step that gives a branch
+      # its own launcher icon and splash on Android, and it is only wanted when
+      # branches/<name>/icon/ has actually changed. The icons it writes into
+      # android/app/src/main/res/ are otherwise upstream's, because that is what
+      # the fetched platform folder carries.
+      - name: Regenerate icons and splash
+        if: ${{ inputs.regenerate_icons == true }}
+        run: |
+          dart run flutter_launcher_icons
+          dart run flutter_native_splash:create
+
+      - name: Accept Android licenses
+        run: yes | flutter doctor --android-licenses || true
+
+      - name: Prepare Dart defines
+        env:
+          SIMKL_CLIENT_SECRET: ${{ secrets.SIMKL_CLIENT_SECRET }}
+          SIMKL_CLIENT_ID: ${{ secrets.SIMKL_CLIENT_ID }}
+          COMMENTUM_API_URL: ${{ secrets.COMMENTUM_API_URL }}
+          DISCORD_APP_ID: ${{ secrets.DISCORD_APP_ID }}
+        run: |
+          jq -n \
+            --arg SIMKL_CLIENT_SECRET "$SIMKL_CLIENT_SECRET" \
+            --arg SIMKL_CLIENT_ID "$SIMKL_CLIENT_ID" \
+            --arg COMMENTUM_API_URL "$COMMENTUM_API_URL" \
+            --arg DISCORD_APP_ID "$DISCORD_APP_ID" \
+            '{
+              SIMKL_CLIENT_SECRET: $SIMKL_CLIENT_SECRET,
+              SIMKL_CLIENT_ID: $SIMKL_CLIENT_ID,
+              COMMENTUM_API_URL: $COMMENTUM_API_URL,
+              DISCORD_APP_ID: $DISCORD_APP_ID
+            }' > "$RUNNER_TEMP/animestream-dart-defines.json"
+
+      - name: Version and release tag
+        id: version
+        shell: bash
+        env:
+          INPUT_TAG_NAME: ${{ inputs.tag_name }}
+          INPUT_CHANNEL: ${{ inputs.release_channel }}
+          TAG_PREFIX: ${{ steps.identity.outputs.tag_prefix }}
+          APK_BASENAME: ${{ steps.identity.outputs.apk_basename }}
+        run: |
+          VERSION=$(sed -n 's/^version: \([^+]*\).*/\1/p' pubspec.yaml | head -n1)
+          BUILD_NUMBER=$(sed -n 's/^version: [^+]*+\([0-9][0-9]*\).*/\1/p' pubspec.yaml | head -n1)
+
+          if [ -z "$VERSION" ]; then
+            echo "Could not read version from pubspec.yaml"
+            exit 1
+          fi
+
+          # A version with no +build suffix is legal, and pubspec.yaml has carried
+          # one. This used to fail the whole build over a display-only number.
+          BUILD_NUMBER="${BUILD_NUMBER:-0}"
+          CHANNEL="${INPUT_CHANNEL:-stable}"
+
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+          elif [ -n "$INPUT_TAG_NAME" ]; then
+            TAG="$INPUT_TAG_NAME"
+          else
+            # Random on purpose: the version keeps the tag readable, the eight hex
+            # characters make the run unique, so the workflow can be re-run at one
+            # version as many times as it takes.
+            SUFFIX=$(openssl rand -hex 4)
+            if [ "$CHANNEL" = "stable" ]; then
+              TAG="${TAG_PREFIX}v${VERSION}-${SUFFIX}"
+            else
+              TAG="${TAG_PREFIX}v${VERSION}-${CHANNEL}.${SUFFIX}"
+            fi
+          fi
+
+          if [ "$GITHUB_EVENT_NAME" = "push" ] && [ -z "$INPUT_CHANNEL" ]; then
+            case "$VERSION" in
+              *-*) PRERELEASE=true ;;
+              *)   PRERELEASE=false ;;
+            esac
+          elif [ "$CHANNEL" = "stable" ]; then
+            PRERELEASE=false
+          else
+            PRERELEASE=true
+          fi
+
+          SLUG=""
+          [ "$CHANNEL" = "stable" ] || SLUG="-${CHANNEL}"
+
+          {
+            echo "version=$VERSION"
+            echo "build_number=$BUILD_NUMBER"
+            echo "tag=$TAG"
+            echo "prerelease=$PRERELEASE"
+            echo "apk_stem=${APK_BASENAME}-${VERSION}${SLUG}-android"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "tag:        $TAG"
+          echo "channel:    $CHANNEL"
+          echo "prerelease: $PRERELEASE"
+
+      - name: Prepare signing
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+        run: |
+          # android/key.properties is gitignored, so it is never in the archive:
+          # this step is the only place the release key exists. storeFile is
+          # resolved relative to the *app* module, which is why the keystore is
+          # written to android/app/ and named with no path.
+          if [ -n "${ANDROID_KEYSTORE_BASE64:-}" ]; then
+            printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/release-keystore.jks
+            {
+              echo "storePassword=${ANDROID_STORE_PASSWORD}"
+              echo "keyPassword=${ANDROID_KEY_PASSWORD}"
+              echo "keyAlias=${ANDROID_KEY_ALIAS}"
+              echo "storeFile=release-keystore.jks"
+            } > android/key.properties
+            echo "Signed with the keystore from ANDROID_KEYSTORE_BASE64."
+          else
+            # Android refuses to install a build signed by a different key over an
+            # existing one, so this fallback makes an APK that installs *fresh*
+            # and cannot upgrade anything. Stated loudly rather than hidden.
+            keytool -genkeypair -v -keystore android/app/release-keystore.jks \
+              -storepass animestream -keypass animestream -alias animestream \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=anImestream, O=divergent, C=US"
+            {
+              echo "storePassword=animestream"
+              echo "keyPassword=animestream"
+              echo "keyAlias=animestream"
+              echo "storeFile=release-keystore.jks"
+            } > android/key.properties
+            echo "::warning::No ANDROID_KEYSTORE_BASE64 secret: signed with a throwaway key generated in this run. The APK installs, but it cannot upgrade an install signed by any other key -- uninstall first, and set the secret before shipping anything anyone keeps."
+          fi
+
+      - name: Report the Gradle that will run
+        run: |
+          gradle --version
+          # The checkout has no android/gradlew -- upstream's android/.gitignore
+          # excludes it -- so Flutter regenerates the wrapper during the build from
+          # the Gradle on PATH. Printing the version here is what makes a mismatch a
+          # log line rather than an AGP error three minutes in.
+
+      - name: Build universal APK
+        run: |
+          flutter build apk \
+            --release \
+            --dart-define-from-file="$RUNNER_TEMP/animestream-dart-defines.json" \
+            --build-number=${{ steps.version.outputs.build_number }} \
+            --build-name=${{ steps.version.outputs.version }}
+
+      - name: Build split APKs
+        run: |
+          flutter build apk \
+            --release \
+            --split-per-abi \
+            --dart-define-from-file="$RUNNER_TEMP/animestream-dart-defines.json" \
+            --build-number=${{ steps.version.outputs.build_number }} \
+            --build-name=${{ steps.version.outputs.version }}
+
+      - name: Collect release files
+        env:
+          APK_STEM: ${{ steps.version.outputs.apk_stem }}
+        run: |
+          # One universal APK and one per ABI, named after the branch and version
+          # rather than after Flutter's output, so a downloaded file says which
+          # build it is without having been kept in a folder that does.
+          mkdir -p release-files
+          cp build/app/outputs/flutter-apk/app-release.apk "release-files/${APK_STEM}.apk"
+          for abi in armeabi-v7a arm64-v8a x86_64; do
+            source="build/app/outputs/flutter-apk/app-${abi}-release.apk"
+            if [ ! -f "$source" ]; then
+              echo "No split APK for $abi -- expected $source"
+              exit 1
+            fi
+            cp "$source" "release-files/${APK_STEM}-${abi}.apk"
+          done
+          ls -lh release-files
+
+      - name: Upload Android artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.identity.outputs.artifact_name }}
+          path: release-files/*.apk
+          if-no-files-found: error
+
+  create-release:
+    name: Create GitHub Release
+    needs: build-android
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    if: >-
+      ${{
+        (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) ||
+        (github.event_name == 'workflow_dispatch' && inputs.create_release == true)
+      }}
+    steps:
+      - name: Checkout the built commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Download APK artifacts
+        uses: actions/download-artifact@v4
+        with:
+          # Must match the artifact name the build job uploaded.
+          name: ${{ needs.build-android.outputs.artifact_name }}
+          path: release-files
+
+      # The tag is created here rather than left to the release action: a release
+      # created against a tag that does not exist yet is pointed at the
+      # repository's default branch, which would tag the wrong commit.
+      - name: Push the tag
+        env:
+          TAG: ${{ needs.build-android.outputs.tag }}
+        run: |
+          git check-ref-format "refs/tags/$TAG"
+          if git rev-parse --verify --quiet "refs/tags/$TAG"; then
+            echo "Tag $TAG already exists; releasing against it."
+            exit 0
+          fi
+          git tag "$TAG"
+          git push origin "$TAG"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.build-android.outputs.tag }}
+          name: ${{ needs.build-android.outputs.display_name }} ${{ needs.build-android.outputs.tag }}
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ needs.build-android.outputs.prerelease }}
+          files: release-files/*.apk
+          # Fail loudly instead of publishing an empty release if the assets are missing.
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
