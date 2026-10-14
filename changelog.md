@@ -10,6 +10,25 @@ than pretending to cover the fork's earlier life. That history is in the git log
 ## [Unreleased]
 
 ### Added
+- **Android, alongside iOS, from the same `android/` source.** The repository had
+  no Android platform folder at all -- it was created as an iOS fork, and
+  Flutter's platform folders are per-platform. It is now published by the staging
+  val, fetched from `frostnova721/animestream` at request time
+  (`androidPlatform.ts`) rather than staged, because it is ~60 files of mostly
+  binary resources that upstream maintains. `/contents.txt` reports the upstream
+  commit it came from, so drift is visible. `build-android.yml` builds release
+  APKs -- universal and per-ABI -- on the same branch, tag and release-channel
+  scheme `build-ios.yml` uses, with its own `android-` tag prefix so an APK tag
+  can never be mistaken for an IPA tag.
+
+  The Dart source needed no work for this, and that is worth recording: the fork
+  never stripped Android from `lib/`. `Platform.isAndroid` is threaded through 25
+  files -- the downloader, the updater, the player, the card grids, the
+  navigation -- and `packages/better_player` keeps its Android controller. What
+  was missing was the *build*, not the behaviour. Feature parity is therefore the
+  default, not an achievement.
+
+
 
 - **`stage-q`: the AniList half of Continue Reading.** A `mutateMangaList` in
   `core/database/handler/syncHandler.dart`, and the call to it from
