@@ -45,37 +45,6 @@ class JavaScriptMangaProvider implements MangaChapterProvider {
 
   bool get isUsable => !_disposed && !_runtime.isDisposed;
 
-  /// Every installed extension that declares the `manga` content type.
-  ///
-  /// Returns manifests, not providers, on purpose: each
-  /// [JavaScriptMangaProvider] owns an isolated JS runtime, so instantiating
-  /// every candidate just to populate a picker would spin up runtimes nothing
-  /// ever calls. Hand the chosen manifest's identifier to [forIdentifier].
-  static Future<List<ProviderDetails>> installedDetails({
-    ProviderManager? providerManager,
-  }) async {
-    final List<ProviderDetails> installed;
-    try {
-      installed = await (providerManager ?? ProviderManager()).getSavedProviders();
-    } catch (_) {
-      // A storage failure must not take the caller down with it.
-      return const <ProviderDetails>[];
-    }
-    return installed.where(_isUsableMangaExtension).toList(growable: false);
-  }
-
-  /// A provider for one installed manga extension, or null when that identifier
-  /// is not an installed, usable manga extension.
-  static Future<JavaScriptMangaProvider?> forIdentifier(
-    String identifier, {
-    ProviderManager? providerManager,
-  }) async {
-    for (final details in await installedDetails(providerManager: providerManager)) {
-      if (details.identifier == identifier) return _fromDetails(details);
-    }
-    return null;
-  }
-
   /// The first installed extension that declares the `manga` content type.
   ///
   /// Returns null when no manga extension is installed, which is the app's
@@ -87,31 +56,30 @@ class JavaScriptMangaProvider implements MangaChapterProvider {
   static Future<JavaScriptMangaProvider?> firstInstalled({
     ProviderManager? providerManager,
   }) async {
-    final candidates = await installedDetails(providerManager: providerManager);
-    if (candidates.isEmpty) return null;
-    return _fromDetails(candidates.first);
-  }
+    final List<ProviderDetails> installed;
+    try {
+      installed = await (providerManager ?? ProviderManager()).getSavedProviders();
+    } catch (_) {
+      // A storage failure must not take the details page down with it.
+      return null;
+    }
 
-  /// True when an installed record can actually serve manga.
-  ///
-  /// A provider that declared `manga` but shipped no code is skipped rather
-  /// than offered: selecting it could only ever fail.
-  static bool _isUsableMangaExtension(ProviderDetails details) {
-    if (details.scriptType.toLowerCase() != 'javascript') return false;
-    if (!details.contentTypes.contains('manga')) return false;
-    final code = details.code;
-    return code != null && code.trim().isNotEmpty;
-  }
+    for (final details in installed) {
+      if (details.scriptType.toLowerCase() != 'javascript') continue;
+      if (!details.contentTypes.contains('manga')) continue;
+      final code = details.code;
+      if (code == null || code.trim().isEmpty) continue;
 
-  static JavaScriptMangaProvider _fromDetails(ProviderDetails details) {
-    return JavaScriptMangaProvider(
-      details: details,
-      runtime: JavaScriptRuntime(
-        httpRequestHandler: JavaScriptProviderHttp(
-          allowedHosts: details.allowedHosts,
-        ).request,
-      ),
-    );
+      return JavaScriptMangaProvider(
+        details: details,
+        runtime: JavaScriptRuntime(
+          httpRequestHandler: JavaScriptProviderHttp(
+            allowedHosts: details.allowedHosts,
+          ).request,
+        ),
+      );
+    }
+    return null;
   }
 
   @override
