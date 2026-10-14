@@ -65,7 +65,6 @@ The build stops tracking upstream and ships as an app in its own right.
   suffix.
 - **`README.md`** rewritten around the standalone build: what the two branches
   are, how to trigger a release, what the release channels do.
-- **`LICENSE`** changed from GPL-3.0 to the Unlicense (public domain).
 - **The version's build number is optional again.** `pubspec.yaml` may carry
   `version: 1.0.6` with no `+build` suffix; the workflow used to fail the whole
   build over that missing display-only number, and now defaults it to 0.
