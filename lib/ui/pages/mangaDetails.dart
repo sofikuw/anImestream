@@ -1,13 +1,10 @@
-import 'package:animestream/core/data/reading.dart';import 'package:animestream/core/anime/providers/providerDetails.dart';
 import 'package:animestream/core/app/logging.dart';
 import 'package:animestream/core/app/runtimeDatas.dart';
 import 'package:animestream/core/commons/enums/loadingState.dart';
 import 'package:animestream/core/manga/anilistManga.dart';
 import 'package:animestream/core/manga/javascriptMangaProvider.dart';
 import 'package:animestream/core/manga/mangaProvider.dart';
-import 'package:animestream/core/data/reading.dart';
 import 'package:animestream/core/manga/types.dart';
-import 'package:animestream/ui/models/sources.dart';
 import 'package:animestream/ui/models/widgets/cards.dart';
 import 'package:animestream/ui/models/widgets/loader.dart';
 import 'package:animestream/ui/pages/mangaReader.dart';
@@ -46,25 +43,9 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
   List<MangaChapter> _chapters = [];
   LoadingState _chaptersState = LoadingState.loaded;
 
-  /// The last chapter opened for this manga, or null. Drives the Kotatsu-
-  /// style fade on the chapter list: everything at or below it is dimmed and
-  /// ticked.
-  ///
-  /// Null on first paint, because it is loaded asynchronously -- the list
-  /// therefore renders un-faded for one frame before the value arrives. That
-  /// flicker is why this is nullable rather than defaulted to zero: zero would
-  /// wrongly fade nothing, and any other default would wrongly fade something.
-  double? _lastReadChapter;
-
   /// Chapters and pages. Taken from the caller when one is supplied, otherwise
   /// discovered from an installed manga extension during [load].
   MangaChapterProvider? _provider;
-
-  /// Every installed extension that can serve manga, for the source picker.
-  ///
-  /// Manifests rather than providers: see
-  /// [JavaScriptMangaProvider.installedDetails].
-  List<ProviderDetails> _installed = const <ProviderDetails>[];
 
   /// Which half of the page is showing. The anime page toggles between its
   /// info rows and its episode list; this toggles between the info rows and
@@ -80,14 +61,10 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
 
   @override
   void dispose() {
-    // Only a provider this page created is this page's to release; one supplied
-    // by the caller belongs to the caller. Identity, not `chapterProvider ==
-    // null`: after a source switch the current provider is ours even when the
-    // page was handed one to begin with, and comparing against the caller's
-    // would leak the runtime we opened.
-    final provider = _provider;
-    if (provider != null && provider != widget.chapterProvider) {
-      provider.dispose();
+    // Only a provider this page discovered itself is this page's to release;
+    // one supplied by the caller belongs to the caller.
+    if (widget.chapterProvider == null) {
+      _provider?.dispose();
     }
     super.dispose();
   }
@@ -103,16 +80,13 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
       // An installed manga extension supplies the chapters and pages. Resolved
       // once per page, not once per chapter.
       final provider = _provider ?? await JavaScriptMangaProvider.firstInstalled();
-      final installed = await JavaScriptMangaProvider.installedDetails();
       if (!mounted) return;
       setState(() {
         _details = details;
         _provider = provider;
-        _installed = installed;
         _state = LoadingState.loaded;
       });
       await loadChapters(details);
-      await _refreshLastRead();
     } catch (err) {
       Logs.app.log("Error loading manga details: $err");
       if (!mounted) return;
@@ -121,18 +95,6 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
         _error = err.toString();
       });
     }
-  }
-
-  /// Re-reads the last chapter opened for this manga.
-  ///
-  /// Called on first load and again after the reader pops. The second call is
-  /// the one that matters: the value it reads is written by the tap that opens
-  /// the reader, so without it the list would show the state from before the
-  /// chapter was opened.
-  Future<void> _refreshLastRead() async {
-    final last = await getLastReadChapter(widget.id);
-    if (!mounted) return;
-    setState(() => _lastReadChapter = last);
   }
 
   Future<void> loadChapters(MangaDetails details) async {
@@ -152,42 +114,6 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
       if (!mounted) return;
       setState(() => _chaptersState = LoadingState.error);
     }
-  }
-
-  /// Swaps the extension the chapters come from.
-  ///
-  /// The previous provider is released only when this page opened it; a
-  /// caller-supplied one is left for the caller.
-  Future<void> _switchSource(ProviderDetails details) async {
-    if (details.identifier == _provider?.providerId) return;
-
-    setState(() {
-      _chapters = [];
-      _chaptersState = LoadingState.loading;
-    });
-
-    final previous = _provider;
-    if (previous != null && previous != widget.chapterProvider) {
-      await previous.dispose();
-    }
-
-    final provider = await JavaScriptMangaProvider.forIdentifier(details.identifier);
-    if (!mounted) return;
-
-    if (provider == null) {
-      // The entry came from the installed list, so this is a storage race
-      // rather than a bad selection.
-      setState(() {
-        _provider = null;
-        _chaptersState = LoadingState.error;
-      });
-      return;
-    }
-
-    setState(() => _provider = provider);
-
-    final current = _details;
-    if (current != null) await loadChapters(current);
   }
 
   @override
@@ -387,7 +313,6 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
 
     return Column(
       children: [
-        if (_installed.isNotEmpty) _sourcePicker(),
         _searchStatus(provider, details),
         if (provider != null)
           Container(
@@ -432,82 +357,6 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
     );
   }
 
-  /// The anime page's source picker, for manga.
-  ///
-  /// Entries come from [getSourceDropdownList] filtered to `manga`, so an
-  /// anime-only extension is never offered here and a MangaDex install is.
-  /// Selecting one disposes the extension this page was using and loads the
-  /// chapters from the chosen one instead.
-  Widget _sourcePicker() {
-    return Container(
-      margin: EdgeInsets.only(top: 30),
-      child: DropdownMenu(
-        // The manifest the current provider was built from, so the field shows
-        // the source the chapters actually came from.
-        //
-        // `_provider` is the MangaChapterProvider *interface*, which carries no
-        // manifest -- `details` only exists on the concrete
-        // JavaScriptMangaProvider. So it is read off the installed list by id
-        // instead of off the provider.
-        initialSelection: _installed
-            .where((installed) => installed.identifier == _provider?.providerId)
-            .firstOrNull,
-        dropdownMenuEntries: getSourceDropdownList(contentType: 'manga'),
-        width: 300,
-        textStyle: TextStyle(
-          color: appTheme.textMainColor,
-          fontFamily: "Poppins",
-        ),
-        trailingIcon: Icon(
-          Icons.arrow_drop_down,
-          color: appTheme.textMainColor,
-        ),
-        selectedTrailingIcon: Icon(
-          Icons.arrow_drop_up,
-          color: appTheme.textMainColor,
-        ),
-        menuStyle: MenuStyle(
-          backgroundColor: WidgetStatePropertyAll(appTheme.backgroundColor),
-          shape: WidgetStatePropertyAll(
-            RoundedRectangleBorder(
-              side: BorderSide(color: appTheme.textMainColor),
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-        ),
-        label: Text(
-          "source",
-          style: TextStyle(
-            color: appTheme.textMainColor,
-            fontSize: 20,
-            fontFamily: "Rubik",
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          border: OutlineInputBorder(
-            borderSide: BorderSide(
-              width: 1,
-              color: appTheme.textMainColor,
-            ),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          contentPadding: EdgeInsets.only(left: 20, right: 20),
-          enabledBorder: OutlineInputBorder(
-            borderSide: BorderSide(
-              width: 1,
-              color: appTheme.textMainColor,
-            ),
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
-        onSelected: (value) {
-          if (value is ProviderDetails) _switchSource(value);
-        },
-      ),
-    );
-  }
-
   /// The anime page shows its matched source here; this shows the extension
   /// the chapters came from, or why there are none.
   Widget _searchStatus(MangaChapterProvider? provider, MangaDetails details) {
@@ -536,9 +385,7 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
           child: Center(child: CircularProgressIndicator(color: appTheme.accentColor)),
         ),
       LoadingState.error => _inlineMessage(
-          _provider == null
-              ? "That source is no longer installed."
-              : "Couldn't load chapters from ${_provider!.providerName}.",
+          "Couldn't load chapters from ${_provider!.providerName}.",
         ),
       _ => _chapters.isEmpty
           ? _inlineMessage(
@@ -551,27 +398,14 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
               itemCount: _chapters.length,
               itemBuilder: (context, index) {
                 final chapter = _chapters[index];
-                final chapterNumber = chapter.number;
-                final hasRead = _lastReadChapter != null &&
-                    chapterNumber != null &&
-                    chapterNumber <= _lastReadChapter!;
                 return ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 20),
-                  leading: hasRead
-                      ? Icon(
-                          Icons.check_circle_rounded,
-                          size: 18,
-                          color: appTheme.accentColor.withValues(alpha: 0.6),
-                        )
-                      : null,
                   title: Text(
                     chapter.displayTitle,
                     style: TextStyle(
                       fontFamily: "NotoSans",
                       fontSize: 15,
-                      color: hasRead
-                          ? appTheme.textMainColor.withValues(alpha: 0.45)
-                          : appTheme.textMainColor,
+                      color: appTheme.textMainColor,
                     ),
                   ),
                   subtitle: chapter.scanlator == null
@@ -588,41 +422,15 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
                     Icons.chevron_right_rounded,
                     color: appTheme.textSubColor,
                   ),
-                  onTap: () {
-                    // Recorded as "Continue Reading" progress, before the
-                    // push rather than after: a chapter that opens is progress
-                    // whether or not the reader then loads cleanly, and the
-                    // rail should not depend on the reader's success to know
-                    // the user wanted to read it.
-                    //
-                    // Not awaited. The rail is written from local storage, so
-                    // there is nothing to reconcile and no reason to make the
-                    // tap wait on a Hive write.
-                    storeReading(
-                      id: widget.id,
-                      title: details.title,
-                      cover: details.cover,
-                      rating: details.summary.rating,
-                      totalChapters: details.totalChapters,
-                      // A chapter with no number is a one-shot; 1 stands in so
-                      // the row still renders "1 / n" rather than "~ / n".
-                      chapterNumber: chapter.number ?? 1,
-                    );
-
-                    Navigator.of(context)
-                        .push(
-                          MaterialPageRoute(
-                            builder: (context) => MangaReaderPage(
-                              manga: details,
-                              chapter: chapter,
-                              provider: _provider!,
-                            ),
-                          ),
-                        )
-                        .then((_) {
-                      if (mounted) _refreshLastRead();
-                    });
-                  },
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => MangaReaderPage(
+                        manga: details,
+                        chapter: chapter,
+                        provider: _provider!,
+                      ),
+                    ),
+                  ),
                 );
               },
             ),
@@ -807,10 +615,6 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
         ),
       );
     }
-    // `_installed` is loaded from the provider manager during `load`, so by the
-    // time the picker renders it holds the same manifest objects
-    // `getSourceDropdownList` hands back.
-    final installed = _installed;
     return SizedBox(
       height: 260,
       child: ListView.builder(
