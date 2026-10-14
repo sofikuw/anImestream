@@ -31,8 +31,12 @@ class _MobileControlsState extends State<MobileControls> {
     super.initState();
   }
 
-  int? skipDuration = currentUserSettings?.skipDuration ?? 10;
-  int? megaSkipDuration = currentUserSettings?.megaSkipDuration ?? 85;
+  // Getters, not fields. Read at the point of use so a settings change
+  // takes effect on the next seek. As fields these were evaluated once,
+  // at widget construction, and held that value for the widget's whole
+  // life -- which is why the skip sliders appeared to do nothing.
+  int get skipDuration => currentUserSettings?.skipDuration ?? 10;
+  int get megaSkipDuration => currentUserSettings?.megaSkipDuration ?? 85;
 
   Future<void>? _pendingSeek = null; 
 
