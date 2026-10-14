@@ -9,6 +9,47 @@ than pretending to cover the fork's earlier life. That history is in the git log
 
 ## [Unreleased]
 
+### Added
+
+- **`stage-q`: the AniList half of Continue Reading.** A `mutateMangaList` in
+  `core/database/handler/syncHandler.dart`, and the call to it from
+  `storeReading`.
+
+### Fixed
+
+- **Continue Reading now reaches AniList.** `storeReading` wrote the local Hive
+  row and nothing else, so reading progress never left the device. The new
+  `mutateMangaList` is **AniList-only on purpose**: `mutateAnimeList` fans out
+  over every database plus each of `otherIds`, so pointed at a manga it would
+  post reading progress to MAL and Simkl, neither of which carries manga
+  entries — those writes would fail, or worse, succeed against a colliding id.
+
+  Two properties worth keeping: the local write stays unconditional and happens
+  *first*, because the Home rail reads the local box for signed-in and
+  signed-out users alike; and a chapter number is floored, because AniList's
+  `progress` is an int while half chapters are real in manga.
+
+  ⚠️ **Unverified on device.** The sync refuses a non-numeric id and logs the
+  refusal rather than sending it, so if `storeReading` is handed a *provider* id
+  (MangaDex's, Ragnarok's) instead of AniList's own manga id, nothing syncs and
+  the app log is the only place that says so. Confirm by opening a chapter and
+  reading the log.
+- **The `Mangas/Novels arent supported` patch is gone, and so are the other
+  three.** Upstream implemented all four of the `oversized.ts` edits to
+  `lib/ui/pages/info/infoMobile.dart` themselves, which also fixes the archive
+  route that had been 500ing since upstream moved. Keeping them would have been
+  worse than useless: edit 1's anchor still matches upstream's import line, so
+  applying it would have inserted a duplicate import.
+
+### Changed
+
+- **`oversized.ts` is now empty, on purpose.** The `/grep` evidence for why is
+  recorded in the file, along with the rules for re-adding a target. The
+  mechanism is kept — the size ceiling is real — but a derived file is only
+  justified while it differs from upstream.
+- **`pushToGithub.ts` pushes a list of stages** instead of one hardcoded stage,
+  in the same merge order `main.ts` uses, so a new stage lands with the same Run.
+
 ### Known issues — not fixed yet
 
 Carried forward deliberately. None of these are regressions from the changes
