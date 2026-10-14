@@ -147,6 +147,34 @@ Future<List<HomePageList>> getReadingList() async {
   return rows;
 }
 
+/// The last chapter opened for one manga, or null if it has never been
+/// opened.
+///
+/// Read straight from the box rather than through `getReadingList`, because
+/// that returns Home-rail rows: capped at 40, shaped as cards, and without a
+/// way to ask for one title. This is a lookup by id, which is what the
+/// chapter list needs to know which rows to fade.
+///
+/// Never throws. A storage failure returns null, so a broken box costs the
+/// reader its faded rows rather than the whole chapter list.
+Future<double?> getLastReadChapter(String id) async {
+  try {
+    final box = await Hive.openBox(_boxName);
+    final reading = List<dynamic>.from(box.get(_readingKey) ?? const <dynamic>[]);
+    for (final item in reading) {
+      if (item is! Map) continue;
+      if (item['id']?.toString() != id) continue;
+      final chapter = item['chapter'];
+      await box.close();
+      return chapter is num ? chapter.toDouble() : null;
+    }
+    await box.close();
+  } catch (err) {
+    Logs.app.log("${err.toString()} while reading the last read chapter");
+  }
+  return null;
+}
+
 /// Forgets one title. The counterpart to `watching.dart`'s `removeWatching`.
 Future<void> removeReading(String id) async {
   try {
