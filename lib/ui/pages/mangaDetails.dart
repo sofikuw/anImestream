@@ -16,6 +16,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:animestream/core/data/preferences.dart';
 import 'package:animestream/core/manga/chapterSort.dart';
+import 'package:animestream/core/data/types.dart';
 
 /// Manga details.
 ///
