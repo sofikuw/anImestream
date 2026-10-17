@@ -9,6 +9,7 @@ import 'package:animestream/core/data/types.dart';
 import 'package:animestream/core/manga/mangaProvider.dart';
 import 'package:animestream/core/manga/types.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 /// Reader for one chapter.
 ///
