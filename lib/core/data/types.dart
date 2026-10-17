@@ -195,6 +195,13 @@ class SettingsModal {
 const String mangaReaderLayoutScroll = 'scroll';
 const String mangaReaderLayoutPaged = 'paged';
 
+/// Chapter list order: [mangaChapterSortDesc] (the default, newest first) or
+/// [mangaChapterSortAsc]. Strings for the same reason the reader layout is:
+/// these are written straight into the Hive map, and a stored value with no
+/// matching enum constant would throw on read.
+const String mangaChapterSortDesc = 'desc';
+const String mangaChapterSortAsc = 'asc';
+
 class UserPreferencesModal {
   final EpisodeViewModes? episodesViewMode;
   final SubtitleSettings? subtitleSettings;
@@ -218,6 +225,10 @@ class UserPreferencesModal {
   /// than not having zoom.
   final bool? mangaReaderZoom;
 
+  /// Chapter list order on the manga details page: [mangaChapterSortDesc] for
+  /// newest first (the default), [mangaChapterSortAsc] for oldest first.
+  final String? mangaChapterSort;
+
   UserPreferencesModal({
     this.episodesViewMode,
     this.subtitleSettings,
@@ -227,6 +238,7 @@ class UserPreferencesModal {
     this.mangaReaderLayout,
     this.mangaReaderDirection,
     this.mangaReaderZoom,
+    this.mangaChapterSort,
   });
 
   factory UserPreferencesModal.fromMap(Map<dynamic, dynamic> map) {
@@ -240,6 +252,7 @@ class UserPreferencesModal {
       mangaReaderLayout: map['mangaReaderLayout'] as String?,
       mangaReaderDirection: map['mangaReaderDirection'] as String?,
       mangaReaderZoom: map['mangaReaderZoom'] ?? false,
+      mangaChapterSort: map['mangaChapterSort'] as String?,
     );
   }
 
@@ -253,6 +266,7 @@ class UserPreferencesModal {
       mangaReaderLayout: mangaReaderLayoutScroll,
       mangaReaderDirection: 'ltr',
       mangaReaderZoom: false,
+      mangaChapterSort: mangaChapterSortDesc,
     );
   }
 
@@ -266,6 +280,7 @@ class UserPreferencesModal {
       'mangaReaderLayout': mangaReaderLayout,
       'mangaReaderDirection': mangaReaderDirection,
       'mangaReaderZoom': mangaReaderZoom,
+      'mangaChapterSort': mangaChapterSort,
     };
   }
 
@@ -276,6 +291,11 @@ class UserPreferencesModal {
 
   /// RTL only when explicitly stored; every other value is left-to-right.
   bool get mangaReaderRightToLeft => mangaReaderDirection == 'rtl';
+
+  /// Ascending only when it was explicitly stored as such. Anything else -- null
+  /// on a fresh install -- reads as newest first, which is what the list did
+  /// before this setting existed.
+  bool get mangaChapterAscending => mangaChapterSort == mangaChapterSortAsc;
 
   static EpisodeViewModes getViewModeEnum(int modeIndex) {
     switch (modeIndex) {

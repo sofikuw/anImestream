@@ -14,6 +14,8 @@ import 'package:animestream/ui/models/widgets/loader.dart';
 import 'package:animestream/ui/pages/mangaReader.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:animestream/core/data/preferences.dart';
+import 'package:animestream/core/manga/chapterSort.dart';
 
 /// Manga details.
 ///
@@ -61,6 +63,11 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
   /// wrongly fade nothing, and any other default would wrongly fade something.
   double? _lastReadChapter;
 
+  /// Chapter list order, read from preferences once in `load` and flipped by the
+  /// toggle in the section header. Held in state as well as in preferences so the
+  /// list can be re-sorted without another round trip.
+  bool _chaptersAscending = false;
+
   /// Chapters and pages. Taken from the caller when one is supplied, otherwise
   /// discovered from an installed manga extension during [load].
   MangaChapterProvider? _provider;
@@ -105,6 +112,7 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
 
     try {
       final details = await _source.getDetails(widget.id);
+      final prefs = await UserPreferences.getUserPreferences();
       // An installed manga extension supplies the chapters and pages. Resolved
       // once per page, not once per chapter.
       final provider = _provider ?? await JavaScriptMangaProvider.firstInstalled();
@@ -112,6 +120,7 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
       if (!mounted) return;
       setState(() {
         _details = details;
+        _chaptersAscending = prefs.mangaChapterAscending;
         _provider = provider;
         _installed = installed;
         _state = LoadingState.loaded;
@@ -193,7 +202,7 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
       final chapters = await provider.getChapters(details);
       if (!mounted) return;
       setState(() {
-        _chapters = chapters;
+        _chapters = sortChapters(chapters, ascending: _chaptersAscending);
         _chaptersState = LoadingState.loaded;
       });
     } catch (err) {
@@ -470,6 +479,7 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
                           ),
                         ),
                       ),
+                      _chapterSortToggle(),
                     ],
                   ),
                 ),
@@ -553,6 +563,65 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
         onSelected: (value) {
           if (value is ProviderDetails) _switchSource(value);
         },
+      ),
+    );
+  }
+
+  /// Newest-first / oldest-first for the chapter list.
+  ///
+  /// At the top of the list rather than buried in the app's settings because it
+  /// is as much a fact about *this* manga as about the user: a 900-chapter
+  /// series wants newest first, a 40-chapter one you are reading from the start
+  /// wants the chapter you are on within reach. The choice is still remembered
+  /// globally, so it does not have to be re-made for every title.
+  Widget _chapterSortToggle() {
+    final ascending = _chaptersAscending;
+    return Padding(
+      padding: EdgeInsets.only(right: 12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: _toggleChapterSort,
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                ascending ? "Oldest first" : "Newest first",
+                style: TextStyle(
+                  fontFamily: "NotoSans",
+                  fontSize: 13,
+                  color: appTheme.textSubColor,
+                ),
+              ),
+              SizedBox(width: 6),
+              Icon(
+                Icons.swap_vert_rounded,
+                size: 18,
+                color: appTheme.accentColor,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Flips the order, remembering it.
+  ///
+  /// Re-sorted in place rather than re-fetched: the ordering is the only thing
+  /// that changed, and a round trip to the source for the same list would make
+  /// the toggle feel like a reload.
+  Future<void> _toggleChapterSort() async {
+    final ascending = !_chaptersAscending;
+    setState(() {
+      _chaptersAscending = ascending;
+      _chapters = sortChapters(_chapters, ascending: ascending);
+    });
+    await UserPreferences.saveUserPreferences(
+      UserPreferencesModal(
+        mangaChapterSort:
+            ascending ? mangaChapterSortAsc : mangaChapterSortDesc,
       ),
     );
   }
@@ -715,6 +784,11 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
                               manga: details,
                               chapter: chapter,
                               provider: _provider!,
+                              // Reading order, not the list's order: the reader's
+                              // arrows must step through the story, so index + 1
+                              // has to be the chapter after this one even when
+                              // the list above is sorted newest first.
+                              chapters: sortChapters(_chapters, ascending: true),
                             ),
                           ),
                         )
