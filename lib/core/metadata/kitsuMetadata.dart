@@ -37,14 +37,14 @@ class KitsuAnimeMetadata implements AnimeMetadataProvider {
       _listQuery(<String, String>{
         'filter[status]': 'current',
         'sort': '-userCount',
-        'page[limit]': '25',
+        'page[limit]': '20',
       });
 
   @override
   Future<List<AnimeMetadataSummary>> popular() =>
       _listQuery(<String, String>{
         'sort': '-userCount',
-        'page[limit]': '25',
+        'page[limit]': '20',
       });
 
   @override
@@ -52,7 +52,7 @@ class KitsuAnimeMetadata implements AnimeMetadataProvider {
       _listQuery(<String, String>{
         'filter[status]': 'current',
         'sort': '-userCount',
-        'page[limit]': '25',
+        'page[limit]': '20',
       });
 
   /// Kitsu's `-updatedAt` is a metadata timestamp, not an airing timestamp, and
@@ -63,14 +63,14 @@ class KitsuAnimeMetadata implements AnimeMetadataProvider {
       _listQuery(<String, String>{
         'filter[status]': 'current',
         'sort': '-userCount',
-        'page[limit]': '25',
+        'page[limit]': '20',
       });
 
   @override
   Future<List<AnimeMetadataSummary>> recommended() =>
       _listQuery(<String, String>{
         'sort': '-averageRating',
-        'page[limit]': '25',
+        'page[limit]': '20',
       });
 
   Future<List<AnimeMetadataSummary>> _listQuery(
@@ -292,13 +292,13 @@ class KitsuMangaMetadata implements MangaMetadataProvider {
   @override
   Future<List<MangaSummary>> trending() => _listQuery(<String, String>{
         'sort': '-userCount',
-        'page[limit]': '25',
+        'page[limit]': '20',
       });
 
   @override
   Future<List<MangaSummary>> popular() => _listQuery(<String, String>{
         'sort': '-userCount',
-        'page[limit]': '25',
+        'page[limit]': '20',
       });
 
   @override
@@ -306,7 +306,7 @@ class KitsuMangaMetadata implements MangaMetadataProvider {
         // Pairing -updatedAt with filter[status] gives Kitsu an empty page;
         // the unfiltered timestamp sort returns recently updated manga.
         'sort': '-updatedAt',
-        'page[limit]': '25',
+        'page[limit]': '20',
       });
 
   Future<List<MangaSummary>> _listQuery(Map<String, String> query) async {

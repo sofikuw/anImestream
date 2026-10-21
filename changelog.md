@@ -48,6 +48,10 @@ than pretending to cover the fork's earlier life. That history is in the git log
 
 ### Fixed
 
+- **Kitsu browse requests no longer ask for 25 items.** Kitsu rejects page
+  sizes above 20 with HTTP 400, so every anime and manga browse fallback
+  failed and Discover still reported AniList as unreachable while Kitsu
+  was healthy. Browse limits are now 20; verified against Kitsu's API.
 - **Discover and Search degrade honestly when AniList is unavailable.** AniList
   can return `403` with "The AniList API has been temporarily disabled due to
   severe stability issues." Discover used to keep its spinners running and
