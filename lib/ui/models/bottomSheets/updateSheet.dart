@@ -65,9 +65,12 @@ class _UpdateSheetState extends State<UpdateSheet> {
       final extension = Platform.isWindows ? "exe" : "apk";
       final tempPath = await getTemporaryDirectory();
       if (isCancelled()) return;
-      final finalFile = File("${tempPath.path}/animestream_${widget.data.latestVersion}.$extension");
+      // The tag is unique even when several beta builds share a version, so it
+      // is a better cache key than the display label.
+      final releaseName = widget.data.tagName.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
+      final finalFile = File("${tempPath.path}/animestream_$releaseName.$extension");
       bool isAlreadyDownloaded = false;
-      if (await finalFile.exists()) {
+      if (await finalFile.exists() && widget.data.hash.isNotEmpty) {
         try {
           isAlreadyDownloaded = await verifyFileHash(finalFile, widget.data.hash);
         } catch (e) {
@@ -87,7 +90,7 @@ class _UpdateSheetState extends State<UpdateSheet> {
             throw HttpException("Update download returned HTTP ${res.statusCode}");
           }
 
-          partFile = File("${tempPath.path}/animestream_${widget.data.latestVersion}.part");
+          partFile = File("${tempPath.path}/animestream_$releaseName.part");
           final buffer = partFile.openWrite();
           final completer = Completer<void>();
           _downloadCompleter = completer;
@@ -143,10 +146,14 @@ class _UpdateSheetState extends State<UpdateSheet> {
           _downloadClient = null;
         }
 
-        failureMessage = "File verification failed. Please try again.";
-        final verified = await verifyFileHash(partFile, widget.data.hash);
-        if (isCancelled()) return;
-        if (!verified) throw Exception("Update file hash mismatch");
+        if (widget.data.hash.isNotEmpty) {
+          failureMessage = "File verification failed. Please try again.";
+          final verified = await verifyFileHash(partFile, widget.data.hash);
+          if (isCancelled()) return;
+          if (!verified) throw Exception("Update file hash mismatch");
+        } else {
+          Logs.app.log("Release has no SHA-256 digest; skipping installer hash verification.");
+        }
 
         failureMessage = "Could not save the update installer. Please try again.";
         await partFile.rename(finalFile.path);
@@ -241,47 +248,49 @@ class _UpdateSheetState extends State<UpdateSheet> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "Update Available",
-                        style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
-                      ),
-
-                      // Padding(
-                      // padding: const EdgeInsets.only(left: 14, bottom: 12),
-                      // child:
-                      Row(
-                        // mainAxisAlignment: ,
-                        children: [
-                          Text(
-                            widget.data.latestVersion,
-                            style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
-                          ),
-                          Container(
-                              padding: EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-                              margin: EdgeInsets.only(left: 12),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(100),
-                                color: appTheme.accentColor,
-                              ),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Update Available",
+                          style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+                        ),
+                        SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Flexible(
                               child: Text(
-                                widget.data.preRelease ? "beta" : "stable",
-                                style: TextStyle(
-                                  color: appTheme.onAccent,
-                                  fontSize: 15,
-                                  fontFamily: "NunitoSans",
+                                widget.data.latestVersion,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            Container(
+                                padding: EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                                margin: EdgeInsets.only(left: 12),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(100),
+                                  color: appTheme.accentColor,
                                 ),
-                              )),
-                        ],
-                      ),
-                    ],
+                                child: Text(
+                                  widget.data.preRelease ? widget.data.channel : "stable",
+                                  style: TextStyle(
+                                    color: appTheme.onAccent,
+                                    fontSize: 15,
+                                    fontFamily: "NunitoSans",
+                                  ),
+                                )),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                   IconButton(
                     onPressed: () async {
                       await launchUrl(
-                        Uri.parse("https://github.com/sofikuw/anImestream/releases/latest"),
+                        Uri.parse("https://github.com/sofikuw/anImestream/releases/tag/${widget.data.tagName}"),
                         mode: LaunchMode.externalApplication,
                       );
                     },

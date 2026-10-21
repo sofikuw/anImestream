@@ -17,7 +17,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-/// Three tabs: Home, Discover, Search.
+/// Three tabs: Feed, Explore, Search.
 ///
 /// Manga has no tab of its own. It is a content type that appears inside the
 /// existing tabs -- rails on Discover, results in Search, a Continue Reading row
@@ -113,21 +113,21 @@ class MainNavigatorState extends State<MainNavigator> with TickerProviderStateMi
                     destinations: [
                       NavigationRailDestination(
                         icon: Icon(
-                          Icons.home,
+                          Icons.home_rounded,
                           color: _barController.currentIndex == 0 ? appTheme.onAccent : appTheme.textMainColor,
                         ),
                         label: Text(
-                          "Home",
+                          "Feed",
                           style: TextStyle(fontSize: 18),
                         ),
                       ),
                       NavigationRailDestination(
                         icon: Icon(
-                          Icons.auto_awesome,
+                          Icons.explore_rounded,
                           color: _barController.currentIndex == 1 ? appTheme.onAccent : appTheme.textMainColor,
                         ),
                         label: Text(
-                          "Discover",
+                          "Explore",
                           style: TextStyle(fontSize: 18),
                         ),
                       ),
@@ -189,8 +189,8 @@ class MainNavigatorState extends State<MainNavigator> with TickerProviderStateMi
                 backgroundColor:
                     appTheme.backgroundSubColor.withValues(alpha: currentUserSettings?.navbarTranslucency ?? 0.5),
                 items: [
-                  BottomBarItem(title: 'Home', icon: Icon(Icons.home)),
-                  BottomBarItem(title: 'Discover', icon: Icon(Icons.auto_awesome)),
+                  BottomBarItem(title: 'Feed', icon: Icon(Icons.home_rounded)),
+                  BottomBarItem(title: 'Explore', icon: Icon(Icons.explore_rounded)),
                   BottomBarItem(title: 'Search', icon: Icon(Icons.search)),
                 ],
                 controller: _barController,
@@ -221,8 +221,8 @@ class MainNavigatorState extends State<MainNavigator> with TickerProviderStateMi
                 backgroundColor:
                     appTheme.backgroundSubColor.withValues(alpha: currentUserSettings?.navbarTranslucency ?? 0.5),
                 items: [
-                  FloatyBarItem(title: 'Home', icon: Icons.home),
-                  FloatyBarItem(title: 'Discover', icon: Icons.auto_awesome),
+                  FloatyBarItem(title: 'Feed', icon: Icons.home_rounded),
+                  FloatyBarItem(title: 'Explore', icon: Icons.explore_rounded),
                   FloatyBarItem(title: 'Search', icon: Icons.search),
                 ],
               )

@@ -5,19 +5,32 @@ import 'package:animestream/core/app/logging.dart';
 import 'package:animestream/core/app/runtimeDatas.dart';
 import 'package:animestream/core/commons/utils.dart';
 import 'package:animestream/ui/models/bottomSheets/updateSheet.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+/// The tag and channel are baked into the APK by the Android workflow. They let
+/// a beta install recognise the exact release it came from, even when several
+/// releases share the same pubspec version.
+const String _buildTag = String.fromEnvironment('BUILD_TAG');
+const String _buildChannel = String.fromEnvironment('APP_CHANNEL');
+
 class UpdateCheckResult {
-  /// The version code of the latest release
+  /// A short label for the latest release, e.g. `v1.0.7-beta.2ef57230`.
   final String latestVersion;
+
+  /// The full GitHub tag, used for the release page and the cached APK name.
+  final String tagName;
 
   /// The version code of the current package
   final String currentVersion;
 
-  /// Wether the release is a pre-release (beta versions)
+  /// Whether the release is a pre-release (beta versions)
   final bool preRelease;
+
+  /// The release channel: stable, alpha, beta, rc or prerelease.
+  final String channel;
 
   /// The direct download link for the asset
   final String downloadLink;
@@ -30,8 +43,10 @@ class UpdateCheckResult {
 
   UpdateCheckResult({
     required this.latestVersion,
+    required this.tagName,
     required this.currentVersion,
     required this.preRelease,
+    required this.channel,
     required this.downloadLink,
     required this.description,
     required this.hash,
@@ -39,81 +54,304 @@ class UpdateCheckResult {
 
   @override
   String toString() {
-    return 'UpdateCheckResult(latestVersion: $latestVersion, currentVersion: $currentVersion, preRelease: $preRelease, downloadLink: $downloadLink, description: $description)';
+    return 'UpdateCheckResult(latestVersion: $latestVersion, tagName: $tagName, currentVersion: $currentVersion, preRelease: $preRelease, channel: $channel, downloadLink: $downloadLink, description: $description)';
   }
 }
 
-/// Alright! the versioning is like: v?n.n.n(-stagen?) eg: 1.3.4-beta1
-/// n are the numbers. follows the scheme like super-major.okaish.minor (dependent on changes in quality)
-/// v is when the update is parsed from github api.
-/// stage can be beta followed by the iterative number (these are rare and arent present most time)
+class _ReleaseInfo {
+  final String tag;
+  final List<int> version;
+  final String stage;
+  final bool preRelease;
+  final DateTime publishedAt;
+  final Map<String, dynamic> raw;
+
+  _ReleaseInfo({
+    required this.tag,
+    required this.version,
+    required this.stage,
+    required this.preRelease,
+    required this.publishedAt,
+    required this.raw,
+  });
+
+  String get versionLabel {
+    final base = 'v${version.join('.')}';
+    if (!preRelease) return base;
+    final build = RegExp(r'\.([0-9A-Za-z]+)$').firstMatch(tag)?.group(1);
+    return build == null ? '$base-$stage' : '$base-$stage.$build';
+  }
+}
+
+/// Checks the fork's GitHub releases for a newer stable or beta build.
+///
+/// Unlike the upstream implementation this does not rely on GitHub's release
+/// order (which is not chronological), understands this repository's
+/// `divergent-android-v...` tags, and selects an installable APK for the
+/// device's ABI instead of looking for Flutter's internal `app-release.apk`.
 Future<UpdateCheckResult?> checkForUpdates() async {
   // iOS builds are distributed as manually installed/sideloaded IPAs in this fork.
-  // The upstream updater only knows Android/Linux/Windows installers.
   if (Platform.isIOS) return null;
-  // print(_checkIfTheNewVersionIsActuallyAnUpgrade("1.6.0-beta1", "1.6.0-beta1"));
+
   try {
-    final releasesUrl = 'https://api.github.com/repos/sofikuw/anImestream/releases';
+    final releasesUrl = 'https://api.github.com/repos/sofikuw/anImestream/releases?per_page=100';
     final packageInfo = await PackageInfo.fromPlatform();
-    final releases = json.decode(await fetch(releasesUrl)) as List<dynamic>;
-    final allowPrereleases = currentUserSettings?.receivePreReleases ?? false;
+    final currentVersion = packageInfo.version;
+    final packageName = packageInfo.packageName;
+    final rawReleases = json.decode(await fetch(releasesUrl)) as List<dynamic>;
 
-    final releasesRes =
-        releases.where((it) => it['draft'] == false && (it['prerelease'] == false || allowPrereleases)).firstOrNull;
+    // Builds made before BUILD_TAG existed cannot identify their channel. Let
+    // them see the beta channel once so the first post-update install can opt
+    // into (or out of) betas like any other tagged build.
+    final legacyBuild = _buildTag.isEmpty;
+    final allowPrereleases =
+        canReceivePreReleaseUpdates() || _stageFromText(currentVersion) != null || legacyBuild;
+    final candidates = <_ReleaseInfo>[];
 
-    if (releasesRes == null) return null;
-    final String currentVersion = packageInfo.version;
-    final String latestVersion = releasesRes['tag_name'];
-    Logs.app.log("<UPDATE-CHECK> current ver: $currentVersion , latest ver: ${latestVersion.replaceAll('v', '')}");
-    final String description = releasesRes['body'];
-    final bool pre = releasesRes['prerelease'];
-    // if (!allowPrereleases && pre) {
-    //   return null;
-    // }
+    for (final raw in rawReleases) {
+      if (raw is! Map) continue;
+      final release = Map<String, dynamic>.from(raw);
+      if (release['draft'] == true) continue;
+      if (!_isSameBranchTag(release['tag_name'] as String? ?? '', packageName)) continue;
+      if (!_hasInstallableAsset(release)) continue;
 
-    bool triggerSheet = false; // Change this flag for triggering the sheet for debugging
-    // int? currentVersionJoined, latestVersionJoined;
-
-    final latestVersionCode = latestVersion.replaceAll('v', '');
-
-    bool isAnUpgrade = false;
-
-    try {
-      isAnUpgrade = _checkIfTheNewVersionIsActuallyAnUpgrade(latestVersionCode, currentVersion);
-    } catch (err) {
-      // old version check logic as a backup method!
-      final versionNumber = latestVersionCode.split("-")[0];
-      if (currentVersion.split("-").firstOrNull != versionNumber) triggerSheet = true;
+      final parsed = _parseRelease(release);
+      if (parsed == null) continue;
+      if (parsed.preRelease && !allowPrereleases) continue;
+      candidates.add(parsed);
     }
 
-    // we can assert not null since we do null check in try statement & the comparison wont occur if theres an issue
-    if (triggerSheet || isAnUpgrade) {
-      Logs.app.log("<UPDATE-CHECK> UPDATE AVAILABLE!!!");
-      final assetName = Platform.isLinux
-          ? "linux.zip"
-          : Platform.isAndroid
-              ? "app-release.apk"
-              : "animestream-x86_64.exe";
-      final List<dynamic> asset = releasesRes['assets'].where((item) => item['name'] == assetName).toList();
-      if (asset.isEmpty) return null;
-      final downloadLink = asset[0]['browser_download_url'];
-      final hash = Platform.isLinux ? (asset[0]['digest'] as String? ?? '') : asset[0]['digest'] as String;
-      return UpdateCheckResult(
-        latestVersion: latestVersion,
-        currentVersion: currentVersion,
-        preRelease: pre,
-        downloadLink: downloadLink,
-        description: description,
-        hash: hash,
-      );
-    } else {
-      Logs.app.log("<UPDATE-CHECK> APP IS ALREADY UP-TO-DATE!");
+    if (candidates.isEmpty) {
+      Logs.app.log('<UPDATE-CHECK> No installable release found.');
       return null;
     }
+
+    // Newest semantic version first; releases published at the same version
+    // prefer stable, then the later publication.
+    candidates.sort((a, b) => _compareReleases(b, a));
+    final latest = candidates.first;
+    Logs.app.log(
+        '<UPDATE-CHECK> current ver: $currentVersion, build tag: ${_buildTag.isEmpty ? '<none>' : _buildTag}, latest ver: ${latest.tag}');
+
+    if (!_isAnUpgrade(latest, currentVersion)) {
+      Logs.app.log('<UPDATE-CHECK> APP IS ALREADY UP-TO-DATE!');
+      return null;
+    }
+
+    final asset = await _selectAsset(latest.raw['assets'] as List<dynamic>? ?? const []);
+    if (asset == null) {
+      Logs.app.log('<UPDATE-CHECK> Release ${latest.tag} has no asset for this platform.');
+      return null;
+    }
+
+    final downloadLink = asset['browser_download_url'] as String? ?? '';
+    if (downloadLink.isEmpty) return null;
+    final digest = asset['digest'];
+
+    Logs.app.log('<UPDATE-CHECK> UPDATE AVAILABLE: ${latest.tag}');
+    return UpdateCheckResult(
+      latestVersion: latest.versionLabel,
+      tagName: latest.tag,
+      currentVersion: currentVersion,
+      preRelease: latest.preRelease,
+      channel: latest.stage,
+      downloadLink: downloadLink,
+      description: latest.raw['body'] as String? ?? '',
+      hash: digest is String ? digest : '',
+    );
   } catch (err) {
-    // graceful quitting
-    Logs.app.log("<UPDATE-CHECK> Update check failed. \n$err");
+    Logs.app.log('<UPDATE-CHECK> Update check failed. \n$err');
     return null;
+  }
+}
+
+bool canReceivePreReleaseUpdates() {
+  final channel = _normalizedChannel(_buildChannel);
+  return (currentUserSettings?.receivePreReleases ?? false) ||
+      channel == 'alpha' ||
+      channel == 'beta' ||
+      channel == 'rc' ||
+      channel == 'prerelease';
+}
+
+_ReleaseInfo? _parseRelease(Map<String, dynamic> release) {
+  final tag = release['tag_name'] as String? ?? '';
+  final version = _parseCore(tag);
+  if (version == null) return null;
+
+  final stageMatch =
+      RegExp(r'-(alpha|beta|rc|prerelease)(?:[.\-]|$)', caseSensitive: false).firstMatch(tag);
+  final stage = stageMatch?.group(1)?.toLowerCase() ?? (release['prerelease'] == true ? 'prerelease' : 'stable');
+  final published = DateTime.tryParse(
+        release['published_at']?.toString() ?? release['created_at']?.toString() ?? '',
+      ) ??
+      DateTime.fromMillisecondsSinceEpoch(0);
+
+  return _ReleaseInfo(
+    tag: tag,
+    version: version,
+    stage: stage,
+    preRelease: release['prerelease'] == true || stage != 'stable',
+    publishedAt: published,
+    raw: release,
+  );
+}
+
+List<int>? _parseCore(String value) {
+  final match = RegExp(r'(\d+)\.(\d+)\.(\d+)').firstMatch(value);
+  if (match == null) return null;
+  return [
+    int.parse(match.group(1)!),
+    int.parse(match.group(2)!),
+    int.parse(match.group(3)!),
+  ];
+}
+
+String? _stageFromText(String value) {
+  final match = RegExp(r'-(alpha|beta|rc|prerelease)(?:[.\-]|$)', caseSensitive: false).firstMatch(value);
+  return match?.group(1)?.toLowerCase();
+}
+
+String _normalizedChannel(String value) {
+  final channel = value.trim().toLowerCase();
+  if (channel == 'stable' || channel == 'alpha' || channel == 'beta' || channel == 'rc') return channel;
+  if (channel.isNotEmpty) return 'prerelease';
+  return '';
+}
+
+int _stageWeight(String stage) {
+  switch (stage) {
+    case 'alpha':
+    case 'prerelease':
+      return 1;
+    case 'beta':
+      return 2;
+    case 'rc':
+      return 3;
+    case 'stable':
+      return 4;
+    default:
+      return 0;
+  }
+}
+
+int _compareCore(List<int> a, List<int> b) {
+  for (var i = 0; i < 3; i++) {
+    final diff = a[i].compareTo(b[i]);
+    if (diff != 0) return diff;
+  }
+  return 0;
+}
+
+int _compareReleases(_ReleaseInfo a, _ReleaseInfo b) {
+  final core = _compareCore(a.version, b.version);
+  if (core != 0) return core;
+  if (a.preRelease != b.preRelease) return a.preRelease ? -1 : 1;
+  final stage = _stageWeight(a.stage).compareTo(_stageWeight(b.stage));
+  if (stage != 0) return stage;
+  return a.publishedAt.compareTo(b.publishedAt);
+}
+
+bool _isAnUpgrade(_ReleaseInfo latest, String currentVersion) {
+  if (_buildTag.isNotEmpty && latest.tag == _buildTag) return false;
+
+  final currentCore = _parseCore(currentVersion);
+  if (currentCore == null) return false;
+
+  final core = _compareCore(latest.version, currentCore);
+  if (core != 0) return core > 0;
+
+  final buildChannel = _normalizedChannel(_buildChannel);
+  final currentStage = buildChannel.isNotEmpty ? buildChannel : (_stageFromText(currentVersion) ?? 'stable');
+  final currentIsPreRelease = currentStage != 'stable';
+
+  if (!latest.preRelease) {
+    // A stable release at the same core version is a graduation from beta/rc.
+    return currentIsPreRelease;
+  }
+
+  if (_buildTag.isNotEmpty && !canReceivePreReleaseUpdates() && _stageFromText(currentVersion) == null) {
+    return false;
+  }
+  if (!currentIsPreRelease) {
+    // A stable build never downgrades to a beta of the same core version. A
+    // beta install made before BUILD_TAG existed cannot identify its snapshot,
+    // so allow the first same-version beta update for it.
+    if (buildChannel == 'stable') return false;
+    return _buildTag.isEmpty;
+  }
+
+  final latestWeight = _stageWeight(latest.stage);
+  final currentWeight = _stageWeight(currentStage);
+  if (latestWeight != currentWeight) return latestWeight > currentWeight;
+
+  // Same channel and version: a different build tag is a newer snapshot.
+  return true;
+}
+
+bool _isSameBranchTag(String tag, String packageName) {
+  // Divergent and master produce APKs with different application ids, so an
+  // update across those tags would download an APK that cannot be installed
+  // over the running app.
+  if (packageName.contains('divergent')) return tag.startsWith('divergent-android-');
+  return tag.startsWith('android-');
+}
+
+bool _hasInstallableAsset(Map<String, dynamic> release) {
+  final assets = release['assets'] as List<dynamic>? ?? const [];
+  return assets.any((asset) => _isInstallableName(_assetName(asset)));
+}
+
+String _assetName(dynamic asset) {
+  return asset is Map ? asset['name']?.toString() ?? '' : '';
+}
+
+bool _isInstallableName(String name) {
+  final lower = name.toLowerCase();
+  if (Platform.isAndroid) return lower.endsWith('.apk');
+  if (Platform.isLinux) return lower.endsWith('.zip');
+  if (Platform.isWindows) return lower.endsWith('.exe');
+  return false;
+}
+
+Future<Map<String, dynamic>?> _selectAsset(List<dynamic> assets) async {
+  final installable = assets.where((asset) => _isInstallableName(_assetName(asset))).toList();
+  if (installable.isEmpty) return null;
+
+  if (Platform.isAndroid) {
+    final abis = await _deviceAbis();
+    for (final abi in abis) {
+      final suffix = '-${abi.toLowerCase()}.apk';
+      for (final asset in installable) {
+        if (_assetName(asset).toLowerCase().endsWith(suffix)) {
+          return Map<String, dynamic>.from(asset as Map);
+        }
+      }
+    }
+
+    // The workflow also publishes a universal APK. Prefer it over guessing an
+    // ABI when the device did not report one.
+    final abiSuffix = RegExp(r'-(arm64-v8a|armeabi-v7a|x86_64|x86)\.apk$');
+    for (final asset in installable) {
+      if (!abiSuffix.hasMatch(_assetName(asset).toLowerCase())) {
+        return Map<String, dynamic>.from(asset as Map);
+      }
+    }
+    installable.sort((a, b) => _assetName(a).length.compareTo(_assetName(b).length));
+    return Map<String, dynamic>.from(installable.first as Map);
+  }
+
+  return Map<String, dynamic>.from(installable.first as Map);
+}
+
+Future<List<String>> _deviceAbis() async {
+  if (!Platform.isAndroid) return const [];
+  try {
+    final info = await DeviceInfoPlugin().androidInfo;
+    return info.supportedAbis;
+  } catch (err) {
+    Logs.app.log('<UPDATE-CHECK> Could not read device ABIs: $err');
+    return const [];
   }
 }
 
@@ -209,11 +447,6 @@ bool _checkIfTheNewVersionIsActuallyAnUpgrade(String newVersion, String oldVersi
 }
 
 showUpdateSheet(BuildContext context, UpdateCheckResult data, {bool forceTrigger = false}) async {
-  //dont show the sheet if recievePreRelease if off and release is a pre release
-  if (data.preRelease && data.preRelease != (currentUserSettings?.receivePreReleases! ?? false)) {
-    return;
-  }
-
   // trigger if forced for debug
   if (kDebugMode && !forceTrigger) {
     return;

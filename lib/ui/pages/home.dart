@@ -114,7 +114,7 @@ class _HomeState extends State<Home> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      buildHeader("Home", context, afterNavigation: () {
+                      buildHeader("Feed", context, afterNavigation: () {
                         if (mounted) setState(() {});
                       }),
                       AnimatedSwitcher(

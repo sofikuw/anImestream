@@ -123,7 +123,7 @@ class _DiscoverState extends State<Discover> {
                   ),
                   Padding(
                     padding: pagePadding(context).copyWith(left: 0),
-                    child: buildHeader("Discover", context, afterNavigation: () => setState(() {})),
+                    child: buildHeader("Explore", context, afterNavigation: () => setState(() {})),
                   )
                 ],
               ),

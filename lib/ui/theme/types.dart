@@ -21,6 +21,7 @@ class AnimeStreamTheme {
   //core theme
   Color backgroundColor;               //background
   Color accentColor;                   //accent
+  Color? secondaryAccent;              //second half of the Divergent split accent
   Color textMainColor;                 //for main texts
   Color textSubColor;                  //for description|sub texts
   Color backgroundSubColor;            //for card tints and some button highlights
@@ -35,5 +36,11 @@ class AnimeStreamTheme {
     required this.textSubColor,
     required this.modalSheetBackgroundColor,
     required this.onAccent,
+    this.secondaryAccent,
   });
+
+  // Themes written before the fork only have one accent. Blend theirs toward
+  // Divergent's ice cyan so the split header and navigation still read as two
+  // tones instead of one flat bar.
+  Color get secondaryColor => secondaryAccent ?? Color.lerp(accentColor, Color(0xff5EEAD4), 0.45)!;
 }

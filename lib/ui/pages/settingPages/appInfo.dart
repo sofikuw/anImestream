@@ -1,4 +1,5 @@
 import 'package:animestream/core/app/runtimeDatas.dart';
+import 'package:animestream/core/app/update.dart';
 import 'package:animestream/core/app/version.dart';
 import 'package:animestream/ui/models/snackBar.dart';
 import 'package:animestream/ui/models/widgets/ContextMenu.dart';
@@ -136,7 +137,7 @@ class _AppInfoSettingState extends State<AppInfoSetting> {
         ),
         SizedBox(height: 15),
         Text(
-          "animestream",
+          "divergent",
           style: TextStyle(
             color: appTheme.textMainColor,
             fontFamily: "Poppins",
@@ -183,6 +184,22 @@ class _AppInfoSettingState extends State<AppInfoSetting> {
               description: "Source code n stuff",
               suffixIcon: Icon(Icons.arrow_outward_rounded, size: 20, color: appTheme.textSubColor),
               borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+          _divider(),
+          ClickableItem(
+            onTap: () async {
+              floatingSnackBar("Checking for updates...");
+              final update = await checkForUpdates();
+              if (!mounted) return;
+              if (update == null) {
+                floatingSnackBar("You're on the latest release");
+              } else {
+                showUpdateSheet(context, update, forceTrigger: true);
+              }
+            },
+            label: "Check for Updates",
+            description: "Look for stable and beta releases",
+            suffixIcon: Icon(Icons.refresh_rounded, size: 20, color: appTheme.textSubColor),
+          ),
           _divider(),
           ClickableItem(
             onTap: () => launchUrl(

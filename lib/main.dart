@@ -29,7 +29,7 @@ import 'package:animestream/ui/models/sources.dart';
 import 'package:animestream/ui/models/widgets/appWrapper.dart';
 import 'package:animestream/ui/pages/info.dart';
 import 'package:animestream/ui/pages/mainNav.dart';
-import 'package:animestream/ui/theme/lime.dart';
+import 'package:animestream/ui/theme/divergent.dart';
 import 'package:animestream/ui/theme/themes.dart';
 import 'package:animestream/ui/theme/types.dart';
 import 'package:fvp/fvp.dart' as fvp;
@@ -138,8 +138,8 @@ Future<void> loadAndAssignSettings() async {
     if ((themeId > availableThemes.length && !kDebugMode) || themeId < 1) {
       Logs.app.log("[STARTUP] Failed to apply theme with ID $themeId, Applying default theme");
       showToast("Failed to apply theme. Using default theme");
-      setTheme(01);
-      themeId = 01;
+      setTheme(13);
+      themeId = 13;
     }
 
     final darkMode = currentUserSettings!.darkMode!;
@@ -148,7 +148,7 @@ Future<void> loadAndAssignSettings() async {
 
     if (theme == null) {
       // Set default theme incase of any corruptions/issues n stuff
-      theme = LimeZest();
+      theme = Divergent();
       Logs.app.log("[STARTUP] Failed to apply theme with ID $themeId, Applying default theme");
     }
 
@@ -159,6 +159,7 @@ Future<void> loadAndAssignSettings() async {
     } else {
       appTheme = AnimeStreamTheme(
         accentColor: theme.lightVariant.accentColor,
+        secondaryAccent: theme.lightVariant.secondaryAccent,
         textMainColor: theme.lightVariant.textMainColor,
         textSubColor: theme.lightVariant.textSubColor,
         backgroundColor: theme.lightVariant.backgroundColor,
@@ -269,6 +270,7 @@ class _AnimeStreamState extends State<AnimeStream> {
           if (currentUserSettings?.darkMode ?? true) {
             scheme = AnimeStreamTheme(
               accentColor: darkScheme?.primary ?? appTheme.accentColor,
+              secondaryAccent: darkScheme?.tertiary ?? appTheme.secondaryAccent,
               backgroundColor: (currentUserSettings?.amoledBackground ?? false)
                   ? Colors.black
                   : darkScheme?.surface ?? appTheme.backgroundColor,
@@ -281,6 +283,7 @@ class _AnimeStreamState extends State<AnimeStream> {
           } else {
             scheme = AnimeStreamTheme(
               accentColor: lightScheme?.primary ?? appTheme.accentColor,
+              secondaryAccent: lightScheme?.tertiary ?? appTheme.secondaryAccent,
               backgroundColor: lightScheme?.surface ?? appTheme.accentColor,
               backgroundSubColor: lightScheme?.secondaryContainer ?? appTheme.backgroundSubColor,
               textMainColor: lightScheme?.onSurface ?? appTheme.textMainColor,
@@ -314,7 +317,7 @@ class _AnimeStreamState extends State<AnimeStream> {
           final themeProvider = Provider.of<AppProvider>(context);
 
           return MaterialApp(
-            title: 'anImestream',
+            title: 'Divergent',
             navigatorKey: AnimeStream.navigatorKey,
             scaffoldMessengerKey: AnimeStream.snackbarKey,
             theme: ThemeData(

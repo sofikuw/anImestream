@@ -23,7 +23,7 @@ class AppVersion {
   }
 
   /// Codename
-  final String nickname = 'Moonrise';
+  final String nickname = 'Faultline';
 
   /// Color code
   final colorCode = [Color.fromARGB(255, 60, 66, 87), Color.fromARGB(255, 78, 64, 85)];

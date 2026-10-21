@@ -281,6 +281,20 @@ jobs:
             PRERELEASE=true
           fi
 
+          # The channel baked into the APK is separate from the tag's slug:
+          # a pushed tag already carries its stage in VERSION, so SLUG must stay
+          # empty to avoid `1.0.7-beta-beta`.
+          if [ "$GITHUB_EVENT_NAME" = "push" ] && [ -z "$INPUT_CHANNEL" ]; then
+            case "$VERSION" in
+              *-alpha*) BUILD_CHANNEL=alpha ;;
+              *-beta*)  BUILD_CHANNEL=beta ;;
+              *-rc*)    BUILD_CHANNEL=rc ;;
+              *)        BUILD_CHANNEL=stable ;;
+            esac
+          else
+            BUILD_CHANNEL="$CHANNEL"
+          fi
+
           SLUG=""
           [ "$CHANNEL" = "stable" ] || SLUG="-${CHANNEL}"
 
@@ -289,11 +303,12 @@ jobs:
             echo "build_number=$BUILD_NUMBER"
             echo "tag=$TAG"
             echo "prerelease=$PRERELEASE"
+            echo "channel=$BUILD_CHANNEL"
             echo "apk_stem=${APK_BASENAME}-${VERSION}${SLUG}-android"
           } >> "$GITHUB_OUTPUT"
 
           echo "tag:        $TAG"
-          echo "channel:    $CHANNEL"
+          echo "channel:    $BUILD_CHANNEL"
           echo "prerelease: $PRERELEASE"
 
       - name: Prepare signing
@@ -347,6 +362,8 @@ jobs:
           flutter build apk \
             --release \
             --dart-define-from-file="$RUNNER_TEMP/animestream-dart-defines.json" \
+            --dart-define=BUILD_TAG=${{ steps.version.outputs.tag }} \
+            --dart-define=APP_CHANNEL=${{ steps.version.outputs.channel }} \
             --build-number=${{ steps.version.outputs.build_number }} \
             --build-name=${{ steps.version.outputs.version }}
 
@@ -356,6 +373,8 @@ jobs:
             --release \
             --split-per-abi \
             --dart-define-from-file="$RUNNER_TEMP/animestream-dart-defines.json" \
+            --dart-define=BUILD_TAG=${{ steps.version.outputs.tag }} \
+            --dart-define=APP_CHANNEL=${{ steps.version.outputs.channel }} \
             --build-number=${{ steps.version.outputs.build_number }} \
             --build-name=${{ steps.version.outputs.version }}
 

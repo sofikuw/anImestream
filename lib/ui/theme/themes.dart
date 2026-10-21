@@ -11,6 +11,7 @@ import 'package:animestream/ui/theme/neonGreen.dart';
 import 'package:animestream/ui/theme/sakura.dart';
 import 'package:animestream/ui/theme/types.dart';
 import 'package:animestream/ui/theme/cozyKoala.dart';
+import 'package:animestream/ui/theme/divergent.dart';
 import 'package:flutter/material.dart';
 
 /** List of available themes.
@@ -29,6 +30,7 @@ List<ThemeItem> availableThemes = [
   NeonRed(),
   CozyKoala(),
   Astral(),
+  Divergent(),
 ];
 // Represents a generic light theme (used only for its values)
 AnimeStreamTheme lightModeValues = AnimeStreamTheme(

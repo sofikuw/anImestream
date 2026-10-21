@@ -10,6 +10,19 @@ than pretending to cover the fork's earlier life. That history is in the git log
 ## [Unreleased]
 
 ### Added
+- **Divergent UI, phase one.** New default `Divergent` theme with a two-tone
+  lime/cyan split accent, a branded `DIVERGENT / 01` header, a slanted mobile
+  navigation bar, `Feed` / `Explore` labels in place of upstream's
+  `Home` / `Discover`, and the Android/iOS display name is now `Divergent`.
+  The theme data now carries an optional secondary accent, preserved through
+  light mode, AMOLED and Material You.
+- **Updates work for fork releases.** The updater now reads this repository's
+  `divergent-android-v...` tags, sorts releases by semantic version instead of
+  GitHub's non-chronological order, understands same-version beta snapshots via
+  a build tag baked in by CI, and downloads the APK matching the device ABI
+  instead of looking for Flutter's internal `app-release.apk`. Beta builds check
+  the beta channel automatically; stable builds still use the existing
+  "Receive beta updates" toggle. App Info also has a manual check button.
 - **Android, alongside iOS, from the same `android/` source.** The repository had
   no Android platform folder at all -- it was created as an iOS fork, and
   Flutter's platform folders are per-platform. It is now published by the staging

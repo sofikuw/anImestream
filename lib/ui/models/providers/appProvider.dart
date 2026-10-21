@@ -21,7 +21,7 @@ class AppProvider with ChangeNotifier {
 
   bool get isFullScreen => _isFullScreen;
 
-  String _windowTitle = "animestream";
+  String _windowTitle = "Divergent";
 
   String get windowTitle => _windowTitle;
 
@@ -56,6 +56,7 @@ class AppProvider with ChangeNotifier {
 
     appTheme = AnimeStreamTheme(
       accentColor: selectedTheme.accentColor,
+      secondaryAccent: selectedTheme.secondaryAccent,
       //set background color only if dark theme and amoled bg are true, otherwise set respective theme's default bg
       backgroundColor:
           ((currentUserSettings?.amoledBackground ?? false) && dark) ? Colors.black : selectedTheme.backgroundColor,
@@ -92,6 +93,7 @@ class AppProvider with ChangeNotifier {
     if (dark) {
       appTheme = AnimeStreamTheme(
         accentColor: theme.theme.accentColor,
+        secondaryAccent: theme.theme.secondaryAccent,
         backgroundColor: (currentUserSettings?.amoledBackground ?? false) ? Colors.black : theme.theme.backgroundColor,
         backgroundSubColor: theme.theme.backgroundSubColor,
         textMainColor: theme.theme.textMainColor,
@@ -102,6 +104,7 @@ class AppProvider with ChangeNotifier {
     } else {
       appTheme = AnimeStreamTheme(
         accentColor: theme.lightVariant.accentColor,
+        secondaryAccent: theme.lightVariant.secondaryAccent,
         backgroundColor: theme.lightVariant.backgroundColor,
         backgroundSubColor: theme.lightVariant.backgroundSubColor,
         textMainColor: theme.lightVariant.textMainColor,

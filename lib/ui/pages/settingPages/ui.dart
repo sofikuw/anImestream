@@ -174,6 +174,7 @@ class _ThemeSettingState extends State<ThemeSetting> {
                               appTheme = darkMode
                                   ? AnimeStreamTheme(
                                       accentColor: thm.theme.accentColor,
+                                      secondaryAccent: thm.theme.secondaryAccent,
                                       backgroundColor:
                                           AMOLEDBackgroundEnabled ? Colors.black : thm.theme.backgroundColor,
                                       backgroundSubColor: thm.theme.backgroundSubColor,
@@ -381,7 +382,11 @@ class _ThemeSettingState extends State<ThemeSetting> {
                   decoration: BoxDecoration(
                     border: Border.all(color: Colors.black, width: 3),
                     borderRadius: BorderRadius.circular(10),
-                    color: theme.theme.accentColor,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [theme.theme.accentColor, theme.theme.secondaryColor],
+                    ),
                   ),
                 )
               ],

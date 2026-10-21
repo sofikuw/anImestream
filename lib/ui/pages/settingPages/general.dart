@@ -94,7 +94,7 @@ class _GeneralSettingState extends State<GeneralSetting> {
                         });
                         writeSettings(SettingsModal(receivePreReleases: receivePreReleases));
                       },
-                      description: "*maybe unstable",
+                      description: "Beta builds check this channel automatically",
                     ),
                     ToggleItem(
                       label: "Quick play",

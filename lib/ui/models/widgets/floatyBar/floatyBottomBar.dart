@@ -12,6 +12,11 @@ class FloatyBarItem {
   });
 }
 
+/// Divergent's mobile navigation.
+///
+/// The active destination is a slanted, two-tone slab instead of upstream's
+/// rounded expanded pill. The cut is the same "split" used by the header, so
+/// the bar reads as part of the fork rather than a themed copy of the original.
 class FloatyBottomBar extends StatefulWidget {
   final List<FloatyBarItem> items;
   final FloatyBottomBarController controller;
@@ -76,107 +81,118 @@ class _FloatyBottomBarState extends State<FloatyBottomBar> {
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
-    final lastIndex = widget.items.length - 1;
-
-    bool hasGapBetween(int leftIndex, int rightIndex) {
-      if (leftIndex < 0 || rightIndex > lastIndex) return false;
-      final leftIsActive = leftIndex == _currentIndex;
-      final rightIsActive = rightIndex == _currentIndex;
-      return leftIsActive != rightIsActive;
-    }
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset + widget.bottomPadding),
       child: Align(
         alignment: Alignment.bottomCenter,
         child: Container(
+          padding: EdgeInsets.all(4),
           decoration: BoxDecoration(
-              color: appTheme.backgroundSubColor, borderRadius: BorderRadius.circular(widget.outerRadius + 2)),
-          padding: EdgeInsets.all(5),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: List.generate(widget.items.length, (i) {
-              final isActive = i == _currentIndex;
-              final hasLeftGap = i > 0 && hasGapBetween(i - 1, i);
-              final hasRightGap = i < lastIndex && hasGapBetween(i, i + 1);
-              final leftNeighborIsActive = i > 0 && (i - 1) == _currentIndex;
-              final rightNeighborIsActive = i < lastIndex && (i + 1) == _currentIndex;
-              final segmentRadius = Radius.circular(isActive ? widget.activeRadius : widget.outerRadius);
-              final activeFacingCornerRadius = Radius.circular(widget.outerRadius / 2);
-
-              return GestureDetector(
-                onTap: () => _onItemTap(i),
-                behavior: HitTestBehavior.opaque,
-                child: AnimatedContainer(
-                  duration: widget.animationDuration,
-                  curve: Curves.easeInOut,
-                  height: widget.height,
-                  margin: EdgeInsets.only(
-                    left: hasLeftGap ? widget.detachGap / 2 : 0,
-                    right: hasRightGap ? widget.detachGap / 2 : 0,
-                  ),
-                  decoration: BoxDecoration(
-                    color: (isActive ? appTheme.accentColor : widget.accentColor.withAlpha(80)),
-                    borderRadius: BorderRadius.only(
-                      topLeft: (!isActive && leftNeighborIsActive)
-                          ? activeFacingCornerRadius
-                          : (i == 0 || hasLeftGap)
-                              ? segmentRadius
-                              : Radius.zero,
-                      bottomLeft: (!isActive && leftNeighborIsActive)
-                          ? activeFacingCornerRadius
-                          : (i == 0 || hasLeftGap)
-                              ? segmentRadius
-                              : Radius.zero,
-                      topRight: (!isActive && rightNeighborIsActive)
-                          ? activeFacingCornerRadius
-                          : (i == lastIndex || hasRightGap)
-                              ? segmentRadius
-                              : Radius.zero,
-                      bottomRight: (!isActive && rightNeighborIsActive)
-                          ? activeFacingCornerRadius
-                          : (i == lastIndex || hasRightGap)
-                              ? segmentRadius
-                              : Radius.zero,
-                    ),
-                  ),
-                  padding: EdgeInsets.symmetric(
-                    horizontal: isActive ? 16 : 18,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (!isActive)
-                        Icon(
-                          widget.items[i].icon,
-                          size: 24,
-                          color: isActive ? appTheme.onAccent : appTheme.textMainColor,
-                        ),
-                      AnimatedSize(
-                        duration: widget.animationDuration,
-                        curve: Curves.easeInOut,
-                        child: isActive
-                            ? Row(mainAxisSize: MainAxisSize.min, children: [
-                                // const SizedBox(width: 8),
-                                Text(widget.items[i].title,
-                                    style: TextStyle(
-                                      color: appTheme.onAccent,
-                                      fontFamily: "NotoSans",
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.bold,
-                                    )),
-                              ])
-                            : const SizedBox.shrink(),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }),
+            color: widget.backgroundColor,
+            borderRadius: BorderRadius.circular(widget.outerRadius + 4),
+            border: Border.all(color: appTheme.accentColor.withAlpha(45)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(100),
+                blurRadius: 28,
+                offset: Offset(0, 12),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(widget.outerRadius),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: List.generate(widget.items.length, _buildItem),
+            ),
           ),
         ),
       ),
     );
   }
+
+  Widget _buildItem(int i) {
+    final item = widget.items[i];
+    final isActive = i == _currentIndex;
+
+    return GestureDetector(
+      onTap: () => _onItemTap(i),
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedSize(
+        duration: widget.animationDuration,
+        curve: Curves.easeInOutCubic,
+        child: AnimatedContainer(
+          duration: widget.animationDuration,
+          curve: Curves.easeInOut,
+          height: widget.height,
+          child: Stack(
+            children: [
+              if (isActive)
+                Positioned.fill(
+                  child: ClipPath(
+                    clipper: _SplitClipper(),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [widget.accentColor, appTheme.secondaryColor],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              Padding(
+                padding: EdgeInsets.only(
+                  left: isActive ? 26 : 18,
+                  right: isActive ? 20 : 18,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      item.icon,
+                      size: 22,
+                      color: isActive ? appTheme.onAccent : appTheme.textSubColor,
+                    ),
+                    if (isActive) ...[
+                      SizedBox(width: 8),
+                      Text(
+                        item.title.toUpperCase(),
+                        style: TextStyle(
+                          color: appTheme.onAccent,
+                          fontFamily: "Poppins",
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.1,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SplitClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    final cut = size.height * 0.30;
+    return Path()
+      ..moveTo(cut, 0)
+      ..lineTo(size.width, 0)
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+  }
+
+  @override
+  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
 }
