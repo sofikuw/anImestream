@@ -48,6 +48,10 @@ than pretending to cover the fork's earlier life. That history is in the git log
 
 ### Fixed
 
+- **Fallback ratings are rounded to one decimal.** Kitsu reports values like
+  `84.37`, which the UI rendered as `8.437` instead of `8.4`; MAL can
+  return two decimals as well. Anime and manga ratings from both
+  providers are normalized before they reach the cards and detail pages.
 - **Kitsu browse requests no longer ask for 25 items.** Kitsu rejects page
   sizes above 20 with HTTP 400, so every anime and manga browse fallback
   failed and Discover still reported AniList as unreachable while Kitsu

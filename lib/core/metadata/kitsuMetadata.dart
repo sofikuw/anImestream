@@ -218,7 +218,7 @@ class KitsuAnimeMetadata implements AnimeMetadataProvider {
         ? value.toDouble()
         : double.tryParse(value?.toString() ?? '');
     if (raw == null) return null;
-    return raw / 10;
+    return double.parse((raw / 10).toStringAsFixed(1));
   }
 
   static String? _duration(Object? minutes) {

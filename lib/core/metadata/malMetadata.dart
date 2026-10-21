@@ -265,8 +265,10 @@ class MalAnimeMetadata implements AnimeMetadataProvider {
 
   static int? _int(Object? value) => value is num ? value.toInt() : null;
 
-  static double? _double(Object? value) =>
-      value is num ? value.toDouble() : null;
+  static double? _double(Object? value) {
+    if (value is! num) return null;
+    return double.parse(value.toDouble().toStringAsFixed(1));
+  }
 
   static String? _clean(String? text) {
     if (text == null || text.trim().isEmpty) return null;
