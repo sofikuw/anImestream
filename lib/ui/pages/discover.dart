@@ -200,7 +200,8 @@ class _DiscoverState extends State<Discover> {
               _itemTitle("Recommended", recommendedScrollController),
               _scrollList(widget.mainNavProvider.recommendedList, recommendedScrollController),
               // Manga rails. Same _itemTitle/_scrollList pair as the anime
-              // rails above, so they are visually identical by construction.
+              // rails above. Their cards add a format line under the title, so
+              // _scrollList gives those rails the extra height that line needs.
               _itemTitle("Manga trending", mangaTrendingScrollController),
               _scrollList(widget.mainNavProvider.mangaTrendingList, mangaTrendingScrollController),
               _itemTitle("Manga popular", mangaPopularScrollController),
@@ -289,57 +290,62 @@ class _DiscoverState extends State<Discover> {
                             width: 120,
                           ),
                         ),
-                        Container(
-                          padding: EdgeInsets.only(left: 10, right: 10),
-                          width: 250,
-                          child: Column(
-                            // mainAxisAlignment: MainAxisAlignment.center,
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 10.0),
-                                child: Text(
-                                  preferNative ? titles['native'] ?? title : title,
-                                  style: TextStyle(
-                                    color: appTheme.textMainColor,
-                                    fontFamily: 'NunitoSans',
-                                    fontSize: 17,
-                                    fontWeight: FontWeight.bold,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  maxLines: 2,
-                                ),
-                              ),
-                              Text(
-                                trendingList[moddedIndex].genres.join(', '),
-                                style: TextStyle(
-                                    color: appTheme.textMainColor.withAlpha(145),
-                                    fontFamily: 'NunitoSans',
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.bold,
-                                    overflow: TextOverflow.ellipsis),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.only(top: 10),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.star,
+                        // The text block keeps its 250px width where there is
+                        // room but shrinks on narrow phones instead of
+                        // overflowing the row.
+                        Flexible(
+                          child: Container(
+                            padding: EdgeInsets.only(left: 10, right: 10),
+                            width: 250,
+                            child: Column(
+                              // mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 10.0),
+                                  child: Text(
+                                    preferNative ? titles['native'] ?? title : title,
+                                    style: TextStyle(
                                       color: appTheme.textMainColor,
-                                      size: 20,
+                                      fontFamily: 'NunitoSans',
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.bold,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                    Text(
-                                      "${trendingList[moddedIndex].rating != null ? trendingList[moddedIndex].rating! / 10 : '??'}",
-                                      style:
-                                          TextStyle(color: appTheme.textMainColor, fontFamily: "Rubik", fontSize: 17),
-                                    ),
-                                  ],
+                                    maxLines: 2,
+                                  ),
                                 ),
-                              ),
-                            ],
+                                Text(
+                                  trendingList[moddedIndex].genres.join(', '),
+                                  style: TextStyle(
+                                      color: appTheme.textMainColor.withAlpha(145),
+                                      fontFamily: 'NunitoSans',
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                      overflow: TextOverflow.ellipsis),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 10),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.star,
+                                        color: appTheme.textMainColor,
+                                        size: 20,
+                                      ),
+                                      Text(
+                                        "${trendingList[moddedIndex].rating != null ? trendingList[moddedIndex].rating! / 10 : '??'}",
+                                        style:
+                                            TextStyle(color: appTheme.textMainColor, fontFamily: "Rubik", fontSize: 17),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         )
                       ],
@@ -353,8 +359,19 @@ class _DiscoverState extends State<Discover> {
   }
 
   Container _scrollList(List<AnimeCard> list, ScrollController controller) {
+    final firstCard = list.firstOrNull;
+    final isMobile = firstCard?.isMobile ?? true;
+    final hasSubText = list.any((card) => card.subText != null);
+
+    // A mobile card is a 160px cover, its 10px bottom margin and a two-line
+    // title, which the 220 rail is sized for. Cards that carry a subText (the
+    // manga rails' format label) need one more line. Without it the label is
+    // clipped on Android, where the rail is 220; the non-mobile 265 rail has
+    // room for it already.
+    final double height = isMobile ? (hasSubText ? 245.0 : 220.0) : 265.0;
+
     return Container(
-      height: (list.firstOrNull?.isMobile ?? true) ? 220 : 265,
+      height: height,
       padding: EdgeInsets.only(left: 10, right: 10),
       child: list.length > 0
           ? ListView.builder(
