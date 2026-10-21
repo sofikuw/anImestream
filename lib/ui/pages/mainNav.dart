@@ -9,7 +9,6 @@ import 'package:animestream/ui/models/widgets/bottomBar.dart';
 import 'package:animestream/ui/models/widgets/floatyBar/controller.dart';
 import 'package:animestream/ui/models/widgets/floatyBar/floatyBarView.dart';
 import 'package:animestream/ui/models/widgets/floatyBar/floatyBottomBar.dart';
-import 'package:animestream/ui/models/widgets/cards.dart';
 import 'package:animestream/ui/models/snackBar.dart';
 import 'package:animestream/ui/pages/discover.dart';
 import 'package:animestream/ui/pages/home.dart';
@@ -66,43 +65,6 @@ class MainNavigatorState extends State<MainNavigator> with TickerProviderStateMi
 
   late MainNavProvider mainNavProvider;
 
-  void rebuildCards() {
-    mainNavProvider.recentlyUpdatedList.clear();
-
-    final isMobile = !mainNavProvider.tv && mainNavProvider.isAndroid;
-
-    mainNavProvider.recentlyUpdatedListData.forEach((elem) {
-      final title = elem.title['english'] ?? elem.title['romaji'] ?? '';
-      mainNavProvider.recentlyUpdatedList.add(
-        Cards.animeCard(
-          elem.id,
-          (currentUserSettings?.nativeTitle ?? false) ? elem.title['native'] ?? title : title,
-          elem.cover,
-          rating: (elem.rating ?? 0) / 10,
-          isMobile: isMobile,
-        ),
-      );
-    });
-
-    mainNavProvider.recommendedList.clear();
-    mainNavProvider.recommendedListData.forEach((item) {
-      final title = item.title['english'] ?? item.title['romaji'] ?? '';
-      mainNavProvider.recommendedList.add(Cards.animeCard(
-          item.id, (currentUserSettings?.nativeTitle ?? false) ? item.title['native'] ?? title : title, item.cover,
-          rating: item.rating, isMobile: isMobile));
-    });
-
-    mainNavProvider.thisSeason.clear();
-    mainNavProvider.thisSeasonData.forEach((item) {
-      final title = item.title['english'] ?? item.title['romaji'] ?? '';
-      mainNavProvider.thisSeason.add(Cards.animeCard(
-          item.id, (currentUserSettings?.nativeTitle ?? false) ? item.title['native'] ?? title : title, item.cover,
-          rating: item.rating, isMobile: isMobile));
-    });
-
-    setState(() {});
-  }
-
   //reset the popInvoke
   Future<void> popTimeoutWindow() async {
     await Future.delayed(Duration(seconds: 3));
@@ -113,9 +75,6 @@ class MainNavigatorState extends State<MainNavigator> with TickerProviderStateMi
   Widget build(BuildContext context) {
     mainNavProvider = context.watch<MainNavProvider>();
 
-    if (mainNavProvider.recentlyUpdatedList.isNotEmpty && mainNavProvider.thisSeason.isNotEmpty) {
-      rebuildCards();
-    }
     double blurSigmaValue = currentUserSettings!.navbarTranslucency ?? 5;
     if (blurSigmaValue <= 1) {
       blurSigmaValue = blurSigmaValue * 10;

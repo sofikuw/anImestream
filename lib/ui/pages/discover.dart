@@ -31,7 +31,13 @@ class _DiscoverState extends State<Discover> {
   @override
   void initState() {
     super.initState();
-    if (!widget.mainNavProvider.discoverDataLoaded) widget.mainNavProvider.loadDiscoverItems();
+    // Do not retry a load that already failed just because the tab was
+    // reopened: that is what made a failed API look like a page stuck
+    // reloading. The error banner's Retry (or pull-to-refresh) starts a new
+    // attempt explicitly.
+    if (!widget.mainNavProvider.discoverDataLoaded && !widget.mainNavProvider.discoverError) {
+      widget.mainNavProvider.loadDiscoverItems();
+    }
     // Manga rail cards are built by the provider and navigate on tap, so it
     // needs a context to push from before any of them can be built.
     widget.mainNavProvider.attachNavigationContext(context);
@@ -106,9 +112,12 @@ class _DiscoverState extends State<Discover> {
                         ? _trendingAnimesPageView()
                         : Container(
                             child: Center(
-                              child: CircularProgressIndicator(
-                                color: appTheme.accentColor,
-                              ),
+                              child: widget.mainNavProvider.discoverDataLoaded ||
+                                      widget.mainNavProvider.discoverError
+                                  ? _unavailableLabel("Trending is unavailable right now")
+                                  : CircularProgressIndicator(
+                                      color: appTheme.accentColor,
+                                    ),
                             ),
                           ),
                   ),
@@ -118,6 +127,7 @@ class _DiscoverState extends State<Discover> {
                   )
                 ],
               ),
+              if (widget.mainNavProvider.discoverError) _discoverErrorBanner(),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -217,6 +227,79 @@ class _DiscoverState extends State<Discover> {
   SizedBox footSpace() {
     return SizedBox(
       height: MediaQuery.of(context).padding.bottom + 60,
+    );
+  }
+
+  Widget _unavailableLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: appTheme.textSubColor,
+          fontFamily: "NunitoSans",
+          fontSize: 14,
+        ),
+      ),
+    );
+  }
+
+  /// Shown when every Discover request failed.
+  ///
+  /// The rails are all empty in that case, so without this the page is just
+  /// spinners that never resolve. A failed fetch is not the same as a slow one,
+  /// and the difference is worth saying out loud.
+  Widget _discoverErrorBanner() {
+    return Container(
+      margin: const EdgeInsets.only(top: 25, left: 20, right: 20),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: appTheme.backgroundSubColor,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: appTheme.accentColor.withAlpha(120)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.cloud_off_rounded, color: appTheme.accentColor, size: 28),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Couldn't reach AniList",
+                  style: TextStyle(
+                    color: appTheme.textMainColor,
+                    fontFamily: "NotoSans",
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
+                Text(
+                  "The metadata service may be temporarily unavailable. Your connection is fine.",
+                  style: TextStyle(
+                    color: appTheme.textSubColor,
+                    fontFamily: "NunitoSans",
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: () => widget.mainNavProvider.loadDiscoverItems(),
+            child: Text(
+              "Retry",
+              style: TextStyle(
+                color: appTheme.accentColor,
+                fontFamily: "NotoSans",
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -382,9 +465,11 @@ class _DiscoverState extends State<Discover> {
               itemBuilder: (context, index) => list[index],
             )
           : Center(
-              child: CircularProgressIndicator(
-                color: appTheme.accentColor,
-              ),
+              child: widget.mainNavProvider.discoverDataLoaded || widget.mainNavProvider.discoverError
+                  ? _unavailableLabel("Nothing to show here right now")
+                  : CircularProgressIndicator(
+                      color: appTheme.accentColor,
+                    ),
             ),
     );
   }

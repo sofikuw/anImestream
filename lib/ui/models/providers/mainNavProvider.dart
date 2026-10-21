@@ -84,10 +84,12 @@ class MainNavProvider extends ChangeNotifier {
 
   bool _discoverDataLoaded = false;
   bool get discoverDataLoaded => _discoverDataLoaded;
-  set discoverDataLoaded(bool value) {
-    _discoverDataLoaded = value;
-    notifyListeners();
-  }
+
+  /// True when every Discover request failed. The page uses this to show an
+  /// explanation and a retry action instead of leaving a spinner running
+  /// forever when the metadata API is unavailable.
+  bool _discoverError = false;
+  bool get discoverError => _discoverError;
 
   // Home items
   AnimeListData<HomePageList> get currentlyAiring => _currentlyAiring;
@@ -243,6 +245,7 @@ class MainNavProvider extends ChangeNotifier {
   Future<void> getRecommended() async {
     final list = await AnilistQueries().getRecommendedAnimes();
     _recommendedListData = list;
+    _recommendedList.clear();
     for (final item in list) {
       final title = item.title['english'] ?? item.title['romaji'] ?? '';
       recommendedList.add(
@@ -261,6 +264,9 @@ class MainNavProvider extends ChangeNotifier {
   /// Fetch the recently updated list from Anilist API
   Future<void> getRecentlyUpdated() async {
     final list = await Anilist().recentlyUpdated();
+    // Refresh replaces the rail rather than appending to it.
+    _recentlyUpdatedListData.clear();
+    _recentlyUpdatedList.clear();
     //to filter out the dupes
     Set<int> ids = {};
     for (final elem in list) {
@@ -371,6 +377,7 @@ class MainNavProvider extends ChangeNotifier {
     recentlyWatched.state = LoadingState.loaded;
 
     final List<CurrentlyAiringResult> currentlyAiringResponse = futures[1] as List<CurrentlyAiringResult>;
+    _thisSeason.clear();
     if (currentlyAiringResponse.isEmpty) return;
 
     currentlyAiring.items = [];
@@ -394,6 +401,7 @@ class MainNavProvider extends ChangeNotifier {
           (currentUserSettings?.nativeTitle ?? false) ? item.title['native'] ?? title : title,
           item.cover,
           rating: item.rating,
+          isMobile: !tv && isAndroid,
         ),
       );
     });
@@ -434,26 +442,30 @@ class MainNavProvider extends ChangeNotifier {
   /// Fetch the manga rails from AniList.
   ///
   /// Fails quietly: Discover still has three anime rails without these, so a
-  /// manga fetch error must not take the whole page down with it.
-  Future<void> getMangaDiscoverItems() async {
+  /// manga fetch error must not take the whole page down with it. Returns
+  /// whether either rail loaded, so the caller can tell a failed refresh from
+  /// a successful one.
+  Future<bool> getMangaDiscoverItems() async {
     final source = AnilistManga();
     final isMobile = !tv && isAndroid;
+    var loadedAny = false;
 
-    List<MangaSummary> trending = const <MangaSummary>[];
-    List<MangaSummary> popular = const <MangaSummary>[];
     try {
-      trending = await source.getTrending();
+      final trending = await source.getTrending();
+      _mangaTrendingList = trending.map((manga) => _mangaCard(manga, isMobile)).toList(growable: false);
+      loadedAny = true;
     } catch (e) {
       Logs.app.log("Error loading manga trending: $e");
     }
     try {
-      popular = await source.getPopular();
+      final popular = await source.getPopular();
+      _mangaPopularList = popular.map((manga) => _mangaCard(manga, isMobile)).toList(growable: false);
+      loadedAny = true;
     } catch (e) {
       Logs.app.log("Error loading manga popular: $e");
     }
 
-    _mangaTrendingList = trending.map((manga) => _mangaCard(manga, isMobile)).toList(growable: false);
-    _mangaPopularList = popular.map((manga) => _mangaCard(manga, isMobile)).toList(growable: false);
+    return loadedAny;
   }
 
   /// A manga card for a Discover rail.
@@ -488,21 +500,44 @@ class MainNavProvider extends ChangeNotifier {
     _navContext = context;
   }
 
-  /// Load the items list for the Discover page
+  /// Load the items list for the Discover page.
+  ///
+  /// The four rails are loaded independently: one failing must not discard the
+  /// other three, and the page needs to know whether *everything* failed so it
+  /// can show an error instead of four spinners.
   Future<void> loadDiscoverItems() async {
+    final wasShowingError = _discoverError;
+    _discoverError = false;
+    _discoverDataLoaded = false;
+    if (wasShowingError) notifyListeners();
+
+    final loaded = await Future.wait<bool>([
+      _runDiscoverPart('trending', getTrendingList),
+      _runDiscoverPart('recently updated', getRecentlyUpdated),
+      _runDiscoverPart('recommended', getRecommended),
+      getMangaDiscoverItems(),
+    ]);
+
+    final loadedAny = loaded.any((part) => part);
+    _discoverDataLoaded = loadedAny;
+    _discoverError = !loadedAny;
+    notifyListeners();
+
+    if (!loadedAny && (currentUserSettings?.showErrors ?? false)) {
+      floatingSnackBar(
+        "Couldn't load Discover. AniList may be unavailable.",
+        waitForPreviousToFinish: true,
+      );
+    }
+  }
+
+  Future<bool> _runDiscoverPart(String label, Future<void> Function() part) async {
     try {
-      await Future.wait([
-        getTrendingList(),
-        getRecentlyUpdated(),
-        getRecommended(),
-        getMangaDiscoverItems(),
-      ]);
-      discoverDataLoaded = true;
+      await part();
+      return true;
     } catch (e) {
-      Logs.app.log("Error loading discover items: $e");
-      discoverDataLoaded = false;
-      if (currentUserSettings!.showErrors != null && currentUserSettings!.showErrors!)
-        floatingSnackBar(e.toString(), waitForPreviousToFinish: true);
+      Logs.app.log("Error loading Discover $label: $e");
+      return false;
     }
   }
 

@@ -72,9 +72,19 @@ class _SearchState extends State<Search> {
   /// has to re-sort a merged collection.
   List<MangaSummary> mangaResults = [];
 
-  /// Set when the manga half of the search failed, so the UI can say so
-  /// without hiding the anime half.
+  /// Set when a half of the search failed, so the UI can say so without
+  /// hiding the half that worked. Both set means the lookup itself is down,
+  /// which must not be presented as "no matches".
+  bool animeSearchFailed = false;
   bool mangaSearchFailed = false;
+
+  /// True once a non-empty query has been submitted, so the empty state is not
+  /// shown before the user has searched for anything.
+  bool _hasSearched = false;
+
+  /// Incremented for every search. A slower earlier query must not overwrite
+  /// the results of a newer one.
+  int _searchGeneration = 0;
 
   TextEditingController textEditingController = TextEditingController();
 
@@ -88,24 +98,32 @@ class _SearchState extends State<Search> {
   SearchFilter filter = SearchFilter.all;
 
   Future addCards(String query) async {
+    final generation = ++_searchGeneration;
+
     //for cleaning the UI
     results = [];
     exactMatches = [];
     mangaResults = [];
+    animeSearchFailed = false;
     mangaSearchFailed = false;
+    _hasSearched = true;
 
     // Both lookups run together. `Future.wait` is deliberately not used: one
     // failing future would fail the whole wait and lose the other's results.
     final animeFuture = db.search(query).catchError((err) {
+      if (generation == _searchGeneration) animeSearchFailed = true;
       return <DatabaseSearchResult>[];
     });
     final mangaFuture = mangaSource.search(query).catchError((err) {
-      mangaSearchFailed = true;
+      if (generation == _searchGeneration) mangaSearchFailed = true;
       return <MangaSummary>[];
     });
 
     final animeResults = await animeFuture;
     final mangaHits = await mangaFuture;
+
+    // A newer search has started; its result owns the UI.
+    if (generation != _searchGeneration) return;
 
     //for removing the data from previous search invokation due to debouncing
     results = [];
@@ -185,6 +203,18 @@ class _SearchState extends State<Search> {
   /// bug otherwise.
   bool get _animeHiddenByExactMatch =>
       exactMatch && exactMatches.isEmpty && results.isNotEmpty;
+
+  /// Whether the lookup behind the current filter failed.
+  bool get _searchFailedForCurrentFilter {
+    switch (filter) {
+      case SearchFilter.anime:
+        return animeSearchFailed;
+      case SearchFilter.manga:
+        return mangaSearchFailed;
+      case SearchFilter.all:
+        return animeSearchFailed && mangaSearchFailed;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -351,7 +381,19 @@ class _SearchState extends State<Search> {
                   ),
                 ),
               ),
-            if (mangaSearchFailed)
+            if (animeSearchFailed && !mangaSearchFailed)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Text(
+                  "Anime results are unavailable right now.",
+                  style: TextStyle(
+                    fontFamily: "NotoSans",
+                    fontSize: 13,
+                    color: appTheme.textSubColor,
+                  ),
+                ),
+              ),
+            if (mangaSearchFailed && !animeSearchFailed)
               Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: Text(
@@ -363,6 +405,7 @@ class _SearchState extends State<Search> {
                   ),
                 ),
               ),
+            if (hits.isEmpty && _hasSearched) _searchEmptyState(),
             GridView.builder(
               padding: EdgeInsets.zero,
               gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
@@ -435,6 +478,66 @@ class _SearchState extends State<Search> {
         ),
       ),
     );
+  }
+
+  Widget _searchEmptyState() {
+    final failed = _searchFailedForCurrentFilter;
+    return Padding(
+      padding: const EdgeInsets.only(top: 40, bottom: 20),
+      child: Column(
+        children: [
+          Icon(
+            failed ? Icons.cloud_off_rounded : Icons.search_off_rounded,
+            color: appTheme.textSubColor,
+            size: 42,
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: Text(
+              failed ? "Couldn't reach the search service" : "No matches found",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: appTheme.textMainColor,
+                fontFamily: "NotoSans",
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+          ),
+          if (failed)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                "The metadata service may be temporarily unavailable. Your connection is fine.",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: appTheme.textSubColor,
+                  fontFamily: "NunitoSans",
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          TextButton(
+            onPressed: _retrySearch,
+            child: Text(
+              "Retry",
+              style: TextStyle(
+                color: appTheme.accentColor,
+                fontFamily: "NotoSans",
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _retrySearch() {
+    final query = textEditingController.text.trim();
+    if (query.isEmpty) return;
+    setState(() => _searching = true);
+    addCards(query);
   }
 
   TextField _searchBar() {

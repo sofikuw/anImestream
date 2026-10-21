@@ -36,6 +36,24 @@ than pretending to cover the fork's earlier life. That history is in the git log
 
 ### Fixed
 
+- **Discover and Search degrade honestly when AniList is unavailable.** AniList
+  can return `403` with "The AniList API has been temporarily disabled due to
+  severe stability issues." Discover used to keep its spinners running and
+  re-run the failed load whenever the tab was reopened; Search used to present a
+  failed lookup as "no matches". Discover now shows an error banner with Retry,
+  Search says which half failed, and the four Discover rails load independently
+  so one failure no longer discards the other three. **Not verified on device**
+  -- the SDK is not available here, and the outage itself is server-side.
+- **Android manga rails reserve room for the format label.** The rail is 220px
+  on mobile, which is sized for a cover, margin and two title lines; a card with
+  a `subText` needs one more line, so the label was clipped. Cards carrying a
+  `subText` now get a 245px rail. The trending banner's text block also became
+  `Flexible`, so it cannot overflow a narrow screen.
+- **Removed a `setState()` from `MainNavigator.build`.** It rebuilt the Discover
+  rails on every build while they were non-empty, which is both a build-phase
+  `setState()` and a rebuild loop. The provider clears and refills its lists on
+  refresh instead.
+
 - **Continue Reading now reaches AniList.** `storeReading` wrote the local Hive
   row and nothing else, so reading progress never left the device. The new
   `mutateMangaList` is **AniList-only on purpose**: `mutateAnimeList` fans out
