@@ -235,10 +235,13 @@ class MainNavProvider extends ChangeNotifier {
     }
   }
 
-  /// Fetch the trending list from Anilist API
+  /// Fetch the trending list from AniList, or from the configured metadata
+  /// fallback when AniList is unavailable.
   Future<void> getTrendingList() async {
     final list = await Anilist().getTrending();
-    _trendingList = list.sublist(0, 20);
+    // take() rather than sublist(0, 20): a fallback provider may return fewer
+    // than 20 entries, and sublist would throw instead of showing what it has.
+    _trendingList = list.take(20).toList(growable: false);
   }
 
   /// Fetch the recommended list from Anilist API

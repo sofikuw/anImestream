@@ -15,6 +15,11 @@ class SyncHandler extends DatabaseMutation {
     MediaStatus? previousStatus,
     int? progress,
   }) async {
+    // Negative ids are app-local metadata fallback ids, not AniList media ids.
+    // Refuse them here as a last line of defence so no UI path can write one to
+    // a remote list.
+    if (id < 0) return null;
+
     final List<Databases> databases = Databases.values;
     final activedb = getActiveDatabase();
     final activeDbInstance = getDatabaseMutationInstance(activedb);

@@ -76,11 +76,14 @@ void main(List<String> args) async {
 
     NotificationService().init();
 
-    /// Load sources. we adding inbuilt sources till migrated
+    /// Load sources. Built-ins are added by [applyDisabledInbuiltProviders]
+    /// so a provider the user removed stays removed across launches.
     final sm = SourceManager.instance;
 
     sm
-      ..addSources(sm.inbuiltSources)
+      ..applyDisabledInbuiltProviders(
+        currentUserSettings?.disabledProviders ?? const <String>[],
+      )
       ..loadProviders(clearBeforeLoading: false);
 
     HttpOverrides.global = _HttpOverrides();

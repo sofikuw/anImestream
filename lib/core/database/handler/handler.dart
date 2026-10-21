@@ -6,6 +6,7 @@ import 'package:animestream/core/database/database.dart';
 import 'package:animestream/core/database/mal/mal.dart';
 import 'package:animestream/core/database/simkl/simkl.dart';
 import 'package:animestream/core/database/types.dart';
+import 'package:animestream/core/metadata/metadataFallback.dart';
 
 class DatabaseHandler extends Database {
   DatabaseHandler({Databases? database}) {
@@ -36,6 +37,11 @@ class DatabaseHandler extends Database {
 
   @override
   Future<DatabaseInfo> getAnimeInfo(int id) async {
+    // Fallback cards carry a synthetic negative id. It is not an AniList,
+    // MAL or Simkl id, so resolve it before the database switch.
+    if (AnimeMetadataRouter.instance.isFallbackId(id)) {
+      return AnimeMetadataRouter.instance.info(id);
+    }
     return await getDatabaseInstance(db).getAnimeInfo(id);
   }
 }

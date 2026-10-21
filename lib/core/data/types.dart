@@ -48,6 +48,24 @@ class SettingsModal {
   /// The preferred database provider (SIMKL/MAL/AL) [defaults to Anilist]
   final Databases? database;
 
+  /// Identifiers of built-in streaming providers the user removed.
+  ///
+  /// Installed extensions are never in this list: removing those uninstalls
+  /// them. These are the providers that ship with the app, which would
+  /// otherwise reappear on every launch.
+  final List<String>? disabledProviders;
+
+  /// Metadata databases the user removed from search and browse.
+  ///
+  /// Disabling AniList keeps it as the router that forwards to the configured
+  /// fallbacks; the other databases are not fallback providers themselves.
+  final List<String>? disabledMetadataProviders;
+
+  /// Ordered fallback database ids used when AniList is unavailable.
+  ///
+  /// Defaults to MAL then Kitsu. Empty means no fallback.
+  final List<String>? metadataFallbacks;
+
   /// Enable extra speed options in player (4x,5x,8x,10x) [defaults to false]
   final bool? enableSuperSpeeds;
 
@@ -105,6 +123,9 @@ class SettingsModal {
     this.isDev,
     this.downloadPath,
     this.database,
+    this.disabledProviders,
+    this.disabledMetadataProviders,
+    this.metadataFallbacks,
     this.enableSuperSpeeds,
     this.useQueuedDownloads,
     this.useFramelessWindow,
@@ -137,6 +158,15 @@ class SettingsModal {
       isDev: map['isDev'] ?? false,
       downloadPath: map['downloadPath'], // No default value since we can assign them at runtime according to OS
       database: DatabaseFromString.getDb(map['database'] ?? "anilist"),
+      disabledProviders: map['disabledProviders'] is List
+          ? (map['disabledProviders'] as List).whereType<String>().toList()
+          : const <String>[],
+      disabledMetadataProviders: map['disabledMetadataProviders'] is List
+          ? (map['disabledMetadataProviders'] as List).whereType<String>().toList()
+          : const <String>[],
+      metadataFallbacks: map['metadataFallbacks'] is List
+          ? (map['metadataFallbacks'] as List).whereType<String>().toList()
+          : const <String>['mal', 'kitsu'],
       enableSuperSpeeds: map['enableSuperSpeeds'] ?? false,
       useQueuedDownloads: map['useQueuedDownloads'] ?? false,
       useFramelessWindow: map['useFramelessWindow'] ?? false,
@@ -170,6 +200,9 @@ class SettingsModal {
       'isDev': isDev,
       'downloadPath': downloadPath,
       'database': database?.name,
+      'disabledProviders': disabledProviders,
+      'disabledMetadataProviders': disabledMetadataProviders,
+      'metadataFallbacks': metadataFallbacks,
       'enableSuperSpeeds': enableSuperSpeeds,
       'useQueuedDownloads': useQueuedDownloads,
       'useFramelessWindow': useFramelessWindow,

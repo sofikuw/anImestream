@@ -248,10 +248,14 @@ class _PluginPageState extends State<PluginPage>
   Future<void> _fallbackDefaultProvider(String identifier) async {
     final settings = currentUserSettings ?? await Settings().getSettings();
     if (settings.preferredProvider != identifier) return;
+    // The first *enabled* source other than the one being removed: the user
+    // may have removed some built-ins in Built-in providers.
+    final sources = SourceManager.instance.sources
+        .where((source) => source.identifier != identifier)
+        .toList(growable: false);
+    if (sources.isEmpty) return;
     await Settings().writeSettings(
-      SettingsModal(
-        preferredProvider: SourceManager.instance.inbuiltSources.first.identifier,
-      ),
+      SettingsModal(preferredProvider: sources.first.identifier),
     );
   }
 

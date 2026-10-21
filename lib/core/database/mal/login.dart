@@ -13,7 +13,12 @@ import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 import 'package:animestream/core/network/network.dart';
 
 class MALLogin extends DatabaseLogin {
-  final _clientId = "165c40bb79c803049c4badcaa90cfd74";
+  /// Public MAL API client id. Also used by the metadata fallback, which only
+  /// needs the client id header and no user token.
+  static const String clientId = "165c40bb79c803049c4badcaa90cfd74";
+
+  final _clientId = clientId;
+
 
   @override
   Future<bool> initiateLogin() async {

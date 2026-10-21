@@ -34,6 +34,18 @@ than pretending to cover the fork's earlier life. That history is in the git log
   `core/database/handler/syncHandler.dart`, and the call to it from
   `storeReading`.
 
+- **Configurable built-in providers and AniList metadata fallbacks.** Settings
+  now has a "Built-in providers" page that hides the streaming providers that
+  ship with the app and can disable metadata databases. AniList's anime and
+  manga search/browse calls fall back to MyAnimeList and then Kitsu (the pair
+  can be toggled per provider) when AniList is unavailable; fallback cards open
+  a details page through the same providers. Fallback anime ids are negative
+  and deterministic, so a saved reading/watching row still resolves after a
+  restart. **Not verified on device** -- the SDK is not available here. MAL's
+  anime *search* endpoint was also returning its own maintenance error during
+  verification; the chain then uses Kitsu, whose search and browse endpoints
+  were reachable.
+
 ### Fixed
 
 - **Discover and Search degrade honestly when AniList is unavailable.** AniList

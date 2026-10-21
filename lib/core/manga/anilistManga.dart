@@ -1,9 +1,12 @@
+import 'package:animestream/core/app/logging.dart';
 import 'package:animestream/core/commons/enums.dart';
 import 'package:animestream/core/commons/utils.dart';
 import 'package:animestream/core/data/secureStorage.dart';
 import 'package:animestream/core/database/anilist/anilist.dart';
 import 'package:animestream/core/manga/mangaProvider.dart';
 import 'package:animestream/core/manga/types.dart';
+import 'package:animestream/core/metadata/metadataFallback.dart';
+import 'package:animestream/core/metadata/metadataTypes.dart';
 
 /// AniList as the manga *metadata* source.
 ///
@@ -46,7 +49,21 @@ class AnilistManga implements MangaMetadataSource {
       'type: MANGA, format_in: [MANGA, ONE_SHOT], isAdult: false';
 
   @override
-  Future<List<MangaSummary>> getTrending() => _list('''
+  Future<List<MangaSummary>> getTrending() async {
+    if (!MangaMetadataRouter.instance.anilistEnabled) {
+      return MangaMetadataRouter.instance.trending();
+    }
+    try {
+      return await _getTrendingFromAniList();
+    } catch (err) {
+      Logs.app.log(
+        '[anilist] manga trending failed, trying metadata fallback: $err',
+      );
+      return MangaMetadataRouter.instance.trending();
+    }
+  }
+
+  Future<List<MangaSummary>> _getTrendingFromAniList() => _list('''
     query {
       Page(perPage: 25) {
         media($_mangaOnly, sort: TRENDING_DESC) { $_summaryFields }
@@ -55,7 +72,21 @@ class AnilistManga implements MangaMetadataSource {
   ''');
 
   @override
-  Future<List<MangaSummary>> getPopular() => _list('''
+  Future<List<MangaSummary>> getPopular() async {
+    if (!MangaMetadataRouter.instance.anilistEnabled) {
+      return MangaMetadataRouter.instance.popular();
+    }
+    try {
+      return await _getPopularFromAniList();
+    } catch (err) {
+      Logs.app.log(
+        '[anilist] manga popular failed, trying metadata fallback: $err',
+      );
+      return MangaMetadataRouter.instance.popular();
+    }
+  }
+
+  Future<List<MangaSummary>> _getPopularFromAniList() => _list('''
     query {
       Page(perPage: 25) {
         media($_mangaOnly, sort: POPULARITY_DESC) { $_summaryFields }
@@ -64,7 +95,21 @@ class AnilistManga implements MangaMetadataSource {
   ''');
 
   @override
-  Future<List<MangaSummary>> getLatest() => _list('''
+  Future<List<MangaSummary>> getLatest() async {
+    if (!MangaMetadataRouter.instance.anilistEnabled) {
+      return MangaMetadataRouter.instance.latest();
+    }
+    try {
+      return await _getLatestFromAniList();
+    } catch (err) {
+      Logs.app.log(
+        '[anilist] manga latest failed, trying metadata fallback: $err',
+      );
+      return MangaMetadataRouter.instance.latest();
+    }
+  }
+
+  Future<List<MangaSummary>> _getLatestFromAniList() => _list('''
     query {
       Page(perPage: 25) {
         media($_mangaOnly, sort: UPDATED_AT_DESC) { $_summaryFields }
@@ -73,7 +118,21 @@ class AnilistManga implements MangaMetadataSource {
   ''');
 
   @override
-  Future<List<MangaSummary>> search(String query) {
+  Future<List<MangaSummary>> search(String query) async {
+    if (!MangaMetadataRouter.instance.anilistEnabled) {
+      return MangaMetadataRouter.instance.search(query);
+    }
+    try {
+      return await _searchFromAniList(query);
+    } catch (err) {
+      Logs.app.log(
+        '[anilist] manga search failed, trying metadata fallback: $err',
+      );
+      return MangaMetadataRouter.instance.search(query);
+    }
+  }
+
+  Future<List<MangaSummary>> _searchFromAniList(String query) {
     // AniList takes the search term inside the GraphQL document, so a raw quote
     // or backslash would break the query. Escape before interpolating.
     final escaped = query
@@ -160,6 +219,18 @@ class AnilistManga implements MangaMetadataSource {
 
   @override
   Future<MangaDetails> getDetails(String id) async {
+    if (id.startsWith('mal:') || id.startsWith('kitsu:')) {
+      return MangaMetadataRouter.instance.details(id);
+    }
+    if (!MangaMetadataRouter.instance.anilistEnabled) {
+      throw MetadataUnavailableException(
+        'AniList is disabled and $id is not a fallback manga id',
+      );
+    }
+    return _getDetailsFromAniList(id);
+  }
+
+  Future<MangaDetails> _getDetailsFromAniList(String id) async {
     final mediaId = int.tryParse(id);
     if (mediaId == null) {
       throw AnilistApiException('Not an AniList media id: $id');

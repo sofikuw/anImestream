@@ -52,6 +52,37 @@ class SourceManager {
 
   List<ProviderDetails> get sources => _sources;
 
+  /// The built-in providers that are currently in [sources].
+  ///
+  /// Installed extensions are excluded: removing one of those uninstalls it,
+  /// while these are only hidden by settings and reappear unless filtered.
+  List<ProviderDetails> get enabledInbuiltSources {
+    final identifiers = inbuiltSources.map((p) => p.identifier).toSet();
+    return _sources
+        .where((provider) => identifiers.contains(provider.identifier))
+        .toList(growable: false);
+  }
+
+  /// Rebuilds the built-in part of [sources] from the user's disabled list.
+  ///
+  /// Keeps installed extensions in place and puts the enabled built-ins back at
+  /// the front, which is where [loadProviders] expects them. Safe to call more
+  /// than once: the previous built-in entries are removed first.
+  void applyDisabledInbuiltProviders(Iterable<String> disabled) {
+    final disabledSet = disabled.toSet();
+    final builtInIdentifiers =
+        inbuiltSources.map((provider) => provider.identifier).toSet();
+    _sources.removeWhere(
+      (provider) => builtInIdentifiers.contains(provider.identifier),
+    );
+    _sources.insertAll(
+      0,
+      inbuiltSources.where(
+        (provider) => !disabledSet.contains(provider.identifier),
+      ),
+    );
+  }
+
   void addSource(ProviderDetails source) {
     _sources.add(source);
   }

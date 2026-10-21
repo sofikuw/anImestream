@@ -1,5 +1,8 @@
+import 'package:animestream/core/app/logging.dart';
 import 'package:animestream/core/app/values.dart';
 import 'package:animestream/core/network/network.dart';
+import 'package:animestream/core/metadata/metadataFallback.dart';
+import 'package:animestream/core/metadata/metadataTypes.dart';
 
 import 'package:animestream/core/commons/enums.dart';
 import 'package:animestream/core/commons/utils.dart';
@@ -22,7 +25,20 @@ class AnilistApiException implements Exception {
 }
 
 class Anilist extends Database {
+  @override
   Future<List<AnilistSearchResult>> search(String query) async {
+    if (!AnimeMetadataRouter.instance.anilistEnabled) {
+      return AnimeMetadataRouter.instance.search(query);
+    }
+    try {
+      return await _searchFromAniList(query);
+    } catch (err) {
+      Logs.app.log('[anilist] search failed, trying metadata fallback: $err');
+      return AnimeMetadataRouter.instance.search(query);
+    }
+  }
+
+  Future<List<AnilistSearchResult>> _searchFromAniList(String query) async {
     final gquery = '''
             query {
                 Page(perPage: 15) {
@@ -73,7 +89,20 @@ class Anilist extends Database {
     return searchResults;
   }
 
+  @override
   Future<AnilistInfo> getAnimeInfo(int id) async {
+    if (AnimeMetadataRouter.instance.isFallbackId(id)) {
+      return AnimeMetadataRouter.instance.info(id);
+    }
+    if (!AnimeMetadataRouter.instance.anilistEnabled) {
+      throw MetadataUnavailableException(
+        'AniList is disabled and $id is not a fallback anime id',
+      );
+    }
+    return _getAnimeInfoFromAniList(id);
+  }
+
+  Future<AnilistInfo> _getAnimeInfoFromAniList(int id) async {
     final query = AnilistQueries.infoQuery(id);
     final String? token = await getSecureVal(SecureStorageKey.anilistToken);
     final result = await Anilist().fetchQuery(
@@ -191,6 +220,20 @@ class Anilist extends Database {
   }
 
   Future<List<CurrentlyAiringResult>> getCurrentlyAiringAnime() async {
+    if (!AnimeMetadataRouter.instance.anilistEnabled) {
+      return AnimeMetadataRouter.instance.currentlyAiring();
+    }
+    try {
+      return await _getCurrentlyAiringFromAniList();
+    } catch (err) {
+      Logs.app.log(
+        '[anilist] currently airing failed, trying metadata fallback: $err',
+      );
+      return AnimeMetadataRouter.instance.currentlyAiring();
+    }
+  }
+
+  Future<List<CurrentlyAiringResult>> _getCurrentlyAiringFromAniList() async {
     final query = '''{
             Page(perPage: 40) {
               media(sort: [START_DATE_DESC], type: ANIME, format: TV, status: RELEASING) {
@@ -241,6 +284,20 @@ class Anilist extends Database {
 
   //maybe latest and not recentlyUpdatedAnime!
   Future<List<RecentlyUpdatedResult>> recentlyUpdated() async {
+    if (!AnimeMetadataRouter.instance.anilistEnabled) {
+      return AnimeMetadataRouter.instance.recentlyUpdated();
+    }
+    try {
+      return await _recentlyUpdatedFromAniList();
+    } catch (err) {
+      Logs.app.log(
+        '[anilist] recently updated failed, trying metadata fallback: $err',
+      );
+      return AnimeMetadataRouter.instance.recentlyUpdated();
+    }
+  }
+
+  Future<List<RecentlyUpdatedResult>> _recentlyUpdatedFromAniList() async {
     final timeMs = (new DateTime.now().millisecondsSinceEpoch ~/ 1000) - 10000;
     final query = '''{
         Page(perPage: 25) {
@@ -299,6 +356,18 @@ class Anilist extends Database {
   }
 
   Future<List<TrendingResult>> getTrending() async {
+    if (!AnimeMetadataRouter.instance.anilistEnabled) {
+      return AnimeMetadataRouter.instance.trending();
+    }
+    try {
+      return await _getTrendingFromAniList();
+    } catch (err) {
+      Logs.app.log('[anilist] trending failed, trying metadata fallback: $err');
+      return AnimeMetadataRouter.instance.trending();
+    }
+  }
+
+  Future<List<TrendingResult>> _getTrendingFromAniList() async {
     final gquery = '''
             query {
                 Page(perPage: 25) {

@@ -24,7 +24,9 @@ Future<void> storeWatching(
   try {
     //add to anilist if the user is logged in
     Logs.app.log("SETTING WATCHED TO $watched");
-    if (await AniListLogin().isAnilistLoggedIn()) {
+    // Negative ids are app-local metadata fallback ids, not AniList media ids.
+    // Writing one to AniList would touch the wrong entry, so keep those local.
+    if (id >= 0 && await AniListLogin().isAnilistLoggedIn()) {
       SyncHandler()
           .mutateAnimeList(id: id, status: MediaStatus.CURRENT, progress: watched, otherIds: alternateDatabases);
     } else {
@@ -57,7 +59,7 @@ Future<void> storeWatching(
 Future<void> updateWatching(int? id, String title, int watched, List<AlternateDatabaseId> otherIds) async {
   try {
     Logs.app.log("UPDATING WATCHED TO $watched");
-    if (await AniListLogin().isAnilistLoggedIn()) {
+    if ((id ?? 0) >= 0 && await AniListLogin().isAnilistLoggedIn()) {
       if (id == null) throw Exception("ERR_NO_ID_PROVIDED");
       SyncHandler().mutateAnimeList(
         id: id,
@@ -88,36 +90,37 @@ Future<void> updateWatching(int? id, String title, int watched, List<AlternateDa
 
 Future<List<UserAnimeListItem>> getWatchedList({String? userName}) async {
   final List<UserAnimeListItem> recentlyWatched = [];
-  if (await AniListLogin().isAnilistLoggedIn()) {
-    if (userName != null) {
-      List<UserAnimeList> watchedList = await AnilistQueries().getUserAnimeList(userName, status: MediaStatus.CURRENT);
-      if (watchedList.isEmpty) {
-        return [];
-      }
+  final loggedIn = await AniListLogin().isAnilistLoggedIn();
+  if (loggedIn) {
+    if (userName == null) throw Exception("ERR_USERNAME_IS_NULL");
+    List<UserAnimeList> watchedList = await AnilistQueries().getUserAnimeList(userName, status: MediaStatus.CURRENT);
+    if (watchedList.isNotEmpty) {
       // reversing it to get the last updated item first :)
-      final list = watchedList[0].list.reversed.toList();
-      return list;
+      recentlyWatched.addAll(watchedList[0].list.reversed);
     }
-    throw Exception("ERR_USERNAME_IS_NULL");
-  } else {
-    final box = await Hive.openBox(_boxName);
-    List<dynamic> watching = List.castFrom(box.get('watching') ?? []);
-
-    if (watching.isNotEmpty) {
-      for (final e in watching.reversed) {
-        recentlyWatched.add(UserAnimeListItem(
-            id: e['id'],
-            //just give the key as title since its just one
-            title: {'title': e['title']},
-            coverImage: e['imageUrl'],
-            watchProgress: e['watched'],
-            rating: e['rating'],
-            episodes: e['totalEpisodes']));
-      }
-    }
-    box.close();
-    return recentlyWatched;
   }
+
+  // Fallback titles are never written to AniList, so their local rows must be
+  // merged in even when the user is signed in. When signed out this is the
+  // only list, which preserves the previous behaviour.
+  final box = await Hive.openBox(_boxName);
+  final List<dynamic> watching = List.castFrom(box.get('watching') ?? []);
+  for (final e in watching.reversed) {
+    final id = e['id'];
+    if (id is! int) continue;
+    if (loggedIn && id >= 0) continue;
+    if (recentlyWatched.any((item) => item.id == id)) continue;
+    recentlyWatched.add(UserAnimeListItem(
+        id: id,
+        //just give the key as title since its just one
+        title: {'title': e['title']},
+        coverImage: e['imageUrl'],
+        watchProgress: e['watched'],
+        rating: e['rating'],
+        episodes: e['totalEpisodes']));
+  }
+  box.close();
+  return recentlyWatched;
 }
 
 /// Returns the watch progress. -1 is returned if entry doesnt exist

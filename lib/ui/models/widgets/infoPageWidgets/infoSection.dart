@@ -149,11 +149,14 @@ class InfoSection extends StatelessWidget {
                   ],
                 ),
               ),
-              if (size.width < splitWidth)
+              if (size.width < splitWidth &&
+                  provider.data.tags != null &&
+                  provider.data.tags!.isNotEmpty)
                 _tagsNgenresBuilder("Tags", provider.data.tags!,
                     unconstrainedWidth: true, padLeft: false, context: context),
-              ScrollingList.character(
-                  context, splitWidth, charactersScrollController, provider.data.characters),
+              if (provider.data.characters.isNotEmpty)
+                ScrollingList.character(
+                    context, splitWidth, charactersScrollController, provider.data.characters),
               // ScrollingList.animeCards(context, splitWidth, relatedScrollController, "Related", provider.data.related), // Notto ereganto!
               ScrollingList.animeCards(context, splitWidth, recommendationScrollController, "Recommended",
                   provider.data.recommended),
@@ -172,7 +175,8 @@ class InfoSection extends StatelessWidget {
                 children: [
                   _tagsNgenresBuilder("Genres", provider.data.genres, context: context),
                   _tagsNgenresBuilder("Synopsis", [provider.data.synopsis ?? ""], synopsis: true, context: context),
-                  if (provider.data.tags != null) _tagsNgenresBuilder("Tags", provider.data.tags!, context: context),
+                  if (provider.data.tags != null && provider.data.tags!.isNotEmpty)
+                    _tagsNgenresBuilder("Tags", provider.data.tags!, context: context),
                 ],
               ),
             ),

@@ -1,7 +1,9 @@
+import 'package:animestream/core/app/logging.dart';
 import 'package:animestream/core/data/secureStorage.dart';
 import 'package:animestream/core/database/anilist/anilist.dart';
 import 'package:animestream/core/database/anilist/types.dart';
 import 'package:animestream/core/commons/enums.dart';
+import 'package:animestream/core/metadata/metadataFallback.dart';
 
 class AnilistQueries {
   Future<List<UserAnimeList>> getUserAnimeList(String userName,
@@ -192,6 +194,20 @@ class AnilistQueries {
 }''';
 
   Future<List<AnilistRecommendations>> getRecommendedAnimes() async {
+    if (!AnimeMetadataRouter.instance.anilistEnabled) {
+      return AnimeMetadataRouter.instance.recommended();
+    }
+    try {
+      return await _getRecommendedAnimesFromAniList();
+    } catch (err) {
+      Logs.app.log(
+        '[anilist] recommendations failed, trying metadata fallback: $err',
+      );
+      return AnimeMetadataRouter.instance.recommended();
+    }
+  }
+
+  Future<List<AnilistRecommendations>> _getRecommendedAnimesFromAniList() async {
     final String query = '''{
   Page(perPage: 25) {
     recommendations(onList: true) {

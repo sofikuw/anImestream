@@ -14,6 +14,7 @@ import 'package:animestream/core/database/anilist/login.dart';
 import 'package:animestream/core/database/database.dart';
 import 'package:animestream/core/database/handler/handler.dart';
 import 'package:animestream/core/database/types.dart';
+import 'package:animestream/core/metadata/metadataFallback.dart';
 import 'package:animestream/ui/models/snackBar.dart';
 import 'package:animestream/ui/models/sources.dart';
 
@@ -180,11 +181,17 @@ class InfoProvider extends ChangeNotifier {
 
     // Set up sources.
     final sources = sourceManager.sources;
+    if (sources.isEmpty) {
+      // Every built-in provider was removed and no extension is installed.
+      // There is nothing to search, so fail before touching _selectedSource.
+      _infoLoadError = true;
+      notifyListeners();
+      return;
+    }
     final matchedSource = sources
         .where((e) => e.identifier == (asp?.preferredProvider ?? currentUserSettings?.preferredProvider))
         .firstOrNull; // pick provider from last selected provider or default one
-    selectedSource =
-        matchedSource != null ? matchedSource : (sources.isEmpty ? sourceManager.inbuiltSources[0] : sources[0]);
+    selectedSource = matchedSource ?? sources[0];
 
     await _getInfo(id);
 
@@ -247,11 +254,21 @@ class InfoProvider extends ChangeNotifier {
   }
 
   Future<void> _getInfo(int id) async {
+    final isFallback = AnimeMetadataRouter.instance.isFallbackId(id);
+    if (isFallback) {
+      // A fallback card has no AniList media entry. Hide list sync rather than
+      // writing a synthetic negative id into the user's AniList list.
+      _loggedIn = false;
+      _mediaListStatus = null;
+    }
+
     final s = _altDatabases.toSet();
     Future<List<AlternateDatabaseId>>? simklFuture;
 
     try {
-      if (currentUserSettings?.database == Databases.anilist && await AniListLogin().isAnilistLoggedIn()) {
+      if (!isFallback &&
+          currentUserSettings?.database == Databases.anilist &&
+          await AniListLogin().isAnilistLoggedIn()) {
         _loggedIn = true;
         //fetch ids from simkl and save em
         simklFuture = () async {
@@ -278,7 +295,7 @@ class InfoProvider extends ChangeNotifier {
       _altDatabases = s.toList();
       _dataLoaded = true;
       _data = info;
-      _mediaListStatus = assignItemEnum(data.mediaListStatus);
+      _mediaListStatus = isFallback ? null : assignItemEnum(data.mediaListStatus);
       notifyListeners();
     } catch (err) {
       Logs.app.log(err.toString());

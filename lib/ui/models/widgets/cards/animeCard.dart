@@ -58,6 +58,19 @@ class _AnimeCardState extends State<AnimeCard> {
     });
   }
 
+  /// Negative ids are metadata fallback ids, not AniList media ids. Sending
+  /// one to SyncHandler would write against the wrong entry (or fail), so the
+  /// card refuses instead of guessing.
+  void _addToList(MediaStatus status, String message) {
+    if (widget.id < 0) {
+      floatingSnackBar("Fallback titles can't be added to an AniList list");
+      return;
+    }
+    SyncHandler()
+        .mutateAnimeList(id: widget.id, status: status)
+        .then((_) => floatingSnackBar(message));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -91,29 +104,17 @@ class _AnimeCardState extends State<AnimeCard> {
             ContextMenuItem(
               icon: Icons.movie_outlined,
               label: "Add to Watching",
-              onClick: () {
-                SyncHandler()
-                    .mutateAnimeList(id: widget.id, status: MediaStatus.CURRENT)
-                    .then((_) => floatingSnackBar("Added to watching!"));
-              },
+              onClick: () => _addToList(MediaStatus.CURRENT, "Added to watching!"),
             ),
             ContextMenuItem(
               icon: Icons.calendar_today_outlined,
               label: "Add to Planned",
-              onClick: () {
-                SyncHandler()
-                    .mutateAnimeList(id: widget.id, status: MediaStatus.PLANNING)
-                    .then((_) => floatingSnackBar("Added to planned!"));
-              },
+              onClick: () => _addToList(MediaStatus.PLANNING, "Added to planned!"),
             ),
             ContextMenuItem(
               icon: Icons.done,
               label: "Add to Completed",
-              onClick: () {
-                SyncHandler()
-                    .mutateAnimeList(id: widget.id, status: MediaStatus.COMPLETED)
-                    .then((_) => floatingSnackBar("Added to completed!"));
-              },
+              onClick: () => _addToList(MediaStatus.COMPLETED, "Added to completed!"),
             ),
           ],
           child: Column(

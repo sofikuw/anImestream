@@ -1202,7 +1202,7 @@ class _InfoMobileState extends State<InfoMobile> {
               ],
             ),
           ),
-          if (provider.data.tags != null)
+          if (provider.data.tags != null && provider.data.tags!.isNotEmpty)
             Container(
               margin: EdgeInsets.only(top: 30),
               padding: EdgeInsets.only(left: 15, right: 15),
@@ -1252,32 +1252,33 @@ class _InfoMobileState extends State<InfoMobile> {
               ],
             ),
           ),
-          Container(
-            margin: EdgeInsets.only(top: 30),
-            child: Column(
-              children: [
-                _categoryTitle('Characters'),
-                SizedBox(
-                  height: 260,
-                  child: ListView.builder(
-                    itemCount: provider.data.characters.length,
-                    scrollDirection: Axis.horizontal,
-                    itemBuilder: (context, index) {
-                      final character = provider.data.characters[index];
-                      return Container(
-                        width: 130,
-                        child: Cards.characterCard(
-                          character['name'],
-                          character['role'],
-                          character['image'],
-                        ),
-                      );
-                    },
+          if (provider.data.characters.isNotEmpty)
+            Container(
+              margin: EdgeInsets.only(top: 30),
+              child: Column(
+                children: [
+                  _categoryTitle('Characters'),
+                  SizedBox(
+                    height: 260,
+                    child: ListView.builder(
+                      itemCount: provider.data.characters.length,
+                      scrollDirection: Axis.horizontal,
+                      itemBuilder: (context, index) {
+                        final character = provider.data.characters[index];
+                        return Container(
+                          width: 130,
+                          child: Cards.characterCard(
+                            character['name'],
+                            character['role'],
+                            character['image'],
+                          ),
+                        );
+                      },
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
           Container(
             margin: EdgeInsets.only(top: 20),
             child: Column(

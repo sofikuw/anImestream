@@ -5,12 +5,14 @@ import 'package:animestream/core/data/preferences.dart';
 import 'package:animestream/core/data/settings.dart';
 import 'package:animestream/core/data/types.dart';
 import 'package:animestream/core/database/database.dart';
+import 'package:animestream/core/anime/providers/providerDetails.dart';
 import 'package:animestream/ui/models/sources.dart';
 import 'package:animestream/ui/models/widgets/clickableItem.dart';
 import 'package:animestream/ui/models/widgets/toggleItem.dart';
 import 'package:animestream/ui/pages/settingPages/cache.dart';
 import 'package:animestream/ui/pages/settingPages/common.dart';
 import 'package:animestream/ui/pages/settingPages/plugin.dart';
+import 'package:animestream/ui/pages/settingPages/providers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -57,7 +59,9 @@ class _GeneralSettingState extends State<GeneralSetting> {
   bool useDesktopNativeDiscordPresence = false;
   bool enableLogging = false;
 
-  final sources = SourceManager.instance.sources;
+  // A getter, not a field: removing a built-in provider from settings must be
+  // reflected without recreating this page.
+  List<ProviderDetails> get sources => SourceManager.instance.sources;
 
   @override
   Widget build(BuildContext context) {
@@ -137,9 +141,22 @@ class _GeneralSettingState extends State<GeneralSetting> {
                         );
                       },
                       label: "Default provider",
-                      description:
-                          (currentUserSettings?.preferredProvider ?? sources.first.identifier).replaceAll('_', ' '),
+                      description: (currentUserSettings?.preferredProvider ??
+                              (sources.isEmpty ? '' : sources.first.identifier))
+                          .replaceAll('_', ' '),
                       suffixIcon: Icon(Icons.arrow_drop_down),
+                    ),
+                    ClickableItem(
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const BuiltInProvidersPage(),
+                          ),
+                        );
+                      },
+                      label: "Built-in providers",
+                      description: "Remove defaults and choose metadata fallbacks",
+                      suffixIcon: Icon(Icons.navigate_next_rounded),
                     ),
                     ClickableItem(
                       onTap: () {
@@ -203,44 +220,55 @@ class _GeneralSettingState extends State<GeneralSetting> {
                 textAlign: TextAlign.left,
               ),
             ),
-            ListView.builder(
-                shrinkWrap: true,
-                itemCount: Databases.values.length,
-                itemBuilder: (context, index) {
-                  final activeDatabase = currentUserSettings?.database?.name ?? Databases.anilist.name;
-                  return Container(
-                    margin: const EdgeInsets.symmetric(vertical: 5),
-                    clipBehavior: Clip.hardEdge,
-                    decoration: BoxDecoration(
-                      color: Databases.values[index].name == activeDatabase
-                          ? appTheme.accentColor
-                          : appTheme.backgroundSubColor,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(20),
-                        onTap: () async {
-                          await writeSettings(SettingsModal(database: Databases.values[index]));
-                          setState(() {});
-                          setcState(() {});
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-                          child: Text(
-                            Databases.values[index].name,
-                            style: textStyle().copyWith(
-                              color: Databases.values[index].name == activeDatabase
-                                  ? appTheme.onAccent
-                                  : appTheme.textMainColor,
+            Builder(
+              builder: (context) {
+                final disabled =
+                    currentUserSettings?.disabledMetadataProviders ?? const <String>[];
+                final databases = Databases.values
+                    .where((database) => !disabled.contains(database.name))
+                    .toList();
+                return ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: databases.length,
+                    itemBuilder: (context, index) {
+                      final activeDatabase =
+                          currentUserSettings?.database?.name ?? Databases.anilist.name;
+                      final database = databases[index];
+                      return Container(
+                        margin: const EdgeInsets.symmetric(vertical: 5),
+                        clipBehavior: Clip.hardEdge,
+                        decoration: BoxDecoration(
+                          color: database.name == activeDatabase
+                              ? appTheme.accentColor
+                              : appTheme.backgroundSubColor,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(20),
+                            onTap: () async {
+                              await writeSettings(SettingsModal(database: database));
+                              setState(() {});
+                              setcState(() {});
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                              child: Text(
+                                database.name,
+                                style: textStyle().copyWith(
+                                  color: database.name == activeDatabase
+                                      ? appTheme.onAccent
+                                      : appTheme.textMainColor,
+                                ),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ),
-                  );
-                }),
+                      );
+                    });
+              },
+            ),
           ],
         ),
       ),
@@ -272,7 +300,8 @@ class _GeneralSettingState extends State<GeneralSetting> {
                 shrinkWrap: true,
                 itemCount: sources.length,
                 itemBuilder: (context, index) {
-                  final activeProvider = currentUserSettings?.preferredProvider ?? sources.first.identifier;
+                  final activeProvider = currentUserSettings?.preferredProvider ??
+                      (sources.isEmpty ? '' : sources.first.identifier);
                   return Container(
                     margin: const EdgeInsets.symmetric(vertical: 5),
                     clipBehavior: Clip.hardEdge,
