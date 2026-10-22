@@ -10,12 +10,13 @@ than pretending to cover the fork's earlier life. That history is in the git log
 ## [Unreleased]
 
 ### Added
-- **Divergent UI, phase one.** New default `Divergent` theme with a two-tone
-  lime/cyan split accent, a branded `DIVERGENT / 01` header, a slanted mobile
-  navigation bar, `Feed` / `Explore` labels in place of upstream's
-  `Home` / `Discover`, and the Android/iOS display name is now `Divergent`.
-  The theme data now carries an optional secondary accent, preserved through
-  light mode, AMOLED and Material You.
+- **Divergent UI, phase one.** New default `Divergent` theme with an ice-cyan
+  primary accent and a lime second half for the split `DIVERGENT / 01` header,
+  `Feed` / `Explore` labels in place of upstream's `Home` / `Discover`, and the
+  Android/iOS display name is now `Divergent`. Existing installs still using
+  upstream's untouched Lime Zest default move to Divergent once; the original
+  rounded navigation bar stays. The theme data now carries an optional secondary
+  accent, preserved through light mode, AMOLED and Material You.
 - **Updates work for fork releases.** The updater now reads this repository's
   `divergent-android-v...` tags, sorts releases by semantic version instead of
   GitHub's non-chronological order, understands same-version beta snapshots via

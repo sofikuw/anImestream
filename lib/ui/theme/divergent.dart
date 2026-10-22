@@ -1,10 +1,10 @@
 import 'package:animestream/ui/theme/types.dart';
 import 'package:flutter/material.dart';
 
-/// The fork's own theme: near-black ink, bone text, acid lime and ice cyan.
+/// The fork's own theme: near-black ink, bone text, ice cyan and acid lime.
 ///
-/// The two accents are the visual basis of the "split" motif used by the
-/// header and the mobile navigation bar.
+/// Ice cyan is the primary accent, so the fork is visible throughout the UI;
+/// acid lime is the second half of the split header.
 class Divergent implements ThemeItem {
   @override
   int get id => 13;
@@ -17,8 +17,8 @@ class Divergent implements ThemeItem {
 
   @override
   AnimeStreamTheme get lightVariant => AnimeStreamTheme(
-    accentColor: Color(0xff4E6B00),
-    secondaryAccent: Color(0xff006B5F),
+    accentColor: Color(0xff006B5F),
+    secondaryAccent: Color(0xff4E6B00),
     backgroundColor: Color(0xffF4F2EA),
     backgroundSubColor: Color(0xffE2E0D6),
     textMainColor: Color(0xff15171C),
@@ -29,8 +29,8 @@ class Divergent implements ThemeItem {
 
   @override
   AnimeStreamTheme get theme => AnimeStreamTheme(
-    accentColor: Color(0xffC8FF4D),
-    secondaryAccent: Color(0xff5EEAD4),
+    accentColor: Color(0xff5EEAD4),
+    secondaryAccent: Color(0xffC8FF4D),
     backgroundColor: Color(0xff0B0C10),
     backgroundSubColor: Color(0xff171A21),
     textMainColor: Color(0xffF2F0E9),
