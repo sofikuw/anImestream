@@ -2,14 +2,12 @@
 
 ![Flutter](https://img.shields.io/badge/Flutter-3.47.1-02569B?logo=flutter&logoColor=white)
 ![Android](https://img.shields.io/badge/Android-API%2024%2B-3DDC84?logo=android&logoColor=white)
-![iOS](https://img.shields.io/badge/iOS-15.0%2B-000000?logo=apple&logoColor=white)
 ![License](https://img.shields.io/badge/license-GPL--3.0-blue)
 
-**A cross-platform anime and manga client for Android and iOS, built with Flutter.**
+**An anime and manga client for Android, built with Flutter.** *(iOS support is currently paused/on hold until a dedicated beta tester is available).*
 
 anImestream brings discovery, streaming, downloads, manga reading and list
-tracking into one app. The Android and iOS builds share the same Dart codebase,
-so features and fixes land on both platforms together.
+tracking into one app. The app focuses primarily on Android.
 
 > This repository is the standalone **`divergent`** build. It ships under its
 > own display name and application identifiers, so it can be installed alongside
@@ -39,19 +37,21 @@ so features and fixes land on both platforms together.
 
 ## Platform support
 
-| Capability | Android | iOS |
+| Capability | Android | iOS (Paused / Needs Beta Tester) |
 | --- | :---: | :---: |
-| Anime streaming | ✅ | ✅ |
-| Manga reading | ✅ | ✅ |
-| Search and discovery | ✅ | ✅ |
-| AniList / MAL / Simkl tracking | ✅ | ✅ |
-| Downloads | ✅ | ✅ |
-| Picture-in-Picture | ✅ | ✅ (iOS 15+) |
-| Player gestures and speed controls | ✅ | ✅ |
+| Anime streaming | ✅ | ⏸️ |
+| Manga reading | ✅ | ⏸️ |
+| Search and discovery | ✅ | ⏸️ |
+| AniList / MAL / Simkl tracking | ✅ | ⏸️ |
+| Downloads | ✅ | ⏸️ |
+| Picture-in-Picture | ✅ | ⏸️ |
+| Player gestures and speed controls | ✅ | ⏸️ |
 | Android TV | ✅ | — |
 | Desktop | — | — |
 
-**Minimum versions:** Android 7.0 (API 24) and iOS 15.0.
+> **Note on iOS:** iOS builds and support are currently paused and on hold until a dedicated iOS beta tester is available.
+
+**Minimum version:** Android 7.0 (API 24).
 
 ## Installation
 
@@ -61,8 +61,7 @@ release workflows.
 
 - **Android:** download the universal APK, or the APK matching your device ABI
   (`arm64-v8a` for most modern phones).
-- **iOS:** download the unsigned IPA and sign it with your preferred sideloading
-  tool. The project is not distributed through the App Store.
+- **iOS:** *Currently unavailable / paused until an iOS beta tester steps up.*
 
 The app is not published on Google Play or the App Store. Release builds may be
 marked as prereleases while a channel is being tested.
