@@ -71,6 +71,22 @@ class PlayerDataProvider extends ChangeNotifier {
   Future<void> extractCurrentStreamQualities() async {
     final url = _state.currentStream.url;
     final headers = _state.currentStream.customHeaders;
+
+    // Direct container files (MKV, MP4, WebM) do not have HLS master playlists.
+    // Treat them as a single quality instead of waiting on a doomed playlist
+    // probe. ReAnime, for example, serves ready-to-play MKV files.
+    final isContainer = url.contains(RegExp(r'\.(mkv|mp4|mov|webm)', caseSensitive: false)) ||
+        _state.currentStream.server.contains('[MKV]') ||
+        _state.currentStream.server.contains('[MP4]');
+
+    if (isContainer) {
+      _state = _state.copyWith(
+        qualities: [QualityStream(url: url, resolution: 'default', quality: _state.currentStream.quality)],
+      );
+      notifyListeners();
+      return;
+    }
+
     try {
       // Quality/audio discovery is optional. Do not keep the entire player
       // waiting when a stream host is slow or does not support range requests.
@@ -103,6 +119,15 @@ class PlayerDataProvider extends ChangeNotifier {
   /// Update the current audio track!
   void updateCurrentAudioTrack(AudioStream track) {
     _state = _state.copyWith(currentAudioTrack: track);
+    notifyListeners();
+  }
+
+  /// Update the list of available audio tracks.
+  ///
+  /// Container streams (MKV/MP4) do not expose tracks through the HLS master
+  /// playlist, so the player controller reports them separately.
+  void updateAudioTracks(List<AudioStream> tracks) {
+    _state = _state.copyWith(audioTracks: tracks);
     notifyListeners();
   }
 

@@ -39,6 +39,14 @@ class ProviderCatalogService {
       throw FormatException('Repository catalog is not valid UTF-8 JSON: $error');
     }
     if (decoded is! Map<String, dynamic>) {
+      if (decoded is List) {
+        throw const FormatException(
+          'This is a MangaYomi / Tachiyomi catalog. Their extensions use a '
+          'different runtime API (Dart, Kotlin, or a different JavaScript API) '
+          'that this app cannot run yet. Add an anImestream-format repository '
+          'instead: a JSON object with "schemaVersion" and "providers".',
+        );
+      }
       throw const FormatException('Repository catalog must be a JSON object.');
     }
     if (decoded['schemaVersion'] != 1) {
