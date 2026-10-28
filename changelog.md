@@ -68,6 +68,20 @@ than pretending to cover the fork's earlier life. That history is in the git log
 
 ### Fixed
 
+- **MangaYomi sources no longer crash with `'console' not defined`.** QuickJS
+  has no console built in, and the extension prelude extended it before
+  defining it -- so every source died while loading. The prelude now defines
+  the full console shim (log, info, warn, error, debug, plus the methods
+  sources call defensively) and the host log channel prints the level and
+  joined message it sends.
+- **Manga downloads are visible where episodes already are.** Chapters now
+  download to `Download/animestream/manga/<mangaId>/<chapterId>/` (or the
+  user-configured download path plus `manga`), the same public tree the anime
+  downloader uses, instead of the app-private documents folder no file
+  manager can see. The download flow asks for the same storage permission the
+  anime downloader uses, so there is one grant for both. iOS keeps the
+  documents folder. Existing chapters downloaded under the old location are
+  not migrated; re-download them.
 - **Fallback ratings are rounded to one decimal.** Kitsu reports values like
   `84.37`, which the UI rendered as `8.437` instead of `8.4`; MAL can
   return two decimals as well. Anime and manga ratings from both

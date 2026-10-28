@@ -11,12 +11,53 @@ library;
 
 /// `console` plus the `substringAfter` family used by most sources.
 const String mangayomiCommonPrelude = r'''
-console.log = function (message) {
-  if (typeof message === "object") { message = JSON.stringify(message); }
-  sendMessage("log", JSON.stringify([String(message)]));
-};
-console.warn = console.log;
-console.error = console.log;
+// QuickJS ships no console at all -- `console.log = ...` on the bare global
+// throws "'console' not defined" before any extension code runs. Upstream's
+// embedding provides one; here the shim IS the definition, and it also accepts
+// the multi-argument and object forms sources actually use.
+globalThis.console = (function () {
+  const format = function (value) {
+    if (value === undefined) return "undefined";
+    if (value === null) return "null";
+    if (typeof value === "object") {
+      try { return JSON.stringify(value); } catch (error) { return String(value); }
+    }
+    return String(value);
+  };
+  const emit = function (level, args) {
+    const parts = [];
+    for (var i = 0; i < args.length; i++) {
+      const arg = args[i];
+      if (arg instanceof Error) { parts.push(arg.message); }
+      else { parts.push(format(arg)); }
+    }
+    sendMessage("log", JSON.stringify([level, parts.join(" ")]));
+  };
+  const at = function (level) {
+    return function () { emit(level, arguments); };
+  };
+  return {
+    log: at("log"),
+    info: at("log"),
+    debug: at("log"),
+    trace: at("log"),
+    warn: at("warn"),
+    error: at("error"),
+    dir: at("log"),
+    table: at("log"),
+    assert: function (condition) {
+      if (!condition) { emit("error", ["Assertion failed"].concat(Array.prototype.slice.call(arguments, 1))); }
+    },
+    count: function () {},
+    group: function () {},
+    groupCollapsed: function () {},
+    groupEnd: function () {},
+    time: function () {},
+    timeLog: function () {},
+    timeEnd: function () {},
+    clear: function () {}
+  };
+})();
 String.prototype.substringAfter = function (pattern) {
   const startIndex = this.indexOf(pattern);
   if (startIndex === -1) return this.substring(0);

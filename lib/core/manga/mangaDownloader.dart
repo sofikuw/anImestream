@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:animestream/core/anime/downloader/downloaderHelper.dart';
 import 'package:animestream/core/app/logging.dart';
+import 'package:animestream/core/app/runtimeDatas.dart';
 import 'package:animestream/core/manga/mangaProvider.dart';
 import 'package:animestream/core/manga/types.dart';
 import 'package:flutter/foundation.dart';
@@ -14,7 +16,7 @@ import 'package:path_provider/path_provider.dart';
 /// pages plus a manifest, not a single download the way an episode is.
 ///
 /// ```
-/// <documents>/manga/<mangaId>/<chapterId>/
+/// /storage/emulated/0/Download/animestream/manga/<mangaId>/<chapterId>/
 ///     manifest.json      title, chapter number, page count, headers
 ///     000.jpg 001.jpg …  one file per page, index-prefixed so directory
 ///                        order is reading order
@@ -53,7 +55,26 @@ class MangaDownloader {
   static String keyFor(String mangaId, MangaChapter chapter) =>
       '$mangaId::${chapter.id}';
 
+  /// Where downloaded manga lives.
+  ///
+  /// Android writes into the public Download tree, matching where episodes
+  /// already go, so chapters are visible in any file manager instead of being
+  /// buried in private app storage nobody can browse. A user-configured
+  /// download path wins, the same preference the anime downloader honours.
+  /// iOS has no shared Downloads tree, so chapters stay in the documents
+  /// directory there.
   static Future<Directory> _mangaRoot() async {
+    if (Platform.isAndroid) {
+      final configured = currentUserSettings?.downloadPath;
+      final base = (configured != null && configured.trim().isNotEmpty)
+          ? configured
+          : '/storage/emulated/0/Download/animestream';
+      final root = Directory(
+        '${base.replaceAll(RegExp(r'[/\\]+$'), '')}/manga',
+      );
+      if (!await root.exists()) await root.create(recursive: true);
+      return root;
+    }
     final documents = await getApplicationDocumentsDirectory();
     final root = Directory('${documents.path}/manga');
     if (!await root.exists()) await root.create(recursive: true);
@@ -104,6 +125,22 @@ class MangaDownloader {
     required MangaChapterProvider provider,
   }) async {
     final key = keyFor(mangaId, chapter);
+
+    // The public Download tree needs storage access on Android; the same gate
+    // the episode downloader uses, so both features ask exactly once and share
+    // one grant. A refusal fails cleanly: no manifest gets written, so the
+    // chapter just stays not-downloaded and is safe to retry.
+    if (Platform.isAndroid) {
+      final granted = await DownloaderHelper().checkAndRequestPermission();
+      if (!granted) {
+        Logs.app.log(
+          'Storage access refused; cannot download "$mangaTitle" '
+          '${chapter.displayTitle}',
+        );
+        _set(key, ChapterDownload(key: key, state: DownloadState.failed));
+        return false;
+      }
+    }
 
     // Idempotent under concurrency rather than racing: the second caller waits
     // on the first rather than starting a parallel fetch of the same pages.

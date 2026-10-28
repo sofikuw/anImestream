@@ -182,7 +182,13 @@ class MangayomiRuntime {
     });
     _runtime.registerHostMessageHandler('log', (dynamic arguments) {
       if (kDebugMode) {
-        debugPrint('[MangaYomi:${details.identifier}] ${_firstArgument(arguments)}');
+        // The console shim sends [level, message]; older extensions that call
+        // `sendMessage("log", ...)` directly send a bare payload instead.
+        final args = _arguments(arguments);
+        final message = args.length > 1
+            ? args.skip(1).join(' ')
+            : (args.isEmpty ? '' : '${args[0]}');
+        debugPrint('[MangaYomi:${details.identifier}] $message');
       }
       return null;
     });
