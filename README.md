@@ -206,14 +206,30 @@ channel suffix.
 
 ## Providers and extensions
 
-Streaming and manga providers are pluggable. JavaScript providers are installed
-from versioned HTTPS catalogs through **Settings → Manage Providers**.
+Streaming and manga providers are pluggable. Extensions are installed from
+versioned HTTPS catalogs through **Settings → Manage Providers**.
+
+Two catalog shapes are accepted:
+
+- **anImestream manifests** — `{ "schemaVersion": 1, "providers": [...] }` with
+  hashed, same-host entrypoints. This is the native contract.
+- **MangaYomi `index.json`** — the flat array used by MangaYomi repositories.
+  Its JavaScript entries (`sourceCodeLanguage: 1`) run on the bundled
+  MangaYomi API shim (`MProvider`, `Client`, `Document`, `Element`,
+  `SharedPreferences`); its Dart entries are skipped.
 
 - Default catalog: `https://animestream-extensions.val.run/index.json`
 - Catalog and provider API: [docs/provider-repository-format.md](docs/provider-repository-format.md)
 
+**Not supported:** Tachiyomi, Aniyomi, and Mihon extensions. Those are Kotlin
+APKs that require the Android `DexClassLoader` and the Tachiyomi extension API
+classes; a future native bridge would be needed. Aniyomi extensions will not
+work here until that exists.
+
 Only install catalogs and providers you trust. Extensions execute third-party
-code inside the app.
+code inside the app. MangaYomi sources can reach their base domain and
+subdomains over HTTPS, and may follow redirects; they never receive app
+cookies, sessions, or filesystem access.
 
 ## Project structure
 

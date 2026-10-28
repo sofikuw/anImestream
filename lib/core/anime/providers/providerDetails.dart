@@ -20,6 +20,24 @@ class ProviderDetails {
   /// the built-in Dart providers -- keep behaving as anime-only.
   final List<String> contentTypes;
 
+  /// Runtime dialect the [code] is written against.
+  ///
+  /// `animestream` is the native module contract (`module.exports` with
+  /// `search`/`getStreams`). `mangayomi` is a MangaYomi JavaScript extension
+  /// (`class DefaultExtension extends MProvider`). Defaults to `animestream`
+  /// so records written before this field existed keep loading.
+  final String format;
+
+  bool get isMangayomi => format == 'mangayomi';
+
+  /// Catalog-declared source site metadata, used by the MangaYomi shim to
+  /// populate `this.source`. All null for native providers.
+  final String? baseUrl;
+  final String? apiUrl;
+  final String? lang;
+  final String? dateFormat;
+  final String? dateFormatLocale;
+
   ProviderDetails({
     required this.name,
     required this.identifier,
@@ -33,6 +51,12 @@ class ProviderDetails {
     this.repositoryUrl,
     this.sourceSha256,
     List<String> contentTypes = const <String>['anime'],
+    this.format = 'animestream',
+    this.baseUrl,
+    this.apiUrl,
+    this.lang,
+    this.dateFormat,
+    this.dateFormatLocale,
   })  : allowedHosts = List<String>.unmodifiable(allowedHosts),
         contentTypes = List<String>.unmodifiable(contentTypes);
 
@@ -49,6 +73,12 @@ class ProviderDetails {
     String? repositoryUrl,
     String? sourceSha256,
     List<String>? contentTypes,
+    String? format,
+    String? baseUrl,
+    String? apiUrl,
+    String? lang,
+    String? dateFormat,
+    String? dateFormatLocale,
   }) {
     return ProviderDetails(
       name: name ?? this.name,
@@ -63,6 +93,12 @@ class ProviderDetails {
       repositoryUrl: repositoryUrl ?? this.repositoryUrl,
       sourceSha256: sourceSha256 ?? this.sourceSha256,
       contentTypes: contentTypes ?? this.contentTypes,
+      format: format ?? this.format,
+      baseUrl: baseUrl ?? this.baseUrl,
+      apiUrl: apiUrl ?? this.apiUrl,
+      lang: lang ?? this.lang,
+      dateFormat: dateFormat ?? this.dateFormat,
+      dateFormatLocale: dateFormatLocale ?? this.dateFormatLocale,
     );
   }
 
@@ -80,6 +116,12 @@ class ProviderDetails {
       'repositoryUrl': repositoryUrl,
       'sourceSha256': sourceSha256,
       'contentTypes': contentTypes,
+      'format': format,
+      'baseUrl': baseUrl,
+      'apiUrl': apiUrl,
+      'lang': lang,
+      'dateFormat': dateFormat,
+      'dateFormatLocale': dateFormatLocale,
     };
   }
 
@@ -101,6 +143,12 @@ class ProviderDetails {
       contentTypes: map['contentTypes'] is List
           ? (map['contentTypes'] as List).whereType<String>().toList()
           : const <String>['anime'],
+      format: (map['format'] as String?) ?? 'animestream',
+      baseUrl: map['baseUrl'] as String?,
+      apiUrl: map['apiUrl'] as String?,
+      lang: map['lang'] as String?,
+      dateFormat: map['dateFormat'] as String?,
+      dateFormatLocale: map['dateFormatLocale'] as String?,
     );
   }
 
@@ -110,7 +158,7 @@ class ProviderDetails {
 
   @override
   String toString() {
-    return 'ProviderDetails(name: $name, identifier: $identifier, version: $version, icon: $icon, code: $code, supportDownloads: $supportDownloads, scriptType: $scriptType, allowedHosts: $allowedHosts, enabled: $enabled, repositoryUrl: $repositoryUrl, sourceSha256: $sourceSha256)';
+    return 'ProviderDetails(name: $name, identifier: $identifier, version: $version, icon: $icon, code: $code, supportDownloads: $supportDownloads, scriptType: $scriptType, allowedHosts: $allowedHosts, enabled: $enabled, repositoryUrl: $repositoryUrl, sourceSha256: $sourceSha256, contentTypes: $contentTypes, format: $format, baseUrl: $baseUrl, apiUrl: $apiUrl, lang: $lang, dateFormat: $dateFormat, dateFormatLocale: $dateFormatLocale)';
   }
 
   @override
@@ -126,7 +174,13 @@ class ProviderDetails {
       Object.hashAll(contentTypes) ^
       enabled.hashCode ^
       repositoryUrl.hashCode ^
-      sourceSha256.hashCode;
+      sourceSha256.hashCode ^
+      format.hashCode ^
+      baseUrl.hashCode ^
+      apiUrl.hashCode ^
+      lang.hashCode ^
+      dateFormat.hashCode ^
+      dateFormatLocale.hashCode;
   }
 
   @override
@@ -145,7 +199,13 @@ class ProviderDetails {
       _sameHosts(other.contentTypes, contentTypes) &&
       other.enabled == enabled &&
       other.repositoryUrl == repositoryUrl &&
-      other.sourceSha256 == sourceSha256;
+      other.sourceSha256 == sourceSha256 &&
+      other.format == format &&
+      other.baseUrl == baseUrl &&
+      other.apiUrl == apiUrl &&
+      other.lang == lang &&
+      other.dateFormat == dateFormat &&
+      other.dateFormatLocale == dateFormatLocale;
   }
 
   static bool _sameHosts(List<String> left, List<String> right) {

@@ -202,7 +202,7 @@ class _PluginPageState extends State<PluginPage>
 
   Future<void> _setEnabled(ProviderDetails provider, bool enabled) async {
     if (provider.scriptType.toLowerCase() != 'javascript') {
-      _showMessage('Only JavaScript anime providers can be enabled here.');
+      _showMessage('Only JavaScript extensions can be enabled here.');
       return;
     }
     if (enabled) {
@@ -425,7 +425,7 @@ class _PluginPageState extends State<PluginPage>
       return _emptyState(
         Icons.extension_outlined,
         'No installed providers',
-        'Browse a repository catalog to install an anime provider.',
+        'Browse a repository catalog to install an extension.',
         actionLabel: 'Browse catalog',
         onAction: () => _tabController.animateTo(1),
       );
@@ -573,7 +573,7 @@ class _PluginPageState extends State<PluginPage>
       return _emptyState(
         Icons.travel_explore_rounded,
         'No repositories yet',
-        'Add a HTTPS repository index to browse its JavaScript anime providers.',
+        'Add an HTTPS repository index to browse its JavaScript extensions.',
         actionLabel: 'Add repository',
         onAction: _addRepository,
       );
@@ -751,7 +751,7 @@ class _PluginPageState extends State<PluginPage>
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: Text(
-                      '${_catalogs[repository.id]!.providers.length} anime provider(s)',
+                      '${_catalogs[repository.id]!.providers.length} extension(s)',
                       style: TextStyle(color: appTheme.textSubColor),
                     ),
                   ),

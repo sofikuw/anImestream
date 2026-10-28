@@ -2,6 +2,7 @@ import 'package:animestream/core/anime/providers/providerDetails.dart';
 import 'package:animestream/core/anime/providers/providerManager.dart';
 import 'package:animestream/core/extensions/javascript/javascript_provider_http.dart';
 import 'package:animestream/core/extensions/javascript/javascript_runtime.dart';
+import 'package:animestream/core/extensions/mangayomi/mangayomi_providers.dart';
 import 'package:animestream/core/manga/mangaProvider.dart';
 import 'package:animestream/core/manga/types.dart';
 
@@ -66,7 +67,7 @@ class JavaScriptMangaProvider implements MangaChapterProvider {
 
   /// A provider for one installed manga extension, or null when that identifier
   /// is not an installed, usable manga extension.
-  static Future<JavaScriptMangaProvider?> forIdentifier(
+  static Future<MangaChapterProvider?> forIdentifier(
     String identifier, {
     ProviderManager? providerManager,
   }) async {
@@ -84,7 +85,7 @@ class JavaScriptMangaProvider implements MangaChapterProvider {
   ///
   /// Anime-only extensions are skipped even though they are installed, because
   /// a provider that never declared `manga` has no manga methods to call.
-  static Future<JavaScriptMangaProvider?> firstInstalled({
+  static Future<MangaChapterProvider?> firstInstalled({
     ProviderManager? providerManager,
   }) async {
     final candidates = await installedDetails(providerManager: providerManager);
@@ -103,7 +104,8 @@ class JavaScriptMangaProvider implements MangaChapterProvider {
     return code != null && code.trim().isNotEmpty;
   }
 
-  static JavaScriptMangaProvider _fromDetails(ProviderDetails details) {
+  static MangaChapterProvider _fromDetails(ProviderDetails details) {
+    if (details.isMangayomi) return MangayomiMangaProvider(details);
     return JavaScriptMangaProvider(
       details: details,
       runtime: JavaScriptRuntime(

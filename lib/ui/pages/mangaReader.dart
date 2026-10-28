@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:animestream/core/app/logging.dart';
 import 'package:animestream/core/app/runtimeDatas.dart';
@@ -6,6 +7,7 @@ import 'package:animestream/core/commons/enums/loadingState.dart';
 import 'package:animestream/core/data/preferences.dart';
 import 'package:animestream/core/data/reading.dart';
 import 'package:animestream/core/data/types.dart';
+import 'package:animestream/core/manga/mangaDownloader.dart';
 import 'package:animestream/core/manga/mangaProvider.dart';
 import 'package:animestream/core/manga/types.dart';
 import 'package:flutter/material.dart';
@@ -136,7 +138,7 @@ class _MangaReaderPageState extends State<MangaReaderPage> {
   Future<void> load() async {
     setState(() => _state = LoadingState.loading);
     try {
-      final pages = await widget.provider.getPages(_chapter);
+      final pages = await _chapterPages();
       if (!mounted) return;
       setState(() {
         _pages = pages;
@@ -152,6 +154,27 @@ class _MangaReaderPageState extends State<MangaReaderPage> {
       if (!mounted) return;
       setState(() => _state = LoadingState.error);
     }
+  }
+
+  /// The chapter's pages, preferring the ones already saved to disk.
+  ///
+  /// A downloaded chapter is read from its download directory rather than
+  /// re-fetched: the download is what created those files, and going back over
+  /// the network would leave the saved chapter unread. Nothing on disk means
+  /// the online provider is consulted as before.
+  Future<List<MangaPage>> _chapterPages() async {
+    final saved = await MangaDownloader.isDownloaded(
+      widget.manga.summary.id,
+      _chapter,
+    );
+    if (saved) {
+      final local = await MangaDownloader.localPages(
+        widget.manga.summary.id,
+        _chapter,
+      );
+      if (local.isNotEmpty) return local;
+    }
+    return widget.provider.getPages(_chapter);
   }
 
   /// Steers the bar from the strip.
@@ -293,6 +316,36 @@ class _MangaReaderPageState extends State<MangaReaderPage> {
     );
   }
 
+  /// One page image.
+  ///
+  /// A downloaded page is a `file://` URI the app wrote itself; an online page
+  /// is an http(s) URL. `Image.network` cannot fetch a `file://` URL, so local
+  /// pages have to go through `Image.file`.
+  Widget _pageImage(MangaPage page, {BoxFit fit = BoxFit.fitWidth}) {
+    final uri = Uri.tryParse(page.imageUrl);
+    if (uri != null && uri.isScheme('file')) {
+      return Image.file(
+        File.fromUri(uri),
+        fit: fit,
+        width: double.infinity,
+        loadingBuilder: (context, child, progress) =>
+            progress == null ? child : _placeholder(),
+        errorBuilder: (context, error, stackTrace) =>
+            _pageError(page.index + 1),
+      );
+    }
+    return Image.network(
+      page.imageUrl,
+      headers: page.headers,
+      fit: fit,
+      width: double.infinity,
+      loadingBuilder: (context, child, progress) =>
+          progress == null ? child : _placeholder(),
+      errorBuilder: (context, error, stackTrace) =>
+          _pageError(page.index + 1),
+    );
+  }
+
   /// One continuous vertical strip. The original reader.
   Widget _scrollView() {
     return ListView.builder(
@@ -302,16 +355,7 @@ class _MangaReaderPageState extends State<MangaReaderPage> {
       itemBuilder: (context, position) {
         if (position == _pages.length) return _footer();
         final page = _pages[position];
-        return Image.network(
-          page.imageUrl,
-          headers: page.headers,
-          fit: BoxFit.fitWidth,
-          width: double.infinity,
-          loadingBuilder: (context, child, progress) =>
-              progress == null ? child : _placeholder(),
-          errorBuilder: (context, error, stackTrace) =>
-              _pageError(page.index + 1),
-        );
+        return _pageImage(page);
       },
     );
   }
@@ -347,16 +391,7 @@ class _MangaReaderPageState extends State<MangaReaderPage> {
           return SingleChildScrollView(child: _footer());
         }
         final page = _pages[position];
-        final image = Image.network(
-          page.imageUrl,
-          headers: page.headers,
-          fit: BoxFit.contain,
-          width: double.infinity,
-          loadingBuilder: (context, child, progress) =>
-              progress == null ? child : _placeholder(),
-          errorBuilder: (context, error, stackTrace) =>
-              _pageError(page.index + 1),
-        );
+        final image = _pageImage(page, fit: BoxFit.contain);
         // Only wrapped when zoom is on. InteractiveViewer claims scale gestures,
         // and paying that cost in the common case buys nothing.
         return _zoom

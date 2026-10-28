@@ -10,6 +10,12 @@ than pretending to cover the fork's earlier life. That history is in the git log
 ## [Unreleased]
 
 ### Added
+- **MangaYomi JavaScript extensions.** A MangaYomi `index.json` can now be
+  added as a repository. Its JavaScript sources run against a bundled MangaYomi
+  API shim (`MProvider`, `Client`, `Document`/`Element`, `SharedPreferences`)
+  and expose both anime streams and manga chapters/pages. Dart entries are
+  skipped; Tachiyomi/Aniyomi APK extensions remain unsupported and are
+  documented as such.
 - **Divergent UI, phase one.** New default `Divergent` theme with an ice-cyan
   primary accent and a lime second half for the split `DIVERGENT / 01` header,
   `Feed` / `Explore` labels in place of upstream's `Home` / `Discover`, and the

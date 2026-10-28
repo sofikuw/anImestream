@@ -33,6 +33,24 @@ class JavaScriptRuntimeLimits {
 typedef JavaScriptHttpRequestHandler =
     FutureOr<Object?> Function(Map<String, Object?> request);
 
+/// A host function callable from JavaScript through `sendMessage(channel, ...)`.
+///
+/// Values cross the boundary as JSON, so handlers receive decoded Dart values
+/// and must return something JSON-encodable.
+typedef JavaScriptHostMessageHandler = Object? Function(dynamic arguments);
+
+/// Optional engine capability for registering host message channels.
+///
+/// Kept separate from [JavaScriptExecutionEngine] so existing engines and test
+/// doubles keep compiling. Engines that do not implement it can still evaluate
+/// scripts; only channel-based APIs such as MangaYomi extensions need it.
+abstract interface class JavaScriptHostMessageBridge {
+  void registerMessageHandler(
+    String channel,
+    JavaScriptHostMessageHandler handler,
+  );
+}
+
 /// A single script invocation. [source] is a function body that can
 /// read the JSON-decoded [input] value and must return a JSON-compatible value.
 class JavaScriptExecutionRequest {
@@ -100,7 +118,8 @@ abstract interface class JavaScriptExecutionEngine {
 ///
 /// Web APIs are disabled. The only optional capability is the bounded,
 /// allowlisted provider HTTP bridge supplied by the caller.
-class QuickJsExecutionEngine implements JavaScriptExecutionEngine {
+class QuickJsExecutionEngine
+    implements JavaScriptExecutionEngine, JavaScriptHostMessageBridge {
   QuickJsExecutionEngine({
     int timeoutMs = 5000,
     int memoryLimitBytes = 64 * 1024 * 1024,
@@ -129,6 +148,17 @@ class QuickJsExecutionEngine implements JavaScriptExecutionEngine {
   @override
   void setHttpRequestHandler(JavaScriptHttpRequestHandler handler) {
     _httpRequestHandler = handler;
+  }
+
+  @override
+  void registerMessageHandler(
+    String channel,
+    JavaScriptHostMessageHandler handler,
+  ) {
+    if (channel.isEmpty) {
+      throw const FormatException('Host message channel must not be empty.');
+    }
+    _runtime.onMessage(channel, (dynamic arguments) => handler(arguments));
   }
 
   @override
@@ -189,6 +219,28 @@ class JavaScriptRuntime {
   bool _disposed = false;
 
   bool get isDisposed => _disposed || _disposing;
+
+  /// True when the underlying engine supports host message channels.
+  bool get supportsHostMessageHandlers =>
+      _engine is JavaScriptHostMessageBridge;
+
+  /// Registers a `sendMessage`-style host channel.
+  ///
+  /// Throws [UnsupportedError] when the engine cannot register channels, so a
+  /// caller can check [supportsHostMessageHandlers] first instead of failing
+  /// partway through setup.
+  void registerHostMessageHandler(
+    String channel,
+    JavaScriptHostMessageHandler handler,
+  ) {
+    final engine = _engine;
+    if (engine is! JavaScriptHostMessageBridge) {
+      throw UnsupportedError(
+        'The JavaScript engine does not support host message handlers.',
+      );
+    }
+    engine.registerMessageHandler(channel, handler);
+  }
 
   Future<JavaScriptExecutionResponse> execute(
     JavaScriptExecutionRequest request,

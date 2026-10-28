@@ -89,13 +89,25 @@ class JsAnimeProviderManifest {
     required this.contentTypes,
     required this.repositoryUrl,
     required this.codeUrl,
+    this.format = 'animestream',
+    this.iconUrl,
+    this.baseUrl,
+    this.apiUrl,
+    this.lang,
+    this.dateFormat,
+    this.dateFormatLocale,
   });
 
   final int manifestVersion;
   final String name;
   final String identifier;
   final String version;
+
+  /// Relative path for native manifests, display-only for MangaYomi ones.
   final String entrypoint;
+
+  /// Catalog-declared digest. Empty for MangaYomi entries, whose digest is
+  /// computed at install time because their index has no hash field.
   final String entrypointSha256;
   final List<String> allowedHosts;
   final bool supportDownloads;
@@ -105,6 +117,22 @@ class JsAnimeProviderManifest {
   final List<String> contentTypes;
   final String repositoryUrl;
   final Uri codeUrl;
+
+  /// `animestream` for native modules, `mangayomi` for MangaYomi extensions.
+  final String format;
+
+  /// Optional icon, used by MangaYomi catalogs.
+  final String? iconUrl;
+
+  /// Optional source site metadata, used by MangaYomi catalogs to populate
+  /// the `this.source` object extensions read.
+  final String? baseUrl;
+  final String? apiUrl;
+  final String? lang;
+  final String? dateFormat;
+  final String? dateFormatLocale;
+
+  bool get isMangayomi => format == 'mangayomi';
 
   factory JsAnimeProviderManifest.fromMap(
     Map<String, dynamic> map, {
@@ -236,6 +264,130 @@ class JsAnimeProviderManifest {
       repositoryUrl: repository.indexUrl,
       codeUrl: codeUrl,
     );
+  }
+
+  /// Parses one entry of a MangaYomi `index.json` array.
+  ///
+  /// MangaYomi indexes are flat arrays with no manifest version, digest, or
+  /// content-type field, so those are derived here: `isManga` drives the
+  /// content type, `baseUrl`/`apiUrl` become the host allowlist, and the
+  /// digest is computed when the code is fetched.
+  factory JsAnimeProviderManifest.fromMangayomiMap(
+    Map<String, dynamic> map, {
+    required ProviderRepository repository,
+    required int index,
+  }) {
+    final name = _requiredString(map['name'], 'name', maxLength: 100);
+    final rawBaseUrl = map['baseUrl'];
+    final baseUri = _publicHttpsUri(rawBaseUrl, 'baseUrl');
+    final hosts = <String>[baseUri.host.toLowerCase()];
+    final apiUri = _publicHttpsUriOrNull(map['apiUrl']);
+    if (apiUri != null && !hosts.contains(apiUri.host.toLowerCase())) {
+      hosts.add(apiUri.host.toLowerCase());
+    }
+
+    final rawCodeUrl = map['sourceCodeUrl'];
+    final codeUri = _publicHttpsUri(rawCodeUrl, 'sourceCodeUrl');
+    if (codeUri.path.toLowerCase().endsWith('.dart')) {
+      throw const FormatException(
+        'This MangaYomi source is a Dart extension and cannot run in anImestream.',
+      );
+    }
+
+    final isManga = map['isManga'];
+    if (isManga is! bool) {
+      throw const FormatException('MangaYomi isManga must be a boolean.');
+    }
+
+    final pkgPath = map['pkgPath'];
+    final identifierSeed = pkgPath is String && pkgPath.trim().isNotEmpty
+        ? pkgPath
+        // kodjodevf-style indexes omit pkgPath. The code URL's host and path
+        // are stable across re-fetches, unlike the array position.
+        : '${codeUri.host}-${codeUri.path}';
+
+    final lang = map['lang'];
+    final icon = _publicHttpsUriOrNull(map['iconUrl']);
+
+    return JsAnimeProviderManifest(
+      manifestVersion: 1,
+      name: name,
+      identifier: _mangayomiIdentifier(identifierSeed, index),
+      version: _normalizeMangayomiVersion(map['version'], index),
+      entrypoint: codeUri.pathSegments.isEmpty
+          ? 'index.js'
+          : codeUri.pathSegments.last,
+      entrypointSha256: '',
+      allowedHosts: List<String>.unmodifiable(hosts),
+      supportDownloads: false,
+      contentTypes: List<String>.unmodifiable(
+        <String>[isManga ? 'manga' : 'anime'],
+      ),
+      repositoryUrl: repository.indexUrl,
+      codeUrl: codeUri,
+      format: 'mangayomi',
+      iconUrl: icon?.toString(),
+      baseUrl: baseUri.toString(),
+      apiUrl: apiUri?.toString(),
+      lang: lang is String && lang.trim().isNotEmpty ? lang.trim() : null,
+      dateFormat: _optionalText(map['dateFormat']),
+      dateFormatLocale: _optionalText(map['dateFormatLocale']),
+    );
+  }
+
+  static String? _optionalText(Object? value) {
+    if (value is! String) return null;
+    final text = value.trim();
+    return text.isEmpty ? null : text;
+  }
+
+  static Uri _publicHttpsUri(Object? value, String field) {
+    if (value is! String || value.trim().isEmpty) {
+      throw FormatException('MangaYomi $field must be an HTTPS URL.');
+    }
+    final uri = Uri.tryParse(value.trim());
+    if (uri == null ||
+        uri.scheme.toLowerCase() != 'https' ||
+        uri.host.isEmpty ||
+        uri.userInfo.isNotEmpty ||
+        (uri.hasPort && uri.port != 443) ||
+        !ProviderRepository.isPublicDnsHost(uri.host)) {
+      throw FormatException('MangaYomi $field must be a public HTTPS URL.');
+    }
+    return uri.replace(scheme: 'https', host: uri.host.toLowerCase());
+  }
+
+  static Uri? _publicHttpsUriOrNull(Object? value) {
+    if (value is! String || value.trim().isEmpty) return null;
+    try {
+      return _publicHttpsUri(value, 'url');
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static String _mangayomiIdentifier(String seed, int index) {
+    var cleaned = seed
+        .toLowerCase()
+        .replaceAll(RegExp(r'\.(js|dart)$'), '')
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+        .replaceAll(RegExp(r'^-+|-+$'), '');
+    if (cleaned.isEmpty) cleaned = 'source-$index';
+    final identifier = 'mg-$cleaned';
+    return identifier.length <= 64 ? identifier : identifier.substring(0, 64);
+  }
+
+  static String _normalizeMangayomiVersion(Object? value, int index) {
+    if (value is String) {
+      final match = RegExp(r'(\d+)(?:\.(\d+))?(?:\.(\d+))?').firstMatch(value);
+      if (match != null) {
+        final major = int.tryParse(match.group(1) ?? '') ?? 0;
+        final minor = int.tryParse(match.group(2) ?? '') ?? 0;
+        final patch = int.tryParse(match.group(3) ?? '') ?? 0;
+        return '$major.$minor.$patch';
+      }
+    }
+    return '0.0.${index > 0 ? index % 1000 : 1}';
   }
 
   static const Set<String> _supportedContentTypes = {'anime', 'manga'};
