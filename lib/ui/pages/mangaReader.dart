@@ -328,10 +328,6 @@ class _MangaReaderPageState extends State<MangaReaderPage> {
         File.fromUri(uri),
         fit: fit,
         width: double.infinity,
-        loadingBuilder: (context, child, progress) =>
-            progress == null ? child : _placeholder(),
-        errorBuilder: (context, error, stackTrace) =>
-            _pageError(page.index + 1),
       );
     }
     return Image.network(
