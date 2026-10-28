@@ -379,6 +379,44 @@ class JavaScriptRuntime {
     const input = JSON.parse($inputLiteral);
 ${httpRequest}
     globalThis.__ANIMESTREAM_HTTP_REQUEST__ = httpRequest;
+
+    // Tachiyomi / MangaYomi extension compatibility shims (Client & HttpClient)
+    const createHttpClient = () => ({
+      async get(url, headers = {}) {
+        const res = await httpRequest({ url, method: 'GET', headers });
+        return {
+          code: res.statusCode,
+          headers: res.headers || {},
+          body: res.body,
+          bodyString: res.body
+        };
+      },
+      async post(url, headers = {}, body = null) {
+        const res = await httpRequest({ url, method: 'POST', headers, body: typeof body === 'string' ? body : JSON.stringify(body) });
+        return {
+          code: res.statusCode,
+          headers: res.headers || {},
+          body: res.body,
+          bodyString: res.body
+        };
+      }
+    });
+    globalThis.Client = createHttpClient();
+    globalThis.HttpClient = globalThis.Client;
+    globalThis.fetch = async (url, options = {}) => {
+      const method = options.method || 'GET';
+      const headers = options.headers || {};
+      const body = options.body || null;
+      const res = await httpRequest({ url, method, headers, body });
+      return {
+        status: res.statusCode,
+        ok: res.statusCode >= 200 && res.statusCode < 300,
+        headers: res.headers || {},
+        async text() { return res.body; },
+        async json() { return JSON.parse(res.body); }
+      };
+    };
+
     const value = await nativePromise.resolve((async () => {
 ${request.source}
     })());
