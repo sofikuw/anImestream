@@ -233,9 +233,9 @@ class JavaScriptRuntime {
     String channel,
     JavaScriptHostMessageHandler handler,
   ) {
-    final engine = _engine;
-    if (engine is JavaScriptHostMessageBridge) {
-      engine.registerMessageHandler(channel, handler);
+    final bridge = _engine as JavaScriptHostMessageBridge?;
+    if (bridge != null) {
+      bridge.registerMessageHandler(channel, handler);
     } else {
       throw UnsupportedError(
         'The JavaScript engine does not support host message handlers.',
