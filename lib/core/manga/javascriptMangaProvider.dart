@@ -5,6 +5,7 @@ import 'package:animestream/core/extensions/javascript/javascript_provider_http.
 import 'package:animestream/core/extensions/javascript/javascript_runtime.dart';
 import 'package:animestream/core/extensions/mangayomi/mangayomi_providers.dart';
 import 'package:animestream/core/manga/mangaProvider.dart';
+import 'package:animestream/core/manga/providers/inbuiltMangaProviders.dart';
 import 'package:animestream/core/manga/types.dart';
 
 /// Adapts an installed JavaScript *manga* extension to [MangaChapterProvider].
@@ -47,7 +48,8 @@ class JavaScriptMangaProvider implements MangaChapterProvider {
 
   bool get isUsable => !_disposed && !_runtime.isDisposed;
 
-  /// Every installed extension that declares the `manga` content type.
+  /// Every source that can serve manga: the inbuilt ones first, then the
+  /// installed extensions that declare the `manga` content type.
   ///
   /// Returns manifests, not providers, on purpose: each
   /// [JavaScriptMangaProvider] owns an isolated JS runtime, so instantiating
@@ -60,18 +62,29 @@ class JavaScriptMangaProvider implements MangaChapterProvider {
     try {
       installed = await (providerManager ?? ProviderManager()).getSavedProviders();
     } catch (_) {
-      // A storage failure must not take the caller down with it.
-      return const <ProviderDetails>[];
+      // A storage failure must not take the caller down with it, and the
+      // inbuilt sources need no storage to be usable.
+      return inbuiltMangaSources;
     }
-    return installed.where(_isUsableMangaExtension).toList(growable: false);
+    final identifiers = inbuiltMangaSources.map((source) => source.identifier).toSet();
+    return <ProviderDetails>[
+      ...inbuiltMangaSources,
+      // A stored extension reusing an inbuilt identifier must not shadow the
+      // compiled one, so the first occurrence wins.
+      ...installed.where(_isUsableMangaExtension).where(
+            (details) => identifiers.add(details.identifier),
+          ),
+    ];
   }
 
-  /// A provider for one installed manga extension, or null when that identifier
-  /// is not an installed, usable manga extension.
+  /// A provider for one manga source, or null when that identifier names
+  /// neither an inbuilt source nor an installed, usable manga extension.
   static Future<MangaChapterProvider?> forIdentifier(
     String identifier, {
     ProviderManager? providerManager,
   }) async {
+    final inbuilt = inbuiltMangaProviderFor(identifier);
+    if (inbuilt != null) return inbuilt;
     for (final details in await installedDetails(providerManager: providerManager)) {
       if (details.identifier == identifier) return _fromDetails(details);
     }
@@ -131,6 +144,8 @@ class JavaScriptMangaProvider implements MangaChapterProvider {
   }
 
   static MangaChapterProvider _fromDetails(ProviderDetails details) {
+    final inbuilt = inbuiltMangaProviderFor(details.identifier);
+    if (inbuilt != null) return inbuilt;
     if (details.isMangayomi) return MangayomiMangaProvider(details);
     return JavaScriptMangaProvider(
       details: details,

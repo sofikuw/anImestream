@@ -11,6 +11,7 @@ import 'package:animestream/core/anime/providers/providerManager.dart';
 import 'package:animestream/core/anime/providers/providerPlugin.dart';
 import 'package:animestream/core/anime/providers/types.dart';
 import 'package:animestream/core/app/runtimeDatas.dart';
+import 'package:animestream/core/manga/providers/inbuiltMangaProviders.dart';
 import 'package:flutter/material.dart';
 
 /// This Singleton manages all the sources/providers
@@ -203,10 +204,22 @@ AnimeProvider getClass(String source) {
 ///
 /// The default keeps every existing call site working unchanged. A manga source
 /// picker passes `contentType: 'manga'`; that is the only hook it needs.
+///
+/// The inbuilt manga sources are appended here rather than added to
+/// [SourceManager.sources]: that list is walked by the anime info page and by
+/// source pickers that do not filter, so putting a manga-only provider in it
+/// would let those paths select a source that cannot play anime.
 List<DropdownMenuEntry> getSourceDropdownList({String contentType = 'anime'}) {
   List<DropdownMenuEntry> widget = [];
-  final sources = SourceManager.instance.sources
-      .where((source) => source.contentTypes.contains(contentType));
+  final sources = <ProviderDetails>[
+    ...SourceManager.instance.sources
+        .where((source) => source.contentTypes.contains(contentType)),
+    if (contentType == 'manga')
+      ...inbuiltMangaSources.where(
+        (inbuilt) => !SourceManager.instance.sources
+            .any((source) => source.identifier == inbuilt.identifier),
+      ),
+  ];
   int count = 0;
   for (final source in sources) {
     widget.add(
