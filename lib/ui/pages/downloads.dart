@@ -266,7 +266,7 @@ class _DownloadsPageState extends State<DownloadsPage> with TickerProviderStateM
 
       final manga = await AnilistManga().getDetails(mangaId);
       final chapter = manga_types.MangaChapter(id: chapterId, title: chapterTitle, number: chapterNumber);
-      final provider = await JavaScriptMangaProvider.firstInstalled();
+      final provider = await JavaScriptMangaProvider.preferredProvider();
       if (provider == null) {
         floatingSnackBar("No manga provider installed.");
         return;

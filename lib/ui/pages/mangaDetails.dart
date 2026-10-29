@@ -117,7 +117,7 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
       final prefs = await UserPreferences.getUserPreferences();
       // An installed manga extension supplies the chapters and pages. Resolved
       // once per page, not once per chapter.
-      final provider = _provider ?? await JavaScriptMangaProvider.firstInstalled();
+      final provider = _provider ?? await JavaScriptMangaProvider.preferredProvider();
       final installed = await JavaScriptMangaProvider.installedDetails();
       if (!mounted) return;
       setState(() {
@@ -241,6 +241,12 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
 
     final provider = await JavaScriptMangaProvider.forIdentifier(details.identifier);
     if (!mounted) return;
+
+    if (provider != null) {
+      await UserPreferences.saveUserPreferences(
+        UserPreferencesModal(lastMangaProviderId: details.identifier),
+      );
+    }
 
     if (provider == null) {
       // The entry came from the installed list, so this is a storage race

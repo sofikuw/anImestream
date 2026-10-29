@@ -277,7 +277,7 @@ class _AnimeStreamState extends State<AnimeStream> {
     try {
       final manga = await AnilistManga().getDetails(mangaId);
       final chapter = MangaChapter(id: chapterId, title: chapterTitle);
-      final provider = await JavaScriptMangaProvider.firstInstalled();
+      final provider = await JavaScriptMangaProvider.preferredProvider();
       if (!mounted) return;
       if (provider == null) {
         Logs.app.log('No manga provider installed to open chapter $chapterId');

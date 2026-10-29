@@ -10,6 +10,12 @@ than pretending to cover the fork's earlier life. That history is in the git log
 ## [Unreleased]
 
 ### Added
+- **Default manga provider.** The app now seeds the
+  `anImestream-extensions` repository once so `weebcentral` and `mangapill`
+  are available on a fresh install, remembers the last manga provider you used,
+  and adds a *Default manga provider* setting. Chapter loading resolves last
+  used → default → first installed, so a new extension can be picked without
+  touching the code, and uninstalling a provider clears any stale default.
 - **Open a downloaded manga chapter straight from the file manager.** Tapping
   a chapter folder under `Download/animestream/manga/<Manga>_<id>/<Chapter>_<id>/`
   now fires an Android `VIEW` deep link that hands the chapter back to the

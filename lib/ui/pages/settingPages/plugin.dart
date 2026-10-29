@@ -3,6 +3,7 @@ import 'package:animestream/core/anime/providers/providerDetails.dart';
 import 'package:animestream/core/anime/providers/providerManager.dart';
 import 'package:animestream/core/anime/providers/providerRepository.dart';
 import 'package:animestream/core/app/runtimeDatas.dart';
+import 'package:animestream/core/data/preferences.dart';
 import 'package:animestream/core/data/providerRepositories.dart';
 import 'package:animestream/core/data/settings.dart';
 import 'package:animestream/core/data/types.dart';
@@ -235,6 +236,7 @@ class _PluginPageState extends State<PluginPage>
       await SourceManager.instance.disposeProvider(provider.identifier);
       await _providerManager.removeProvider(provider);
       await _fallbackDefaultProvider(provider.identifier);
+      await _fallbackDefaultMangaProvider(provider.identifier);
       await _refreshInstalledSources();
     });
   }
@@ -257,6 +259,16 @@ class _PluginPageState extends State<PluginPage>
     await Settings().writeSettings(
       SettingsModal(preferredProvider: sources.first.identifier),
     );
+  }
+
+  Future<void> _fallbackDefaultMangaProvider(String identifier) async {
+    final prefs = await UserPreferences.getUserPreferences();
+    final cleared = UserPreferencesModal(
+      defaultMangaProviderId: prefs.defaultMangaProviderId == identifier ? '' : null,
+      lastMangaProviderId: prefs.lastMangaProviderId == identifier ? '' : null,
+    );
+    if (cleared.defaultMangaProviderId == null && cleared.lastMangaProviderId == null) return;
+    await UserPreferences.saveUserPreferences(cleared);
   }
 
   Future<void> _runProviderAction(

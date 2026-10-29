@@ -1,5 +1,6 @@
 import 'package:animestream/core/anime/providers/providerDetails.dart';
 import 'package:animestream/core/anime/providers/providerManager.dart';
+import 'package:animestream/core/data/preferences.dart';
 import 'package:animestream/core/extensions/javascript/javascript_provider_http.dart';
 import 'package:animestream/core/extensions/javascript/javascript_runtime.dart';
 import 'package:animestream/core/extensions/mangayomi/mangayomi_providers.dart';
@@ -90,6 +91,31 @@ class JavaScriptMangaProvider implements MangaChapterProvider {
   }) async {
     final candidates = await installedDetails(providerManager: providerManager);
     if (candidates.isEmpty) return null;
+    return _fromDetails(candidates.first);
+  }
+
+  /// Preferred manga provider (last used, then default, then first installed).
+  static Future<MangaChapterProvider?> preferredProvider({
+    ProviderManager? providerManager,
+  }) async {
+    final prefs = await UserPreferences.getUserPreferences();
+    final candidates = await installedDetails(providerManager: providerManager);
+    if (candidates.isEmpty) return null;
+
+    final lastId = prefs.lastMangaProviderId;
+    if (lastId != null && lastId.isNotEmpty) {
+      for (final candidate in candidates) {
+        if (candidate.identifier == lastId) return _fromDetails(candidate);
+      }
+    }
+
+    final defaultId = prefs.defaultMangaProviderId;
+    if (defaultId != null && defaultId.isNotEmpty) {
+      for (final candidate in candidates) {
+        if (candidate.identifier == defaultId) return _fromDetails(candidate);
+      }
+    }
+
     return _fromDetails(candidates.first);
   }
 

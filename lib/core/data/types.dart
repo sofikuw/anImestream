@@ -262,6 +262,9 @@ class UserPreferencesModal {
   /// newest first (the default), [mangaChapterSortAsc] for oldest first.
   final String? mangaChapterSort;
 
+  final String? defaultMangaProviderId;
+  final String? lastMangaProviderId;
+
   UserPreferencesModal({
     this.episodesViewMode,
     this.subtitleSettings,
@@ -272,6 +275,8 @@ class UserPreferencesModal {
     this.mangaReaderDirection,
     this.mangaReaderZoom,
     this.mangaChapterSort,
+    this.defaultMangaProviderId,
+    this.lastMangaProviderId,
   });
 
   factory UserPreferencesModal.fromMap(Map<dynamic, dynamic> map) {
@@ -286,6 +291,8 @@ class UserPreferencesModal {
       mangaReaderDirection: map['mangaReaderDirection'] as String?,
       mangaReaderZoom: map['mangaReaderZoom'] ?? false,
       mangaChapterSort: map['mangaChapterSort'] as String?,
+      defaultMangaProviderId: map['defaultMangaProviderId'] as String?,
+      lastMangaProviderId: map['lastMangaProviderId'] as String?,
     );
   }
 
@@ -300,6 +307,8 @@ class UserPreferencesModal {
       mangaReaderDirection: 'ltr',
       mangaReaderZoom: false,
       mangaChapterSort: mangaChapterSortDesc,
+      defaultMangaProviderId: null,
+      lastMangaProviderId: null,
     );
   }
 
@@ -314,6 +323,8 @@ class UserPreferencesModal {
       'mangaReaderDirection': mangaReaderDirection,
       'mangaReaderZoom': mangaReaderZoom,
       'mangaChapterSort': mangaChapterSort,
+      'defaultMangaProviderId': defaultMangaProviderId,
+      'lastMangaProviderId': lastMangaProviderId,
     };
   }
 

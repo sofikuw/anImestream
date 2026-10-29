@@ -6,6 +6,7 @@ import 'package:animestream/core/data/settings.dart';
 import 'package:animestream/core/data/types.dart';
 import 'package:animestream/core/database/database.dart';
 import 'package:animestream/core/anime/providers/providerDetails.dart';
+import 'package:animestream/core/manga/javascriptMangaProvider.dart';
 import 'package:animestream/ui/models/sources.dart';
 import 'package:animestream/ui/models/widgets/clickableItem.dart';
 import 'package:animestream/ui/models/widgets/toggleItem.dart';
@@ -34,12 +35,16 @@ class _GeneralSettingState extends State<GeneralSetting> {
 
   Future<void> readSettings() async {
     final settings = await Settings().getSettings();
+    final installedManga = await JavaScriptMangaProvider.installedDetails();
+    final prefs = await UserPreferences.getUserPreferences();
     setState(() {
       showErrorsButtonState = settings.showErrors!;
       receivePreReleases = settings.receivePreReleases!;
       fasterDownloads = settings.fasterDownloads!;
       useQueuedDownloads = settings.useQueuedDownloads!;
       enableLogging = settings.enableLogging!;
+      mangaSources = installedManga;
+      defaultMangaProviderId = prefs.defaultMangaProviderId;
     });
   }
 
@@ -62,6 +67,8 @@ class _GeneralSettingState extends State<GeneralSetting> {
   // A getter, not a field: removing a built-in provider from settings must be
   // reflected without recreating this page.
   List<ProviderDetails> get sources => SourceManager.instance.sources;
+  List<ProviderDetails> mangaSources = [];
+  String? defaultMangaProviderId;
 
   @override
   Widget build(BuildContext context) {
@@ -144,6 +151,19 @@ class _GeneralSettingState extends State<GeneralSetting> {
                       description: (currentUserSettings?.preferredProvider ??
                               (sources.isEmpty ? '' : sources.first.identifier))
                           .replaceAll('_', ' '),
+                      suffixIcon: Icon(Icons.arrow_drop_down),
+                    ),
+                    ClickableItem(
+                      onTap: () {
+                        showModalBottomSheet(
+                          context: context,
+                          showDragHandle: true,
+                          isScrollControlled: true,
+                          builder: (context) => _mangaProviderSheet(context),
+                        );
+                      },
+                      label: "Default manga provider",
+                      description: _mangaProviderLabel(),
                       suffixIcon: Icon(Icons.arrow_drop_down),
                     ),
                     ClickableItem(
@@ -335,6 +355,95 @@ class _GeneralSettingState extends State<GeneralSetting> {
                     ),
                   );
                 }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _mangaProviderLabel() {
+    final id = defaultMangaProviderId;
+    if (id == null || id.isEmpty) return 'None';
+    final match = mangaSources.where((source) => source.identifier == id);
+    if (match.isEmpty) return id.replaceAll('_', ' ');
+    return match.first.name;
+  }
+
+  StatefulBuilder _mangaProviderSheet(BuildContext context) {
+    return StatefulBuilder(
+      builder: (context, setcState) => Container(
+        padding: const EdgeInsets.only(
+          top: 10,
+          left: 20,
+          right: 20,
+        ),
+        margin: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 20),
+              child: Text(
+                "Select Default Manga Provider",
+                style: textStyle().copyWith(fontSize: 23),
+                textAlign: TextAlign.left,
+              ),
+            ),
+            if (mangaSources.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 20),
+                child: Text(
+                  "No manga providers installed. Add a repository or extension first.",
+                  style: textStyle(),
+                ),
+              )
+            else
+              ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: mangaSources.length,
+                    itemBuilder: (context, index) {
+                      final activeProvider =
+                          defaultMangaProviderId ?? (mangaSources.isEmpty ? '' : mangaSources.first.identifier);
+                      return Container(
+                        margin: const EdgeInsets.symmetric(vertical: 5),
+                        clipBehavior: Clip.hardEdge,
+                        decoration: BoxDecoration(
+                          color: mangaSources[index].identifier == activeProvider
+                              ? appTheme.accentColor
+                              : appTheme.backgroundSubColor,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(20),
+                            onTap: () async {
+                              await UserPreferences.saveUserPreferences(
+                                UserPreferencesModal(defaultMangaProviderId: mangaSources[index].identifier),
+                              );
+                              if (!context.mounted) return;
+                              setState(() {
+                                defaultMangaProviderId = mangaSources[index].identifier;
+                              });
+                              setcState(() {});
+                              Navigator.of(context).pop();
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                              child: Text(
+                                mangaSources[index].name,
+                                style: textStyle().copyWith(
+                                  color: mangaSources[index].identifier == activeProvider
+                                      ? appTheme.onAccent
+                                      : appTheme.textMainColor,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
           ],
         ),
       ),
