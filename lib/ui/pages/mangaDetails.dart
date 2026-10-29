@@ -726,16 +726,22 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
 
                           if (progress?.isBusy ?? false) {
                             return SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: appTheme.accentColor,
-                                // Indeterminate while the page list is being
-                                // fetched, determinate once pages are landing.
-                                value: progress!.total == 0
-                                    ? null
-                                    : progress.fraction,
+                              width: 48,
+                              height: 48,
+                              child: Center(
+                                child: SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: appTheme.accentColor,
+                                    // Indeterminate while the page list is being
+                                    // fetched, determinate once pages are landing.
+                                    value: progress!.total == 0
+                                        ? null
+                                        : progress.fraction,
+                                  ),
+                                ),
                               ),
                             );
                           }

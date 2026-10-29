@@ -8,7 +8,8 @@ import 'package:flutter/material.dart';
 
 class FileExplorer extends StatefulWidget {
   final void Function(String) playVideo;
-  const FileExplorer({super.key, required this.playVideo});
+  final Future<void> Function(String) openMangaReader;
+  const FileExplorer({super.key, required this.playVideo, required this.openMangaReader});
 
   @override
   State<FileExplorer> createState() => _FileExplorerState();
@@ -197,57 +198,67 @@ class _FileExplorerState extends State<FileExplorer> {
     );
   }
 
-  Container _folderTile(FileSystemEntity entity) {
-    return _tappable(
-      entity: entity,
-      onTap: () {
-        _currentDir = Directory(entity.path);
-        _readDir();
-      },
-      child: Row(
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: Icon(
-              Icons.folder_rounded,
-              size: 28,
-            ),
+  Widget _folderTile(FileSystemEntity entity) {
+    return FutureBuilder<bool>(
+      future: File('${entity.path}/manifest.json').exists(),
+      builder: (context, snapshot) {
+        final isMangaChapter = snapshot.data ?? false;
+        return _tappable(
+          entity: entity,
+          onTap: () async {
+            if (isMangaChapter) {
+              await widget.openMangaReader(entity.path);
+              return;
+            }
+            _currentDir = Directory(entity.path);
+            _readDir();
+          },
+          child: Row(
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: Icon(
+                  isMangaChapter ? Icons.menu_book_rounded : Icons.folder_rounded,
+                  size: 28,
+                ),
+              ),
+              Expanded(
+                  child: Text(
+                _getFileName(entity.path),
+                style: _titleStyle(),
+                overflow: TextOverflow.ellipsis,
+              )),
+              InkWell(
+                  onTapUp: (details) {
+                    final offset = details.globalPosition;
+                    showMenu(
+                        context: context,
+                        color: appTheme.backgroundSubColor,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        positionBuilder: (context, constraints) {
+                          return RelativeRect.fromLTRB(
+                            offset.dx,
+                            offset.dy,
+                            MediaQuery.of(context).size.width - offset.dx,
+                            MediaQuery.of(context).size.height - offset.dy,
+                          );
+                        },
+                        items: [
+                          PopupMenuItem(
+                              onTap: () {
+                                _deleteDialog(entity, null).then((val) => _readDir());
+                              },
+                              child: Text(
+                                "Delete",
+                                style: TextStyle(fontFamily: "NotoSans", color: appTheme.textMainColor),
+                              )),
+                        ]);
+                  },
+                  child: Icon(Icons.more_vert_rounded))
+            ],
           ),
-          Expanded(
-              child: Text(
-            _getFileName(entity.path),
-            style: _titleStyle(),
-            overflow: TextOverflow.ellipsis,
-          )),
-          InkWell(
-              onTapUp: (details) {
-                final offset = details.globalPosition;
-                showMenu(
-                    context: context,
-                    color: appTheme.backgroundSubColor,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    positionBuilder: (context, constraints) {
-                      return RelativeRect.fromLTRB(
-                        offset.dx,
-                        offset.dy,
-                        MediaQuery.of(context).size.width - offset.dx,
-                        MediaQuery.of(context).size.height - offset.dy,
-                      );
-                    },
-                    items: [
-                      PopupMenuItem(
-                          onTap: () {
-                            _deleteDialog(entity, null).then((val) => _readDir());
-                          },
-                          child: Text(
-                            "Delete",
-                            style: TextStyle(fontFamily: "NotoSans", color: appTheme.textMainColor),
-                          )),
-                    ]);
-              },
-              child: Icon(Icons.more_vert_rounded))
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -255,28 +266,36 @@ class _FileExplorerState extends State<FileExplorer> {
 
   final _supportedFiles = ["mp4", "webm", "mkv", "avi", "m4a"];
 
-  Container _fileTile(FileSystemEntity entity) {
+  Widget _fileTile(FileSystemEntity entity) {
     final ep = _episodeNumRegex.firstMatch(entity.path)?.group(1);
     final isSubtitleFile = entity.path.contains(RegExp(r'\.(ass|srt|vtt|txt)$', caseSensitive: false));
-    return _tappable(
-      entity: entity,
-      onTap: () {
-        // file should have an extension and be included in supported type! doesnt prevent the user from fw the extension
-        final ext = entity.path.split(".").lastOrNull;
-        if (ext != null && _supportedFiles.contains(ext)) {
-          widget.playVideo(entity.path);
-        } else {
-          floatingSnackBar("Unsupported file type!");
-        }
-      },
-      child: Row(
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16), //12 means symmetrical to folder structure, but feels off here
-            child: Icon(
-              _getTypeIcon(entity.path.split(".").last),
-              size: 28,
-            ),
+    return FutureBuilder<bool>(
+      future: Future.value(File('${File(entity.path).parent.path}/manifest.json').existsSync()),
+      builder: (context, snapshot) {
+        final isMangaPage = snapshot.data ?? false;
+        return _tappable(
+          entity: entity,
+          onTap: () async {
+            if (isMangaPage) {
+              await widget.openMangaReader(File(entity.path).parent.path);
+              return;
+            }
+            final ext = entity.path.split(".").lastOrNull;
+            if (ext != null && _supportedFiles.contains(ext)) {
+              widget.playVideo(entity.path);
+            } else {
+              floatingSnackBar("Unsupported file type!");
+            }
+          },
+          child: Row(
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(right: 16),
+                child: Icon(
+                  isMangaPage ? Icons.image_rounded : _getTypeIcon(entity.path.split(".").last),
+                  size: 28,
+                ),
+              ),
           ),
           Expanded(
             child: Column(

@@ -1,9 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:animestream/core/anime/downloader/downloadManager.dart';
 import 'package:animestream/core/anime/downloader/downloaderHelper.dart';
+import 'package:animestream/core/anime/downloader/types.dart';
 import 'package:animestream/core/app/logging.dart';
 import 'package:animestream/core/app/runtimeDatas.dart';
+import 'package:animestream/core/data/downloadHistory.dart';
 import 'package:animestream/core/manga/mangaProvider.dart';
 import 'package:animestream/core/manga/types.dart';
 import 'package:flutter/foundation.dart';
@@ -149,6 +152,15 @@ class MangaDownloader {
     }
 
     final client = HttpClient();
+    final downloadItem = DownloadItem(
+      id: DownloaderHelper.generateId(),
+      url: '',
+      status: DownloadStatus.downloading,
+      fileName: '$mangaTitle - ${chapter.displayTitle}',
+      progress: 0,
+    );
+    DownloadManager.enqueue(downloadItem);
+
     try {
       _set(key, ChapterDownload(key: key, state: DownloadState.fetchingPages));
 
@@ -156,6 +168,8 @@ class MangaDownloader {
       if (pages.isEmpty) {
         Logs.app.log('No pages for "$mangaTitle" ${chapter.displayTitle}');
         _set(key, ChapterDownload(key: key, state: DownloadState.failed));
+        downloadItem.status = DownloadStatus.failed;
+        DownloadManager.dequeue(downloadItem.id);
         return false;
       }
 
@@ -171,9 +185,13 @@ class MangaDownloader {
             'Page ${page.index} failed for "$mangaTitle" ${chapter.displayTitle}',
           );
           _set(key, ChapterDownload(key: key, state: DownloadState.failed));
+          downloadItem.status = DownloadStatus.failed;
+          DownloadManager.dequeue(downloadItem.id);
           return false;
         }
         completed++;
+        final progressPct = ((completed / pages.length) * 100).round();
+        downloadItem.progress = progressPct;
         _set(
           key,
           ChapterDownload(
@@ -198,16 +216,45 @@ class MangaDownloader {
         }),
       );
 
+      downloadItem.status = DownloadStatus.completed;
+      DownloadManager.dequeue(downloadItem.id);
+
+      await DownloadHistory.saveItem(DownloadHistoryItem(
+        id: DownloaderHelper.generateId(),
+        status: DownloadStatus.completed,
+        timestamp: DateTime.now().millisecondsSinceEpoch,
+        filePath: dir.path,
+        url: '',
+        headers: {},
+        fileName: '$mangaTitle - ${chapter.displayTitle}',
+        size: await _dirSize(dir),
+        lastDownloadedPart: null,
+      ));
+
       _set(key, ChapterDownload(key: key, state: DownloadState.done));
       Logs.app.log('Downloaded "$mangaTitle" ${chapter.displayTitle}');
       return true;
     } catch (err) {
       Logs.app.log('$err while downloading a manga chapter');
+      downloadItem.status = DownloadStatus.failed;
+      DownloadManager.dequeue(downloadItem.id);
       _set(key, ChapterDownload(key: key, state: DownloadState.failed));
       return false;
     } finally {
       client.close();
       _inFlight.remove(key);
+    }
+  }
+
+  static Future<int> _dirSize(Directory dir) async {
+    try {
+      var total = 0;
+      await for (final entity in dir.list(recursive: true)) {
+        if (entity is File) total += await entity.length();
+      }
+      return total;
+    } catch (_) {
+      return 0;
     }
   }
 

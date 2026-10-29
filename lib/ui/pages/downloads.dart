@@ -15,7 +15,10 @@ import 'package:animestream/ui/models/providers/playerProvider.dart';
 import 'package:animestream/ui/models/snackBar.dart';
 import 'package:animestream/ui/models/widgets/fileExplorer.dart';
 import 'package:animestream/ui/pages/settingPages/logs.dart';
-import 'package:animestream/ui/pages/watch.dart';
+import 'package:animestream/core/manga/anilistManga.dart';
+import 'package:animestream/core/manga/javascriptMangaProvider.dart';
+import 'package:animestream/core/manga/types.dart' as manga_types;
+import 'package:animestream/ui/pages/mangaReader.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -238,7 +241,49 @@ class _DownloadsPageState extends State<DownloadsPage> with TickerProviderStateM
   Widget _buildDownloads() {
     return FileExplorer(
       playVideo: _playVideo,
+      openMangaReader: _openMangaFromDir,
     );
+  }
+
+  Future<void> _openMangaFromDir(String chapterDirPath) async {
+    try {
+      final manifestFile = File('$chapterDirPath/manifest.json');
+      if (!await manifestFile.exists()) {
+        floatingSnackBar("Manifest not found.");
+        return;
+      }
+      final decoded = jsonDecode(await manifestFile.readAsString());
+      final mangaId = decoded['mangaId'] as String?;
+      final chapterId = decoded['chapterId'] as String?;
+      final chapterTitle = decoded['chapterTitle'] as String?;
+      final chapterNumber = (decoded['chapterNumber'] as num?)?.toDouble();
+
+      if (mangaId == null || chapterId == null) {
+        floatingSnackBar("Invalid manga manifest.");
+        return;
+      }
+
+      final manga = await AnilistManga().getDetails(mangaId);
+      final chapter = manga_types.MangaChapter(id: chapterId, title: chapterTitle, number: chapterNumber);
+      final provider = await JavaScriptMangaProvider.firstInstalled();
+      if (provider == null) {
+        floatingSnackBar("No manga provider installed.");
+        return;
+      }
+      if (!mounted) return;
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => MangaReaderPage(
+            manga: manga,
+            chapter: chapter,
+            provider: provider,
+            chapters: const <manga_types.MangaChapter>[],
+          ),
+        ),
+      );
+    } catch (err) {
+      floatingSnackBar("Could not open manga: $err");
+    }
   }
 
   Container _tabBarItem(String label) {
@@ -304,7 +349,13 @@ class _DownloadsPageState extends State<DownloadsPage> with TickerProviderStateM
                           child: Padding(
                             padding: const EdgeInsets.only(right: 8),
                             child: IconButton.filled(
-                              onPressed: () => _playVideo(item.filePath!),
+                              onPressed: () {
+                                if (item.filePath != null && File('${item.filePath}/manifest.json').existsSync()) {
+                                  _openMangaFromDir(item.filePath!);
+                                } else {
+                                  _playVideo(item.filePath!);
+                                }
+                              },
                               icon: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
