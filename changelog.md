@@ -75,9 +75,9 @@ than pretending to cover the fork's earlier life. That history is in the git log
   sources call defensively) and the host log channel prints the level and
   joined message it sends.
 - **Manga downloads are visible where episodes already are.** Chapters now
-  download to `Download/animestream/manga/<mangaId>/<chapterId>/` (or the
-  user-configured download path plus `manga`), the same public tree the anime
-  downloader uses, instead of the app-private documents folder no file
+  download to `Download/animestream/manga/<MangaTitle>_<mangaId>/<ChapterTitle>_<chapterId>/`
+  (or the user-configured download path plus `manga`), the same public tree the
+  anime downloader uses, instead of the app-private documents folder no file
   manager can see. The download flow asks for the same storage permission the
   anime downloader uses, so there is one grant for both. iOS keeps the
   documents folder. Existing chapters downloaded under the old location are

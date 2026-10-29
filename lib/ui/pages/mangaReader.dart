@@ -165,11 +165,13 @@ class _MangaReaderPageState extends State<MangaReaderPage> {
   Future<List<MangaPage>> _chapterPages() async {
     final saved = await MangaDownloader.isDownloaded(
       widget.manga.summary.id,
+      widget.manga.title,
       _chapter,
     );
     if (saved) {
       final local = await MangaDownloader.localPages(
         widget.manga.summary.id,
+        widget.manga.title,
         _chapter,
       );
       if (local.isNotEmpty) return local;

@@ -57,20 +57,24 @@ class MangaDownloader {
 
   /// Where downloaded manga lives.
   ///
-  /// Android writes into the public Download tree, matching where episodes
-  /// already go, so chapters are visible in any file manager instead of being
-  /// buried in private app storage nobody can browse. A user-configured
-  /// download path wins, the same preference the anime downloader honours.
+  /// Android writes into the public Download tree using the titles and IDs,
+  /// matching where episodes already go, so chapters are visible and human-readable
+  /// in any file manager. A user-configured download path wins.
   /// iOS has no shared Downloads tree, so chapters stay in the documents
   /// directory there.
-  static Future<Directory> _mangaRoot() async {
+  static Future<Directory> _mangaRoot(
+    String mangaId,
+    String mangaTitle,
+  ) async {
     if (Platform.isAndroid) {
       final configured = currentUserSettings?.downloadPath;
       final base = (configured != null && configured.trim().isNotEmpty)
           ? configured
           : '/storage/emulated/0/Download/animestream';
+      // Format: <MangaTitle>_<mangaId>
+      final folderName = '${_safe(mangaTitle)}_${_safe(mangaId)}';
       final root = Directory(
-        '${base.replaceAll(RegExp(r'[/\\]+$'), '')}/manga',
+        '${base.replaceAll(RegExp(r'[/\\]+$'), '')}${Platform.pathSeparator}manga${Platform.pathSeparator}$folderName',
       );
       if (!await root.exists()) await root.create(recursive: true);
       return root;
@@ -81,15 +85,17 @@ class MangaDownloader {
     return root;
   }
 
-  /// Where one chapter lives. Ids are sanitised: they come from an extension and
-  /// a `/` in one would escape the tree this class owns.
+  /// Where one chapter lives.
   static Future<Directory> chapterDirectory(
     String mangaId,
+    String mangaTitle,
     MangaChapter chapter,
   ) async {
-    final root = await _mangaRoot();
+    final root = await _mangaRoot(mangaId, mangaTitle);
+    // Format: <ChapterTitle>_<chapterId>
+    final folderName = '${_safe(chapter.displayTitle)}_${_safe(chapter.id)}';
     return Directory(
-      '${root.path}/${_safe(mangaId)}/${_safe(chapter.id)}',
+      '${root.path}${Platform.pathSeparator}$folderName',
     );
   }
 
@@ -98,13 +104,13 @@ class MangaDownloader {
       value.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
 
   /// Whether this chapter is fully downloaded.
-  ///
-  /// The manifest is the completion marker: it is written only after every page
-  /// has landed, so its presence means complete and its absence means "not
-  /// usable", whatever files are lying around.
-  static Future<bool> isDownloaded(String mangaId, MangaChapter chapter) async {
+  static Future<bool> isDownloaded(
+    String mangaId,
+    String mangaTitle,
+    MangaChapter chapter,
+  ) async {
     try {
-      final dir = await chapterDirectory(mangaId, chapter);
+      final dir = await chapterDirectory(mangaId, mangaTitle, chapter);
       final manifest = File('${dir.path}/$kManifestName');
       return await manifest.exists();
     } catch (err) {
@@ -113,11 +119,7 @@ class MangaDownloader {
     }
   }
 
-  /// Downloads every page of [chapter], reporting progress as it goes.
-  ///
-  /// Returns true when the chapter is complete on disk. Never throws: a failed
-  /// download leaves no manifest, so the chapter simply stays not-downloaded and
-  /// the UI can offer it again.
+  /// Downloads every page of [chapter].
   static Future<bool> download({
     required String mangaId,
     required String mangaTitle,
@@ -126,10 +128,6 @@ class MangaDownloader {
   }) async {
     final key = keyFor(mangaId, chapter);
 
-    // The public Download tree needs storage access on Android; the same gate
-    // the episode downloader uses, so both features ask exactly once and share
-    // one grant. A refusal fails cleanly: no manifest gets written, so the
-    // chapter just stays not-downloaded and is safe to retry.
     if (Platform.isAndroid) {
       final granted = await DownloaderHelper().checkAndRequestPermission();
       if (!granted) {
@@ -142,8 +140,6 @@ class MangaDownloader {
       }
     }
 
-    // Idempotent under concurrency rather than racing: the second caller waits
-    // on the first rather than starting a parallel fetch of the same pages.
     final existing = _inFlight[key];
     if (existing != null) {
       while (_inFlight.containsKey(key)) {
@@ -163,9 +159,7 @@ class MangaDownloader {
         return false;
       }
 
-      final dir = await chapterDirectory(mangaId, chapter);
-      // A retry starts clean: leftovers from a failed attempt would otherwise be
-      // counted as progress and could collide with a different page order.
+      final dir = await chapterDirectory(mangaId, mangaTitle, chapter);
       if (await dir.exists()) await dir.delete(recursive: true);
       await dir.create(recursive: true);
 
@@ -191,7 +185,6 @@ class MangaDownloader {
         );
       }
 
-      // Last, and only now: this file IS the completion marker.
       await File('${dir.path}/$kManifestName').writeAsString(
         jsonEncode({
           'mangaId': mangaId,
@@ -201,8 +194,6 @@ class MangaDownloader {
           'chapterTitle': chapter.title,
           'scanlator': chapter.scanlator,
           'pages': pages.length,
-          // The host may require a Referer to serve its images. Kept so an
-          // offline read sends the same headers the download did.
           'headers': pages.first.headers ?? const <String, String>{},
         }),
       );
@@ -216,15 +207,11 @@ class MangaDownloader {
       return false;
     } finally {
       client.close();
-      // Cleared here, in `finally`, so the in-flight guard cannot be left set by
-      // an early return and wedge this chapter forever.
       _inFlight.remove(key);
     }
   }
 
-  /// One page. `followRedirects` is left on, unlike in the extension sandbox:
-  /// CDNs routinely answer with a redirect to a signed URL, and this client is
-  /// the app's own, so there is no sandbox rule to respect.
+  /// One page.
   static Future<bool> _downloadPage(
     HttpClient client,
     MangaPage page,
@@ -236,10 +223,8 @@ class MangaDownloader {
       final response = await request.close();
       if (response.statusCode < 200 || response.statusCode >= 300) return false;
 
-      // Index-prefixed and zero-padded, so a directory listing is reading order
-      // even before the manifest is parsed.
       final name = page.index.toString().padLeft(3, '0');
-      final file = File('${dir.path}/$name');
+      final file = File('${dir.path}${Platform.pathSeparator}$name');
       await response.pipe(file.openWrite());
       return true;
     } catch (err) {
@@ -248,18 +233,15 @@ class MangaDownloader {
     }
   }
 
-  /// The pages of a downloaded chapter, as [MangaPage]s the reader already
-  /// understands -- so the reader needs no second code path, only a different
-  /// source for its list.
-  ///
-  /// Returns an empty list when the chapter is not downloaded or unreadable.
+  /// The pages of a downloaded chapter.
   static Future<List<MangaPage>> localPages(
     String mangaId,
+    String mangaTitle,
     MangaChapter chapter,
   ) async {
     try {
-      final dir = await chapterDirectory(mangaId, chapter);
-      final manifest = File('${dir.path}/$kManifestName');
+      final dir = await chapterDirectory(mangaId, mangaTitle, chapter);
+      final manifest = File('${dir.path}${Platform.pathSeparator}$kManifestName');
       if (!await manifest.exists()) return const <MangaPage>[];
 
       final decoded = jsonDecode(await manifest.readAsString());
@@ -277,15 +259,11 @@ class MangaDownloader {
       final pages = <MangaPage>[];
       for (var index = 0; index < count; index++) {
         final name = index.toString().padLeft(3, '0');
-        final file = File('${dir.path}/$name');
+        final file = File('${dir.path}${Platform.pathSeparator}$name');
         if (!await file.exists()) {
-          // A manifest with a missing page means a partly-deleted download.
-          // Reported rather than silently served short: a chapter that renders
-          // half its pages looks like a reader bug.
           Logs.app.log('Downloaded chapter is missing page $index');
           return const <MangaPage>[];
         }
-        // `file://` so the same Image path works for disk and network.
         pages.add(MangaPage(
           index: index,
           imageUrl: Uri.file(file.path).toString(),
@@ -300,9 +278,13 @@ class MangaDownloader {
   }
 
   /// Deletes one downloaded chapter.
-  static Future<void> delete(String mangaId, MangaChapter chapter) async {
+  static Future<void> delete(
+    String mangaId,
+    String mangaTitle,
+    MangaChapter chapter,
+  ) async {
     try {
-      final dir = await chapterDirectory(mangaId, chapter);
+      final dir = await chapterDirectory(mangaId, mangaTitle, chapter);
       if (await dir.exists()) await dir.delete(recursive: true);
       final key = keyFor(mangaId, chapter);
       _inFlight.remove(key);
@@ -312,17 +294,14 @@ class MangaDownloader {
     }
   }
 
-  /// Bytes on disk for one manga, for a storage line in the UI. Sums what is
-  /// there rather than tracking a running total, so it cannot drift from the
-  /// filesystem.
-  static Future<int> usedBytes(String mangaId) async {
+  /// Bytes on disk for one manga.
+  static Future<int> usedBytes(String mangaId, String mangaTitle) async {
     try {
-      final root = await _mangaRoot();
-      final dir = Directory('${root.path}/${_safe(mangaId)}');
-      if (!await dir.exists()) return 0;
+      final root = await _mangaRoot(mangaId, mangaTitle);
+      if (!await root.exists()) return 0;
 
       var total = 0;
-      await for (final entity in dir.list(recursive: true)) {
+      await for (final entity in root.list(recursive: true)) {
         if (entity is File) total += await entity.length();
       }
       return total;

@@ -159,7 +159,11 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
   Future<void> _refreshDownloads() async {
     final downloaded = <String>{};
     for (final chapter in _chapters) {
-      if (await MangaDownloader.isDownloaded(widget.id, chapter)) {
+      if (await MangaDownloader.isDownloaded(
+        widget.id,
+        _details?.title ?? '',
+        chapter,
+      )) {
         downloaded.add(chapter.id);
       }
     }
@@ -175,7 +179,11 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
   /// than a separate action to find.
   Future<void> _toggleDownload(MangaChapter chapter) async {
     if (_downloaded.contains(chapter.id)) {
-      await MangaDownloader.delete(widget.id, chapter);
+      await MangaDownloader.delete(
+        widget.id,
+        _details?.title ?? '',
+        chapter,
+      );
       if (mounted) {
         setState(() => _downloaded = {..._downloaded}..remove(chapter.id));
       }
