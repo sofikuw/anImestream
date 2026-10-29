@@ -15,6 +15,7 @@ import 'package:animestream/ui/models/providers/playerProvider.dart';
 import 'package:animestream/ui/models/snackBar.dart';
 import 'package:animestream/ui/models/widgets/fileExplorer.dart';
 import 'package:animestream/ui/pages/settingPages/logs.dart';
+import 'package:animestream/ui/pages/watch.dart';
 import 'package:animestream/core/manga/anilistManga.dart';
 import 'package:animestream/core/manga/javascriptMangaProvider.dart';
 import 'package:animestream/core/manga/types.dart' as manga_types;

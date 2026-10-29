@@ -296,31 +296,32 @@ class _FileExplorerState extends State<FileExplorer> {
                   size: 28,
                 ),
               ),
-          ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  ep != null ? "Episode $ep ${isSubtitleFile ? "subtitles" : ""}" : _getFileName(entity.path),
-                  style: _titleStyle(),
-                  overflow: TextOverflow.ellipsis,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      ep != null ? "Episode $ep ${isSubtitleFile ? "subtitles" : ""}" : _getFileName(entity.path),
+                      style: _titleStyle(),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (ep != null)
+                      Text(
+                        "${_toMegs(File(entity.path).lengthSync())} MB",
+                        style: TextStyle(color: appTheme.textSubColor, fontFamily: "NotoSans", fontSize: 13),
+                      ),
+                  ],
                 ),
-                if (ep != null)
-                  Text(
-                    "${_toMegs(File(entity.path).lengthSync())} MB",
-                    style: TextStyle(color: appTheme.textSubColor, fontFamily: "NotoSans", fontSize: 13),
-                  ),
-              ],
-            ),
+              ),
+              IconButton(
+                  onPressed: () {
+                    _deleteDialog(entity, null).then((val) => _readDir());
+                  },
+                  icon: Icon(Icons.delete)),
+            ],
           ),
-          IconButton(
-              onPressed: () {
-                _deleteDialog(entity, null).then((val) => _readDir());
-              },
-              icon: Icon(Icons.delete)),
-        ],
-      ),
+        );
+      },
     );
   }
 
