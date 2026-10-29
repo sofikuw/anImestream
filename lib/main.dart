@@ -21,14 +21,20 @@ import 'package:animestream/core/app/version.dart';
 import 'package:animestream/core/data/preferences.dart';
 import 'package:animestream/core/data/settings.dart';
 import 'package:animestream/core/data/theme.dart';
+import 'package:animestream/core/manga/anilistManga.dart';
+import 'package:animestream/core/manga/javascriptMangaProvider.dart';
+import 'package:animestream/core/manga/mangaProvider.dart';
+import 'package:animestream/core/manga/types.dart';
 import 'package:animestream/ui/models/notification.dart';
 import 'package:animestream/ui/models/providers/appProvider.dart';
 import 'package:animestream/ui/models/providers/mainNavProvider.dart';
 import 'package:animestream/ui/models/snackBar.dart';
 import 'package:animestream/ui/models/sources.dart';
 import 'package:animestream/ui/models/widgets/appWrapper.dart';
+import 'package:animestream/ui/models/widgets/loader.dart';
 import 'package:animestream/ui/pages/info.dart';
 import 'package:animestream/ui/pages/mainNav.dart';
+import 'package:animestream/ui/pages/mangaReader.dart';
 import 'package:animestream/ui/theme/divergent.dart';
 import 'package:animestream/ui/theme/themes.dart';
 import 'package:animestream/ui/theme/types.dart';
@@ -191,6 +197,8 @@ class _AnimeStreamState extends State<AnimeStream> {
   void initState() {
     listenDeepLinkCall();
 
+    MethodChannel('animestream.app/manga_reader').setMethodCallHandler(_onMangaReaderOpen);
+
     AwesomeNotifications().setListeners(
       onActionReceivedMethod: NotificationController.onActionReceivedMethod,
       onNotificationCreatedMethod: NotificationController.onNotificationCreatedMethod,
@@ -251,6 +259,39 @@ class _AnimeStreamState extends State<AnimeStream> {
         }
       }
     });
+  }
+
+  /// Cold-start / warm-start deep link from a file manager tap on a downloaded
+  /// manga chapter folder (`Download/animestream/manga/<Manga>_<id>/<Chapter>_<id>/`).
+  /// The Android side resolves the file and parses those two folder segments,
+  /// then hands back the manga id + chapter id.
+  Future<void> _onMangaReaderOpen(MethodCall call) async {
+    if (call.method != 'openChapter') return;
+    final args = call.arguments;
+    if (args is! Map) return;
+    final mangaId = '${args['mangaId'] ?? ''}';
+    final chapterId = '${args['chapterId'] ?? ''}';
+    final chapterTitle = args['chapterTitle'] as String?;
+    if (mangaId.isEmpty || chapterId.isEmpty) return;
+
+    try {
+      final manga = await AnilistManga().getDetails(mangaId);
+      final chapter = MangaChapter(id: chapterId, title: chapterTitle);
+      final provider = await JavaScriptMangaProvider.firstInstalled();
+      if (!mounted) return;
+      AnimeStream.navigatorKey.currentState?.push(
+        MaterialPageRoute(
+          builder: (context) => MangaReaderPage(
+            manga: manga,
+            chapter: chapter,
+            provider: provider,
+            chapters: const <MangaChapter>[],
+          ),
+        ),
+      );
+    } catch (err) {
+      Logs.app.log('Error opening manga reader from file: $err');
+    }
   }
 
   // This widget is the root of *my* application.

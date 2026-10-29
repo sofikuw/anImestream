@@ -17,6 +17,15 @@
         android:banner="@drawable/banner"
         android:requestLegacyExternalStorage="true"
         android:allowBackup="false">
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="app.animestream.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -44,6 +53,16 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
                     android:scheme="astrm" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="file" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
             </intent-filter>
         </activity>
         <activity

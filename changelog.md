@@ -10,6 +10,11 @@ than pretending to cover the fork's earlier life. That history is in the git log
 ## [Unreleased]
 
 ### Added
+- **Open a downloaded manga chapter straight from the file manager.** Tapping
+  a chapter folder under `Download/animestream/manga/<Manga>_<id>/<Chapter>_<id>/`
+  now fires an Android `VIEW` deep link that hands the chapter back to the
+  reader. The file provider + intent filters are wired in `MainActivity`, and
+  the channel call resolves the chapter and pushes `MangaReaderPage`.
 - **MangaYomi JavaScript extensions.** A MangaYomi `index.json` can now be
   added as a repository. Its JavaScript sources run against a bundled MangaYomi
   API shim (`MProvider`, `Client`, `Document`/`Element`, `SharedPreferences`)
