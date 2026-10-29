@@ -545,8 +545,8 @@ class _SearchState extends State<Search> {
       controller: textEditingController,
       onChanged: (val) {
         if (debounce?.isActive ?? false) debounce?.cancel();
-        debounce = Timer(const Duration(milliseconds: 300), () async {
-          if (val.length <= 0) {
+        debounce = Timer(const Duration(milliseconds: 400), () async {
+          if (val.trim().length <= 2) {
             return;
           }
           setState(() {
@@ -556,7 +556,8 @@ class _SearchState extends State<Search> {
         });
       },
       onSubmitted: (val) async {
-        if (val.length <= 0) {
+        if (debounce?.isActive ?? false) debounce?.cancel();
+        if (val.trim().length <= 2) {
           return;
         }
         setState(() {

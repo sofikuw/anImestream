@@ -78,6 +78,9 @@ abstract class VideoController {
 
   // List<QualityStream> get qualities;
 
+  /// Audio tracks the player itself reports for the current media.
+  Future<List<AudioStream>> getAudioTracks();
+
   void setAudioTrack(AudioStream aud);
 
   void setQuality(QualityStream qs);

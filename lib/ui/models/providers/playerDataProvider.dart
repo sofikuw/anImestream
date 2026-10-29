@@ -91,7 +91,9 @@ class PlayerDataProvider extends ChangeNotifier {
       // Quality/audio discovery is optional. Do not keep the entire player
       // waiting when a stream host is slow or does not support range requests.
       final master = await parseMasterPlaylist(url, customHeader: headers).timeout(const Duration(seconds: 5));
-      _state = _state.copyWith(qualities: master.qualityStreams, audioTracks: master.audioStreams);
+      // Audio tracks come from the player, not the playlist: HLS audio
+      // renditions are not what the decoder actually exposes.
+      _state = _state.copyWith(qualities: master.qualityStreams);
     } catch (e) {
       // just a backup, the code shouldnt reach here, but my luck... brooo....
       _state = _state.copyWith(

@@ -1,5 +1,6 @@
 import 'package:animestream/core/app/logging.dart';
 import 'package:animestream/core/app/values.dart';
+import 'package:animestream/core/database/anilist/rateLimiter.dart';
 import 'package:animestream/core/network/network.dart';
 import 'package:animestream/core/metadata/metadataFallback.dart';
 import 'package:animestream/core/metadata/metadataTypes.dart';
@@ -62,7 +63,7 @@ class Anilist extends Database {
     final data = await fetchQuery(
       gquery,
       RequestType.media,
-      cacheDuration: const Duration(minutes: 1),
+      cacheDuration: const Duration(minutes: 30),
     );
 
     List<AnilistSearchResult> searchResults = [];
@@ -298,7 +299,8 @@ class Anilist extends Database {
   }
 
   Future<List<RecentlyUpdatedResult>> _recentlyUpdatedFromAniList() async {
-    final timeMs = (new DateTime.now().millisecondsSinceEpoch ~/ 1000) - 10000;
+    final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final timeMs = (nowSec ~/ 900) * 900; // 900s = 15 minute window
     final query = '''{
         Page(perPage: 25) {
     airingSchedules (airingAt_greater: 0, airingAt_lesser: $timeMs, sort: TIME_DESC) {
@@ -327,6 +329,7 @@ class Anilist extends Database {
     final res = await fetchQuery(
       query,
       RequestType.recentlyUpdatedAnime,
+      cacheDuration: const Duration(minutes: 20),
     );
     final List<dynamic> recentlyUpdatedAnimes = res;
 
@@ -417,6 +420,7 @@ class Anilist extends Database {
     RequestType? type, {
     String? token,
     Duration? cacheDuration = Duration.zero,
+    int maxRetries = 2,
   }) async {
     final headers = {
       if (token != null) 'Authorization': 'Bearer $token',
@@ -425,12 +429,42 @@ class Anilist extends Database {
       'Referer': "https://anilist.co/",
     };
 
-    final res = await post(
-      "https://graphql.anilist.co",
-      headers: headers,
-      body: {'query': query},
-      cacheDuration: cacheDuration,
-    );
+    int attempt = 0;
+    HttpResponse res;
+
+    while (true) {
+      attempt++;
+
+      await AnilistRateLimiter.instance.waitUntilSlot();
+
+      res = await post(
+        "https://graphql.anilist.co",
+        headers: headers,
+        body: {'query': query},
+        cacheDuration: cacheDuration,
+      );
+
+      if (!res.cached) {
+        AnilistRateLimiter.instance.updateFromHeaders(res.headers);
+        Logs.app.log("[ANILIST] Rate Limit Remaining: ${res.headers['x-ratelimit-remaining']}");
+      }
+
+      // Handle an actual rate limit response rather than a predicted one.
+      if (res.statusCode == 429) {
+        final cd = AnilistRateLimiter.instance.handleRateLimitExceeded(res.headers);
+        if (attempt <= maxRetries) {
+          Logs.app.log("[ANILIST] Retrying query (attempt $attempt of $maxRetries)...");
+          continue;
+        } else {
+          throw AnilistApiException(
+            "AniList rate limit exceeded (429). Try again in ${cd.inSeconds} seconds.",
+            statusCode: 429,
+          );
+        }
+      }
+
+      break;
+    }
 
     final json = res.json;
     Map<String, dynamic>? data;

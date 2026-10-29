@@ -1,9 +1,11 @@
 import 'dart:io';
 
+import 'package:animestream/core/app/logging.dart';
 import 'package:animestream/core/commons/extractQuality.dart';
 import 'package:animestream/ui/models/playerControllers/videoController.dart';
-import 'package:video_player/video_player.dart';
 import 'package:flutter/material.dart';
+import 'package:fvp/fvp.dart';
+import 'package:video_player/video_player.dart';
 
 class FvpWrapper implements VideoController {
   VideoPlayerController controller = VideoPlayerController.networkUrl(Uri.parse(""));
@@ -97,8 +99,39 @@ class FvpWrapper implements VideoController {
   }
 
   @override
+  Future<List<AudioStream>> getAudioTracks() async {
+    try {
+      final mediaInfo = controller.getMediaInfo();
+      final audioTracks = mediaInfo?.audio;
+      if (audioTracks == null || audioTracks.isEmpty) return [];
+      return audioTracks.map((info) {
+        final lang = info.metadata['language'] ?? info.metadata['LANGUAGE'] ?? 'und';
+        final title =
+            info.metadata['title'] ?? info.metadata['TITLE'] ?? info.metadata['comment'] ?? info.metadata['COMMENT'] ??
+                "Track ${info.index}";
+        return AudioStream(
+          groupId: info.index.toString(),
+          name: title,
+          url: "${controller.dataSource}#track_${info.index}",
+          language: lang,
+          channels: info.codec.channels.toString(),
+        );
+      }).toList();
+    } catch (e) {
+      Logs.player.log("Failed to get audio tracks in FvpWrapper: $e");
+      return [];
+    }
+  }
+
+  @override
   void setAudioTrack(AudioStream aud) async {
-    return await controller.selectAudioTrack(aud.groupId);
+    final idx = int.tryParse(aud.groupId);
+    if (idx != null) {
+      controller.setAudioTracks([idx]);
+    } else {
+      Logs.player.log(
+          "Failed to set audio track in FvpWrapper: No index found for track '${aud.name}' (${aud.language})");
+    }
   }
 
   @override
@@ -113,7 +146,9 @@ class FvpWrapper implements VideoController {
 
   @override
   void setQuality(QualityStream qs) async {
-    await initiateVideo(qs.url, headers: controller.httpHeaders, offline: false);
+    // The player owns track selection; swapping the source here would restart
+    // the stream and drop the audio track the user picked.
+    Logs.player.log("FvpWrapper.setQuality('${qs.quality}') left to the player.");
   }
 
   @override

@@ -10,6 +10,22 @@ than pretending to cover the fork's earlier life. That history is in the git log
 ## [Unreleased]
 
 ### Added
+- **AniList rate-limit handling and wider request cache.** GraphQL queries now
+  go through a shared rate limiter that reads `x-ratelimit-remaining` /
+  `x-ratelimit-reset`, waits for the next slot before spending it, retries a
+  429 twice, and then reports the remaining cooldown. Search results are cached
+  for 30 minutes, the recently-updated feed for 20 minutes against a 15-minute
+  window, list statistics for 4 hours and the signed-in `Viewer` query for 12
+  hours, so a cold start no longer burns the whole quota. HTTP responses now
+  keep every response header (lower-cased) and report whether they came from
+  the cache.
+- **Native audio tracks from the player.** The player now asks the backend
+  (better_player, fvp or MDK) which audio tracks the decoder actually exposes
+  instead of trusting the HLS playlist's renditions, keeps the previously
+  chosen language when switching episodes, and prefers an English track for
+  dub streams when "prefer dubs" is on. HLS `#EXT-X-MEDIA` attributes are
+  parsed with a proper `KEY=value` regex so URIs containing commas no longer
+  break the audio list.
 - **Default manga provider.** The app now seeds the
   `anImestream-extensions` repository once so `weebcentral` and `mangapill`
   are available on a fresh install, remembers the last manga provider you used,

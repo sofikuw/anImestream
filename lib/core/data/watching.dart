@@ -93,7 +93,7 @@ Future<List<UserAnimeListItem>> getWatchedList({String? userName}) async {
   final loggedIn = await AniListLogin().isAnilistLoggedIn();
   if (loggedIn) {
     if (userName == null) throw Exception("ERR_USERNAME_IS_NULL");
-    List<UserAnimeList> watchedList = await AnilistQueries().getUserAnimeList(userName, status: MediaStatus.CURRENT);
+    List<UserAnimeList> watchedList = await AnilistQueries().getUserAnimeList(userName, status: [MediaStatus.CURRENT]);
     if (watchedList.isNotEmpty) {
       // reversing it to get the last updated item first :)
       recentlyWatched.addAll(watchedList[0].list.reversed);
@@ -127,7 +127,7 @@ Future<List<UserAnimeListItem>> getWatchedList({String? userName}) async {
 Future<int> getAnimeWatchProgress(int id, MediaStatus? status) async {
   if (await AniListLogin().isAnilistLoggedIn() && status != null) {
     if (storedUserData == null) throw Exception("ERR_NO_USERDATA");
-    final list = await AnilistQueries().getUserAnimeList(storedUserData!.name, status: status);
+    final list = await AnilistQueries().getUserAnimeList(storedUserData!.name, status: [status]);
     if (list.isEmpty) {
       throw Exception("ERR_${status.name.toUpperCase()}_LIST_IS_EMPTY");
     } else {

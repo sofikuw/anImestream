@@ -194,6 +194,14 @@ Future<bool> isM3u8Playlist(String url,
   }
 }
 
+Map<String, String> _parseAttributes(String line) {
+  final attrs = <String, String>{};
+  for (final m in RegExp(r'([A-Z0-9\-]+)=(".*?"|[^,]*)').allMatches(line)) {
+    attrs[m.group(1)!] = m.group(2)!.replaceAll('"', '');
+  }
+  return attrs;
+}
+
 Future<ParsedHlsMaster> parseMasterPlaylist(String streamUrl,
     {Map<String, String>? customHeader = null}) async {
   List<AudioStream> audioStreams = [];
@@ -222,35 +230,17 @@ Future<ParsedHlsMaster> parseMasterPlaylist(String streamUrl,
       // if (line.startsWith('#EXTM3U') || line.startsWith('#EXT-X-I-FRAME') || line.startsWith("#EXT-X-MEDIA") || line.startsWith("#EXT-X-VERSION"))
       if (line.startsWith("#EXT-X-MEDIA:TYPE=AUDIO")) {
         final asb = AudioStreamBuilder();
-        final items = line
-            .split(",")
-            .sublist(1); // this will remove the "#EXT-X-MEDIA:TYPE=AUDIO" part
-        for (final it in items) {
-          final kvPair = it.split("=");
-          if (kvPair.length < 2) {
-            print(
-                "Possible malformed playlist. Skipping the element '$kvPair'.");
-            continue;
-          }
+        // Attribute values can contain commas (URI especially), so parse the
+        // key/value pairs instead of splitting on every comma.
+        final attrs = _parseAttributes(line);
 
-          // in hopes that the playlist will contain everything we neeed!
-          switch (kvPair[0]) {
-            case "GROUP-ID":
-              asb.addGroupId(kvPair[1].replaceAll('"', ''));
-            case "LANGUAGE":
-              asb.addLanguage(kvPair[1].replaceAll('"', ''));
-            case "CHANNELS":
-              asb.addChannels(kvPair[1].replaceAll('"', ''));
-            case "NAME":
-              asb.addName(kvPair[1].replaceAll('"', ''));
-            case "URI":
-              {
-                final linkPart = kvPair[1].replaceAll('"', '');
-                asb.addUrl(linkPart.startsWith('http')
-                    ? linkPart
-                    : "${_makeBaseLink(streamUrl)}/$linkPart");
-              }
-          }
+        if (attrs.containsKey("GROUP-ID")) asb.addGroupId(attrs["GROUP-ID"]!);
+        if (attrs.containsKey("LANGUAGE")) asb.addLanguage(attrs["LANGUAGE"]!);
+        if (attrs.containsKey("CHANNELS")) asb.addChannels(attrs["CHANNELS"]!);
+        if (attrs.containsKey("NAME")) asb.addName(attrs["NAME"]!);
+        if (attrs.containsKey("URI")) {
+          final linkPart = attrs["URI"]!;
+          asb.addUrl(linkPart.startsWith('http') ? linkPart : "${_makeBaseLink(streamUrl)}/$linkPart");
         }
 
         audioStreams.add(asb.build());

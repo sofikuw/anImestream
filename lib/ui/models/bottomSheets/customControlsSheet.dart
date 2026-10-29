@@ -88,6 +88,18 @@ class CustomControls_BottomSheetState extends State<CustomControlsBottomSheet> {
       // start the stream with the desired quality
       await pp.playVideo(dp.state.currentStream.url,
           currentStream: dp.state.currentStream, preserveProgress: index == dp.state.currentEpIndex);
+
+      // Re-read the audio tracks from the new controller, keeping the language
+      // the user already had when it is still offered.
+      final audioTracks = await pp.controller.getAudioTracks();
+      dp.updateAudioTracks(audioTracks);
+      if (audioTracks.isNotEmpty) {
+        final prevAudioTrack = dp.state.currentAudioTrack;
+        final preferredAudioTrack =
+            audioTracks.firstWhere((e) => e.language == prevAudioTrack.language, orElse: () => audioTracks.first);
+        dp.updateCurrentAudioTrack(preferredAudioTrack);
+        pp.controller.setAudioTrack(preferredAudioTrack);
+      }
       await pp.setQuality(q);
 
       dp.getSkipTimesForCurrentEpisode(videoDuration: (pp.controller.duration ?? 0).toDouble());
