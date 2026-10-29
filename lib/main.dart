@@ -279,6 +279,10 @@ class _AnimeStreamState extends State<AnimeStream> {
       final chapter = MangaChapter(id: chapterId, title: chapterTitle);
       final provider = await JavaScriptMangaProvider.firstInstalled();
       if (!mounted) return;
+      if (provider == null) {
+        Logs.app.log('No manga provider installed to open chapter $chapterId');
+        return;
+      }
       AnimeStream.navigatorKey.currentState?.push(
         MaterialPageRoute(
           builder: (context) => MangaReaderPage(
