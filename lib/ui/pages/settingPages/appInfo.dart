@@ -247,58 +247,6 @@ class _AppInfoSettingState extends State<AppInfoSetting> {
   Widget _footer() {
     return Column(
       children: [
-        Center(
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 30.0),
-            child: InkWell(
-              onTap: () {
-                launchUrl(
-                  Uri.parse(
-                    'https://www.buymeacoffee.com/frostnova',
-                  ),
-                 mode: LaunchMode.externalApplication, 
-                );
-              },
-              borderRadius: BorderRadius.circular(15),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFDD00),
-                  borderRadius: BorderRadius.circular(15),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withAlpha(25),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CachedNetworkImage(
-                      imageUrl: 'https://cdn.buymeacoffee.com/assets/logos/icon-black.png',
-                      height: 24,
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Buy me a coffee',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontFamily: "Poppins",
-                        // fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
         Text(
           "Made with ❤️ & Flutter",
           style: TextStyle(

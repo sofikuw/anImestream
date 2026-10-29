@@ -261,6 +261,7 @@ class AnilistManga implements MangaMetadataSource {
                   type
                   title { english romaji native }
                   coverImage { large }
+                  averageScore
                 }
               }
             }
@@ -323,6 +324,8 @@ class AnilistManga implements MangaMetadataSource {
         final node = edge['node'];
         if (node is! Map) continue;
         final cover = node['coverImage'];
+        final score = node['averageScore'];
+        final double? rating = score is int ? score / 10 : null;
         relations.add(
           MangaRelation(
             id: node['id'].toString(),
@@ -330,6 +333,7 @@ class AnilistManga implements MangaMetadataSource {
             cover: cover is Map ? cover['large']?.toString() : null,
             type: node['type']?.toString(),
             relationType: edge['relationType']?.toString(),
+            rating: rating,
           ),
         );
       }

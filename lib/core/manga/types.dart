@@ -87,6 +87,7 @@ class MangaRelation {
   final String? cover;
   final String? type;
   final String? relationType;
+  final double? rating;
 
   MangaRelation({
     required this.id,
@@ -94,6 +95,7 @@ class MangaRelation {
     this.cover,
     this.type,
     this.relationType,
+    this.rating,
   });
 }
 

@@ -303,6 +303,7 @@ class _DownloadsPageState extends State<DownloadsPage> with TickerProviderStateM
   }
 
   Widget _downloadedItem(DownloadHistoryItem item) {
+    final isManga = item.filePath != null && File('${item.filePath}/manifest.json').existsSync();
     return Container(
       decoration: BoxDecoration(color: appTheme.backgroundSubColor, borderRadius: BorderRadius.circular(12)),
       padding: EdgeInsets.symmetric(vertical: 8, horizontal: 8),
@@ -313,7 +314,7 @@ class _DownloadsPageState extends State<DownloadsPage> with TickerProviderStateM
             flex: 1,
             child: Container(
               child: Icon(
-                Icons.play_arrow_rounded,
+                isManga ? Icons.menu_book_rounded : Icons.play_arrow_rounded,
                 size: 35,
               ),
               padding: EdgeInsets.all(16),

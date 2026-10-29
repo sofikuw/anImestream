@@ -1547,7 +1547,7 @@ class _InfoMobileState extends State<InfoMobile> {
         Container(
           margin: EdgeInsets.only(top: MediaQuery.of(context).padding.top),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisAlignment: MainAxisAlignment.start,
             children: [
               IconButton(
                 onPressed: () {
@@ -1556,22 +1556,6 @@ class _InfoMobileState extends State<InfoMobile> {
                 iconSize: 27,
                 icon: Icon(
                   Icons.arrow_back_rounded,
-                  color: Colors.white,
-                ),
-                style: IconButton.styleFrom(backgroundColor: Color.fromARGB(69, 0, 0, 0)),
-              ),
-              IconButton(
-                onPressed: () {
-                  showModalBottomSheet(
-                      context: context,
-                      useSafeArea: true,
-                      builder: (context) {
-                        return Commentsection(mediaId: provider.id, userId: storedUserData?.id);
-                      });
-                },
-                iconSize: 27,
-                icon: Icon(
-                  Icons.comment_rounded,
                   color: Colors.white,
                 ),
                 style: IconButton.styleFrom(backgroundColor: Color.fromARGB(69, 0, 0, 0)),

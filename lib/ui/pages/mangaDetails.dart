@@ -12,6 +12,7 @@ import 'package:animestream/ui/models/sources.dart';
 import 'package:animestream/ui/models/widgets/cards.dart';
 import 'package:animestream/ui/models/widgets/loader.dart';
 import 'package:animestream/ui/pages/mangaReader.dart';
+import 'package:animestream/ui/pages/info.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:animestream/core/data/preferences.dart';
@@ -991,16 +992,12 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
             style: TextStyle(
               fontFamily: "NunitoSans",
               fontSize: 18,
-              color: const Color.fromARGB(255, 255, 255, 255),
+              color: Color.fromARGB(255, 255, 255, 255),
             ),
           ),
         ),
       );
     }
-    // `_installed` is loaded from the provider manager during `load`, so by the
-    // time the picker renders it holds the same manifest objects
-    // `getSourceDropdownList` hands back.
-    final installed = _installed;
     return SizedBox(
       height: 260,
       child: ListView.builder(
@@ -1009,14 +1006,28 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
         itemCount: relations.length,
         itemBuilder: (context, index) {
           final relation = relations[index];
+          final isAnime = relation.type?.toLowerCase() == "anime";
           return Padding(
             padding: const EdgeInsets.all(8.0),
             child: Cards.animeCard(
               int.tryParse(relation.id) ?? 0,
               relation.title,
               relation.cover ?? '',
-              shouldNavigate: false,
+              rating: relation.rating,
+              isAnime: isAnime,
+              shouldNavigate: isAnime,
               subText: relation.relationType,
+              onTap: isAnime
+                  ? () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => Info(id: int.tryParse(relation.id) ?? 0),
+                        ),
+                      )
+                  : () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => MangaDetailsPage(id: relation.id),
+                        ),
+                      ),
             ),
           );
         },
