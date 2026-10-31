@@ -30,13 +30,11 @@ import 'package:flutter/services.dart';
 ///
 /// Either way the chapter is steered from the bar along the bottom: a scrubber
 /// over its pages, the position in the chapter, and an arrow to each neighbouring
-/// chapter (see [_bottomBar] and [_chapterButton]).
+/// chapter (see [_ReaderProgressBar] and [_chapterButton]).
 ///
-/// The page is steered from a Material slider plus two chapter arrows, and the
-/// settings live in a Material 3 sheet. Reading starts immersive on a phone;
-/// the button in the app bar (or the floating one while immersive) toggles the
-/// chrome. Everything that is *not* configurable stays deliberately plain: no
-/// preloading, no page-turn animation.
+/// Everything that is *not* configurable stays deliberately plain: no
+/// preloading, no page-turn animation. A reader that gets the pages right is
+/// worth more than one that gets the gestures right.
 class MangaReaderPage extends StatefulWidget {
   final MangaDetails manga;
   final MangaChapter chapter;
@@ -68,7 +66,7 @@ class MangaReaderPage extends StatefulWidget {
 ///
 /// One value carrying both readings of "where", because both are wanted in the
 /// same rebuild: [page] is the nearest page index, which is what a counter
-/// prints and what the slider sits over, and [fraction] is how far through the
+/// prints and what the dots highlight, and [fraction] is how far through the
 /// chapter that is, which is the only honest readout for a continuous strip.
 /// A strip has no discrete current page, and pretending it does is how a counter
 /// ends up disagreeing with the screen.
@@ -90,21 +88,21 @@ class _MangaReaderPageState extends State<MangaReaderPage> {
   final PageController _pageController = PageController();
   final ScrollController _scrollController = ScrollController();
 
-  /// Only the bottom bar listens to this. Scrolling a chapter must not rebuild
-  /// the strip the user is scrolling: `setState` here would rebuild every visible
-  /// page once per frame, and the images in them are the one thing on this screen
-  /// expensive enough for that to show.
-  final ValueNotifier<_ReaderProgress> _progress =
-      ValueNotifier<_ReaderProgress>(const _ReaderProgress(0, 0));
-
-  /// Whether the system bars are hidden. Reading starts immersive on a phone
-  /// and the dedicated button in the app bar / the floating one toggles it.
+  /// Whether the chrome is hidden. Tapping the page toggles it, which is the
+  /// whole control surface for immersive reading.
   bool _fullscreen = false;
 
   /// Immersive mode is an Android/iOS concept. Desktops keep their chrome so
   /// the window controls stay reachable.
   bool get _immersiveSupported =>
       !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+
+  /// Only the bottom bar listens to this. Scrolling a chapter must not rebuild
+  /// the strip the user is scrolling: `setState` here would rebuild every visible
+  /// page once per frame, and the images in them are the one thing on this screen
+  /// expensive enough for that to show.
+  final ValueNotifier<_ReaderProgress> _progress =
+      ValueNotifier<_ReaderProgress>(const _ReaderProgress(0, 0));
 
   // Read straight from the global rather than cached in a field: the settings
   // sheet writes through UserPreferences.saveUserPreferences, which replaces
@@ -135,6 +133,7 @@ class _MangaReaderPageState extends State<MangaReaderPage> {
     super.initState();
     _chapter = widget.chapter;
     _scrollController.addListener(_onScroll);
+    // Start immersive: the page is the point, and a tap brings the chrome back.
     if (_immersiveSupported) {
       _fullscreen = true;
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
@@ -154,7 +153,7 @@ class _MangaReaderPageState extends State<MangaReaderPage> {
     super.dispose();
   }
 
-  /// Shows or hides the system bars and this page's own app bar / bottom bar.
+  /// Hides or restores the system bars and this page's own bars.
   Future<void> _setFullscreen(bool value) async {
     if (_fullscreen == value) return;
     setState(() => _fullscreen = value);
@@ -218,8 +217,7 @@ class _MangaReaderPageState extends State<MangaReaderPage> {
   void _onScroll() {
     final position = _scrollController.position;
     final max = position.maxScrollExtent;
-    final fraction =
-        max <= 0 ? 0.0 : (position.pixels / max).clamp(0.0, 1.0).toDouble();
+    final fraction = max <= 0 ? 0.0 : (position.pixels / max).clamp(0.0, 1.0);
     _progress.value = _ReaderProgress(_pageForFraction(fraction), fraction);
   }
 
@@ -227,8 +225,7 @@ class _MangaReaderPageState extends State<MangaReaderPage> {
     if (_pages.isEmpty) return 0;
     return (fraction * (_pages.length - 1))
         .round()
-        .clamp(0, _pages.length - 1)
-        .toInt();
+        .clamp(0, _pages.length - 1);
   }
 
   /// Scrubbing the bar: go to a page.
@@ -239,7 +236,7 @@ class _MangaReaderPageState extends State<MangaReaderPage> {
   void _jumpToPage(int index) {
     if (_pages.isEmpty) return;
     final last = _pages.length - 1;
-    final target = index.clamp(0, last).toInt();
+    final target = index.clamp(0, last);
 
     if (_paged) {
       if (_pageController.hasClients) _pageController.jumpToPage(target);
@@ -301,17 +298,12 @@ class _MangaReaderPageState extends State<MangaReaderPage> {
 
     return Scaffold(
       backgroundColor: appTheme.backgroundColor,
-      // Immersive reading hides the chrome; the floating button below brings it
-      // back without leaving the page. Everything else stays a normal Material
-      // app bar so back navigation and settings are where they are everywhere.
       appBar: _fullscreen
           ? null
           : AppBar(
               backgroundColor: appTheme.backgroundColor,
-              surfaceTintColor: Colors.transparent,
               elevation: 0,
               iconTheme: IconThemeData(color: appTheme.textMainColor),
-              titleSpacing: 0,
               title: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -322,8 +314,6 @@ class _MangaReaderPageState extends State<MangaReaderPage> {
                       fontSize: 17,
                       color: appTheme.textMainColor,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
                   Text(
                     widget.manga.title,
@@ -339,16 +329,6 @@ class _MangaReaderPageState extends State<MangaReaderPage> {
               ),
               actions: [
                 IconButton(
-                  tooltip: "Fullscreen",
-                  onPressed: _immersiveSupported ? () => _setFullscreen(true) : null,
-                  icon: Icon(
-                    Icons.fullscreen_rounded,
-                    color: _immersiveSupported
-                        ? appTheme.textMainColor
-                        : appTheme.textSubColor.withValues(alpha: 0.4),
-                  ),
-                ),
-                IconButton(
                   tooltip: "Reader settings",
                   onPressed: _openReaderSettings,
                   icon: Icon(
@@ -361,35 +341,22 @@ class _MangaReaderPageState extends State<MangaReaderPage> {
       body: Column(
         children: [
           Expanded(
-            child: Stack(
-              children: [
-                Positioned.fill(child: body),
-                if (_fullscreen)
-                  Positioned(top: 8, right: 8, child: _immersiveToggle()),
-              ],
+            // One tap anywhere on the page toggles the chrome -- in and out of
+            // fullscreen. Drags still scroll/swipe, and a double tap is claimed
+            // by the zoom viewer inside before it reaches this detector.
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => _setFullscreen(!_fullscreen),
+              child: body,
             ),
           ),
           // Not while loading or failed: there is nothing to scrub yet, and a bar
           // over an error message is two ways to do nothing.
-          if (!_fullscreen && _state == LoadingState.loaded && _pages.isNotEmpty) _bottomBar(),
+          if (!_fullscreen &&
+              _state == LoadingState.loaded &&
+              _pages.isNotEmpty)
+            _bottomBar(),
         ],
-      ),
-    );
-  }
-
-  /// The only control visible while reading immersive: tapping it restores the
-  /// app bar and the bottom bar.
-  Widget _immersiveToggle() {
-    return SafeArea(
-      child: Material(
-        color: Colors.black.withValues(alpha: 0.45),
-        shape: const CircleBorder(),
-        clipBehavior: Clip.antiAlias,
-        child: IconButton(
-          tooltip: "Show controls",
-          onPressed: () => _setFullscreen(false),
-          icon: const Icon(Icons.fullscreen_exit_rounded, color: Colors.white),
-        ),
       ),
     );
   }
@@ -450,8 +417,8 @@ class _MangaReaderPageState extends State<MangaReaderPage> {
       onPageChanged: (index) {
         final last = _pages.length - 1;
         if (index >= _pages.length) {
-          // The trailing footer, not a page: keep the readout and the slider on
-          // the last real page rather than a page that does not exist.
+          // The trailing footer, not a page: keep the readout and the dots on the
+          // last real page rather than a page that does not exist.
           _progress.value = _ReaderProgress(last, 1);
           return;
         }
@@ -471,8 +438,8 @@ class _MangaReaderPageState extends State<MangaReaderPage> {
         return _zoom
             ? _ZoomablePage(
                 // A key per page gives every page its own transformation
-                // controller, so a zoomed-in page never leaks its scale onto
-                // the next one.
+                // controller, so a zoomed page never leaks its scale onto the
+                // next one.
                 key: ValueKey<int>(page.index),
                 child: Center(child: image),
               )
@@ -481,90 +448,59 @@ class _MangaReaderPageState extends State<MangaReaderPage> {
     );
   }
 
-  /// The bar the chapter is steered from: a Material slider over its pages,
-  /// where you are in the chapter, and an arrow to each neighbouring chapter.
-  ///
-  /// A slider rather than the custom dot track this reader used to paint: the
-  /// reader is meant to feel like the rest of the app (and like Kotatsu-style
-  /// readers), and a Material slider already handles dragging, keyboard input
-  /// and accessibility.
+  /// The bar the chapter is steered from: a scrubber over its pages, where you
+  /// are in the chapter, and an arrow to each neighbouring chapter.
   Widget _bottomBar() {
-    return Material(
+    return Container(
       color: appTheme.backgroundSubColor,
-      elevation: 8,
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          child: Row(
-            children: [
-              _chapterButton(
-                icon: Icons.skip_previous_rounded,
-                chapter: _previousChapter,
-                tooltip: "Previous chapter",
-              ),
-              Expanded(
-                child: ValueListenableBuilder<_ReaderProgress>(
-                  valueListenable: _progress,
-                  builder: (context, value, child) {
-                    final last = _pages.length - 1;
-                    final fraction =
-                        value.fraction.clamp(0.0, 1.0).toDouble();
-                    return Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SliderTheme(
-                          data: SliderTheme.of(context).copyWith(
-                            trackHeight: 3,
-                            activeTrackColor: appTheme.accentColor,
-                            inactiveTrackColor:
-                                appTheme.textSubColor.withValues(alpha: 0.25),
-                            thumbColor: appTheme.accentColor,
-                            overlayColor:
-                                appTheme.accentColor.withValues(alpha: 0.12),
-                            thumbShape: const RoundSliderThumbShape(
-                              enabledThumbRadius: 7,
-                            ),
-                          ),
-                          child: Slider(
-                            value: fraction,
-                            // In a strip the fraction is continuous, so the
-                            // slider is the honest readout there; in paged mode
-                            // the same value is derived from the page index.
-                            onChanged: last <= 0
-                                ? null
-                                : (scaled) => _jumpToPage(
-                                      (scaled * last).round(),
-                                    ),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 6),
-                          child: Text(
-                            _paged
-                                ? "${value.page + 1} / ${_pages.length}"
-                                : "${(value.fraction * 100).round()}%  ·  "
-                                    "${_pages.length} pages",
-                            style: TextStyle(
-                              fontFamily: "NotoSans",
-                              fontSize: 12,
-                              color: appTheme.textSubColor,
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ),
-              _chapterButton(
-                icon: Icons.skip_next_rounded,
-                chapter: _nextChapter,
-                tooltip: "Next chapter",
-              ),
-            ],
+      padding: EdgeInsets.only(
+        left: 8,
+        right: 8,
+        top: 6,
+        bottom: MediaQuery.of(context).padding.bottom + 6,
+      ),
+      child: Row(
+        children: [
+          _chapterButton(
+            icon: Icons.skip_previous_rounded,
+            chapter: _previousChapter,
+            tooltip: "Previous chapter",
           ),
-        ),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _ReaderProgressBar(
+                  pageCount: _pages.length,
+                  progress: _progress,
+                  onChanged: _jumpToPage,
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: ValueListenableBuilder<_ReaderProgress>(
+                    valueListenable: _progress,
+                    builder: (context, value, child) => Text(
+                      _paged
+                          ? "${value.page + 1} / ${_pages.length}"
+                          : "${(value.fraction * 100).round()}%  ·  "
+                              "${_pages.length} pages",
+                      style: TextStyle(
+                        fontFamily: "NotoSans",
+                        fontSize: 12,
+                        color: appTheme.textSubColor,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _chapterButton(
+            icon: Icons.skip_next_rounded,
+            chapter: _nextChapter,
+            tooltip: "Next chapter",
+          ),
+        ],
       ),
     );
   }
@@ -588,19 +524,10 @@ class _MangaReaderPageState extends State<MangaReaderPage> {
   }
 
   Future<void> _openReaderSettings() async {
-    // Leave immersive mode for the sheet: a modal over hidden system bars puts
-    // the drag handle under the gesture bar on gesture-navigation phones.
-    await _setFullscreen(false);
-    if (!mounted) return;
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: appTheme.modalSheetBackgroundColor,
+      backgroundColor: appTheme.backgroundColor,
       showDragHandle: true,
-      useSafeArea: true,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
       builder: (sheetContext) {
         // The sheet has to repaint on its own, or a tap would only take effect
         // once it was closed and reopened.
@@ -613,13 +540,7 @@ class _MangaReaderPageState extends State<MangaReaderPage> {
     );
   }
 
-  /// Reader settings, built from Material controls.
-  ///
-  /// Layout and direction are mutually exclusive choices, so they are
-  /// [SegmentedButton]s rather than rows of tappable text; zoom is a boolean,
-  /// so it is a [SwitchListTile]. Options that do not apply to the current
-  /// layout stay visible but disabled, so the sheet does not reflow under the
-  /// user's finger when the layout changes.
+  /// A plain settings view: three choices, one per line.
   Widget _settingsSheet(VoidCallback refreshSheet) {
     final paged = _paged;
 
@@ -630,125 +551,71 @@ class _MangaReaderPageState extends State<MangaReaderPage> {
     }
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.only(left: 20, right: 20, bottom: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.tune_rounded, color: appTheme.accentColor),
-              const SizedBox(width: 10),
-              Text(
-                "Reader",
-                style: TextStyle(
-                  fontFamily: "Rubik",
-                  fontSize: 20,
-                  color: appTheme.textMainColor,
-                ),
-              ),
-            ],
-          ),
-          _groupLabel("Layout"),
-          SegmentedButton<String>(
-            showSelectedIcon: false,
-            style: _segmentedStyle(),
-            segments: const [
-              ButtonSegment<String>(
-                value: mangaReaderLayoutScroll,
-                icon: Icon(Icons.view_agenda_outlined),
-                label: Text("Scroll"),
-              ),
-              ButtonSegment<String>(
-                value: mangaReaderLayoutPaged,
-                icon: Icon(Icons.auto_stories_outlined),
-                label: Text("Pages"),
-              ),
-            ],
-            selected: {paged ? mangaReaderLayoutPaged : mangaReaderLayoutScroll},
-            onSelectionChanged: (selection) => apply(
-              UserPreferencesModal(mangaReaderLayout: selection.first),
-            ),
-          ),
-          _groupLabel("Reading direction"),
-          Opacity(
-            opacity: paged ? 1 : 0.4,
-            child: IgnorePointer(
-              ignoring: !paged,
-              child: SegmentedButton<String>(
-                showSelectedIcon: false,
-                style: _segmentedStyle(),
-                segments: const [
-                  ButtonSegment<String>(
-                    value: 'ltr',
-                    icon: Icon(Icons.format_textdirection_l_to_r),
-                    label: Text("Left to right"),
-                  ),
-                  ButtonSegment<String>(
-                    value: 'rtl',
-                    icon: Icon(Icons.format_textdirection_r_to_l),
-                    label: Text("Right to left"),
-                  ),
-                ],
-                selected: {_rightToLeft ? 'rtl' : 'ltr'},
-                onSelectionChanged: (selection) => apply(
-                  UserPreferencesModal(mangaReaderDirection: selection.first),
-                ),
-              ),
-            ),
-          ),
-          if (!paged) _hint("Applies to Pages."),
-          _groupLabel("Zoom"),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            activeThumbColor: appTheme.accentColor,
-            title: Text(
-              "Pinch to zoom",
+      child: Padding(
+        padding: const EdgeInsets.only(left: 20, right: 20, bottom: 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              "Reader",
               style: TextStyle(
-                fontFamily: "NotoSans",
-                fontSize: 15,
+                fontFamily: "Rubik",
+                fontSize: 20,
                 color: appTheme.textMainColor,
               ),
             ),
-            subtitle: Text(
-              paged
-                  ? "Double tap to zoom in, pinch to pan, double tap again to reset."
-                  : "Applies to Pages.",
-              style: TextStyle(
-                fontFamily: "NotoSans",
-                fontSize: 12,
-                color: appTheme.textSubColor,
+            _groupLabel("Layout"),
+            _option(
+              label: "Scroll",
+              hint: "Continuous vertical strip.",
+              selected: !paged,
+              enabled: true,
+              onTap: () => apply(
+                UserPreferencesModal(mangaReaderLayout: mangaReaderLayoutScroll),
               ),
             ),
-            value: _zoom,
-            onChanged: paged
-                ? (value) => apply(UserPreferencesModal(mangaReaderZoom: value))
-                : null,
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Material 3 segmented-control styling, keyed to the app's own palette so
-  /// the sheet matches the reader instead of the seed colour scheme.
-  ButtonStyle _segmentedStyle() {
-    return ButtonStyle(
-      backgroundColor: WidgetStateProperty.resolveWith(
-        (states) => states.contains(WidgetState.selected)
-            ? appTheme.accentColor
-            : Colors.transparent,
-      ),
-      foregroundColor: WidgetStateProperty.resolveWith(
-        (states) => states.contains(WidgetState.selected)
-            ? appTheme.onAccent
-            : appTheme.textMainColor,
-      ),
-      side: WidgetStatePropertyAll(
-        BorderSide(color: appTheme.textSubColor.withValues(alpha: 0.35)),
-      ),
-      shape: WidgetStatePropertyAll(
-        RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            _option(
+              label: "Pages",
+              hint: "One page at a time, swiped.",
+              selected: paged,
+              enabled: true,
+              onTap: () => apply(
+                UserPreferencesModal(mangaReaderLayout: mangaReaderLayoutPaged),
+              ),
+            ),
+            _groupLabel("Reading direction"),
+            _option(
+              label: "Left to right",
+              hint: paged ? null : "Applies to Pages.",
+              selected: !_rightToLeft,
+              enabled: paged,
+              onTap: () => apply(UserPreferencesModal(mangaReaderDirection: 'ltr')),
+            ),
+            _option(
+              label: "Right to left",
+              hint: paged ? null : "Applies to Pages.",
+              selected: _rightToLeft,
+              enabled: paged,
+              onTap: () => apply(UserPreferencesModal(mangaReaderDirection: 'rtl')),
+            ),
+            _groupLabel("Zoom"),
+            _option(
+              label: "Off",
+              hint: paged ? null : "Applies to Pages.",
+              selected: !_zoom,
+              enabled: paged,
+              onTap: () => apply(UserPreferencesModal(mangaReaderZoom: false)),
+            ),
+            _option(
+              label: "On",
+              hint: paged ? null : "Applies to Pages.",
+              selected: _zoom,
+              enabled: paged,
+              onTap: () => apply(UserPreferencesModal(mangaReaderZoom: true)),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -768,15 +635,55 @@ class _MangaReaderPageState extends State<MangaReaderPage> {
     );
   }
 
-  Widget _hint(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 6),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontFamily: "NotoSans",
-          fontSize: 12,
-          color: appTheme.textSubColor,
+  /// One selectable line. Disabled rather than hidden, so the sheet does not
+  /// reflow under the user's finger when the layout changes.
+  Widget _option({
+    required String label,
+    required String? hint,
+    required bool selected,
+    required bool enabled,
+    required VoidCallback onTap,
+  }) {
+    return Opacity(
+      opacity: enabled ? 1 : 0.4,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: enabled ? onTap : null,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontFamily: "NotoSans",
+                        fontSize: 15,
+                        color: appTheme.textMainColor,
+                      ),
+                    ),
+                    if (hint != null)
+                      Text(
+                        hint,
+                        style: TextStyle(
+                          fontFamily: "NotoSans",
+                          fontSize: 12,
+                          color: appTheme.textSubColor,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              if (selected)
+                Icon(
+                  Icons.check_rounded,
+                  color: appTheme.accentColor,
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -903,12 +810,193 @@ class _MangaReaderPageState extends State<MangaReaderPage> {
   }
 }
 
+/// The scrubber: a track with one dot per page, draggable and tappable.
+///
+/// A dot per page rather than a Material [Slider] because a slider's thumb is a
+/// single position, and this control's whole point is to show how many pages
+/// there are and which of them are behind you. Past [_maxDots] pages dots stop
+/// being readable -- at sixty pages on a phone they are a dotted line, not a
+/// count -- so they collapse into a plain progress track and the line below the
+/// bar carries the numbers instead.
+///
+/// Painted rather than composed from widgets: at up to [_maxDots] dots, a Row of
+/// containers would be sixty layout nodes rebuilt on every scroll frame, and a
+/// canvas is one.
+class _ReaderProgressBar extends StatelessWidget {
+  final int pageCount;
+  final ValueListenable<_ReaderProgress> progress;
+  final ValueChanged<int> onChanged;
+
+  const _ReaderProgressBar({
+    required this.pageCount,
+    required this.progress,
+    required this.onChanged,
+  });
+
+  /// Above this, one dot per page is denser than the eye can count.
+  static const int _maxDots = 24;
+
+  /// Horizontal room the end dots need so they are not clipped -- and so the
+  /// position under the finger maps to the dot under the finger.
+  static const double _edgeInset = 6;
+
+  /// Taller than the ink on purpose: a 6px dot is not a touch target, and a
+  /// scrubber you cannot reliably land on is worse than no scrubber.
+  static const double _height = 30;
+
+  @override
+  Widget build(BuildContext context) {
+    final count = pageCount < 1 ? 1 : pageCount;
+
+    return SizedBox(
+      height: _height,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth;
+          final usable = (width - _edgeInset * 2).clamp(1.0, width);
+
+          void report(Offset local) {
+            final t = ((local.dx - _edgeInset) / usable).clamp(0.0, 1.0);
+            onChanged((t * (count - 1)).round());
+          }
+
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTapDown: (details) => report(details.localPosition),
+            onHorizontalDragStart: (details) => report(details.localPosition),
+            onHorizontalDragUpdate: (details) => report(details.localPosition),
+            child: ValueListenableBuilder<_ReaderProgress>(
+              valueListenable: progress,
+              builder: (context, value, child) => CustomPaint(
+                size: Size(width, _height),
+                painter: _ReaderProgressPainter(
+                  pageCount: count,
+                  current: value.page.clamp(0, count - 1),
+                  fraction: value.fraction.clamp(0.0, 1.0),
+                  showDots: count <= _maxDots,
+                  edgeInset: _edgeInset,
+                  accent: appTheme.accentColor,
+                  track: appTheme.textSubColor.withValues(alpha: 0.25),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _ReaderProgressPainter extends CustomPainter {
+  final int pageCount;
+  final int current;
+  final double fraction;
+  final bool showDots;
+  final double edgeInset;
+  final Color accent;
+  final Color track;
+
+  const _ReaderProgressPainter({
+    required this.pageCount,
+    required this.current,
+    required this.fraction,
+    required this.showDots,
+    required this.edgeInset,
+    required this.accent,
+    required this.track,
+  });
+
+  static const double _trackHeight = 6;
+  static const double _dotRadius = 3.5;
+  static const double _currentDotRadius = 5;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final centerY = size.height / 2;
+    final usable = (size.width - edgeInset * 2).clamp(1.0, size.width);
+    final last = pageCount - 1;
+
+    if (!showDots) {
+      final rrect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(
+          edgeInset,
+          centerY - _trackHeight / 2,
+          usable,
+          _trackHeight,
+        ),
+        const Radius.circular(_trackHeight / 2),
+      );
+      canvas.drawRRect(rrect, Paint()..color = track);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(
+            edgeInset,
+            centerY - _trackHeight / 2,
+            usable * fraction,
+            _trackHeight,
+          ),
+          const Radius.circular(_trackHeight / 2),
+        ),
+        Paint()..color = accent,
+      );
+      return;
+    }
+
+    double dx(int index) =>
+        edgeInset + (last <= 0 ? usable / 2 : usable * index / last);
+
+    // The connecting line goes down first, so every dot sits on top of it: the
+    // part behind you in the accent colour, the part ahead of you in the track
+    // colour. That, plus the dot weights, is what makes the bar readable at a
+    // glance without a number.
+    if (last > 0) {
+      final line = Paint()
+        ..strokeWidth = 2.5
+        ..strokeCap = StrokeCap.round
+        ..style = PaintingStyle.stroke;
+      canvas.drawLine(
+        Offset(dx(0), centerY),
+        Offset(dx(current), centerY),
+        line..color = accent,
+      );
+      canvas.drawLine(
+        Offset(dx(current), centerY),
+        Offset(dx(last), centerY),
+        line..color = track,
+      );
+    }
+
+    for (var i = 0; i < pageCount; i++) {
+      final isCurrent = i == current;
+      canvas.drawCircle(
+        Offset(dx(i), centerY),
+        isCurrent ? _currentDotRadius : _dotRadius,
+        Paint()
+          ..color = isCurrent
+              ? accent
+              : (i < current ? accent.withValues(alpha: 0.5) : track),
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_ReaderProgressPainter old) =>
+      old.pageCount != pageCount ||
+      old.current != current ||
+      old.fraction != fraction ||
+      old.showDots != showDots ||
+      old.accent != accent ||
+      old.track != track;
+}
+
 /// A single page that can be pinched and double-tapped to zoom.
 ///
 /// Each page owns its [TransformationController], so moving to another page
 /// starts unzoomed instead of inheriting the previous page's matrix. At 1x the
 /// viewer lets horizontal drags through to the surrounding [PageView]; once
 /// zoomed in, the same drags pan the image, which is what a reader expects.
+/// Single taps are left to the reader's own detector so they can toggle the
+/// chrome from anywhere on the page.
 class _ZoomablePage extends StatefulWidget {
   final Widget child;
 
