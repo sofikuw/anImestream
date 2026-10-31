@@ -7,6 +7,31 @@ the release workflow creates.
 This file was created empty upstream, so the history below starts here rather
 than pretending to cover the fork's earlier life. That history is in the git log.
 
+## [Unreleased]
+
+### Added
+- **Built-in manga providers are switchable.** WeebCentral and MangaPill now
+  appear under *Built-in providers* next to the built-in anime sources. Turning
+  one off hides it from the reader, the source picker and the default-provider
+  list; turning it back on restores it. If the disabled provider was the saved
+  default (or the last used one), it is replaced with an available source
+  instead of being left dangling.
+- **Immersive manga reading.** The reader opens with the system bars and its
+  own app bar hidden on Android and iOS, with a floating button to bring the
+  chrome back (and an app-bar button to go fullscreen again). Desktop layouts
+  keep their window chrome.
+
+### Changed
+- **Material 3 manga reader controls.** The reader's settings sheet now uses
+  segmented buttons for layout and reading direction plus a switch for zoom
+  (options that do not apply stay visible but disabled), and the bottom bar is
+  a Material surface with a Material slider instead of the hand-painted dot
+  track.
+- **Zoom improvements.** Pinching now runs up to 5x with boundary margins,
+  double-tapping zooms in around the tapped point (double-tap again to reset),
+  and every page gets its own transformation so a zoomed page never leaks its
+  scale onto the next one.
+
 ## [0.3.0] - 2026-10-29
 
 ### Added
