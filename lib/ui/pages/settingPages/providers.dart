@@ -1,6 +1,9 @@
 import 'package:animestream/core/app/runtimeDatas.dart';
+import 'package:animestream/core/data/preferences.dart';
 import 'package:animestream/core/data/settings.dart';
 import 'package:animestream/core/data/types.dart';
+import 'package:animestream/core/manga/javascriptMangaProvider.dart';
+import 'package:animestream/core/manga/providers/inbuiltMangaProviders.dart';
 import 'package:animestream/core/database/database.dart';
 import 'package:animestream/ui/models/sources.dart';
 import 'package:animestream/ui/pages/settingPages/common.dart';
@@ -86,6 +89,28 @@ class _BuiltInProvidersPageState extends State<BuiltInProvidersPage> {
       );
     }
 
+    // The manga side keeps its selection in user preferences, so the same
+    // hidden-id list has to be re-applied there too.
+    final prefs = await UserPreferences.getUserPreferences();
+    final defaultManga = prefs.defaultMangaProviderId;
+    final lastManga = prefs.lastMangaProviderId;
+    final clearsDefault = defaultManga != null &&
+        defaultManga.isNotEmpty &&
+        _disabledProviders.contains(defaultManga);
+    final clearsLast = lastManga != null &&
+        lastManga.isNotEmpty &&
+        _disabledProviders.contains(lastManga);
+    if (clearsDefault || clearsLast) {
+      final availableManga = await JavaScriptMangaProvider.installedDetails();
+      await UserPreferences.saveUserPreferences(
+        UserPreferencesModal(
+          defaultMangaProviderId:
+              clearsDefault ? (availableManga.isEmpty ? '' : availableManga.first.identifier) : null,
+          lastMangaProviderId: clearsLast ? '' : null,
+        ),
+      );
+    }
+
     final database = currentUserSettings?.database ?? Databases.anilist;
     if (_disabledMetadata.contains('anilist')) {
       // AniList is also the wrapper that routes to the fallbacks. Keep it as
@@ -164,7 +189,7 @@ class _BuiltInProvidersPageState extends State<BuiltInProvidersPage> {
                   children: [
                     settingPagesTitleHeader(context, "Built-in providers"),
                     _note(
-                      "Removing a built-in provider hides it everywhere. "
+                      "Removing a built-in provider hides it everywhere, for anime and manga. "
                       "Installed extensions are managed from Manage Providers.",
                     ),
                     _sectionTitle("Streaming"),
@@ -183,6 +208,23 @@ class _BuiltInProvidersPageState extends State<BuiltInProvidersPage> {
                       _note(
                         "No built-in streaming provider is enabled. "
                         "Install an extension or re-enable one to play episodes.",
+                      ),
+                    _sectionTitle("Manga"),
+                    for (final provider in inbuiltMangaSources)
+                      _switch(
+                        title: provider.name,
+                        subtitle: provider.identifier,
+                        value: !_disabledProviders.contains(provider.identifier),
+                        onChanged: (value) =>
+                            _toggleProvider(provider.identifier, value),
+                      ),
+                    if (inbuiltMangaSources.every(
+                      (provider) =>
+                          _disabledProviders.contains(provider.identifier),
+                    ))
+                      _note(
+                        "No built-in manga provider is enabled. Install a manga "
+                        "extension or re-enable one to read chapters.",
                       ),
                     _sectionTitle("Metadata"),
                     for (final name in _metadataProviders)

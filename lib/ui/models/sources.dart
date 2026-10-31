@@ -216,8 +216,10 @@ List<DropdownMenuEntry> getSourceDropdownList({String contentType = 'anime'}) {
         .where((source) => source.contentTypes.contains(contentType)),
     if (contentType == 'manga')
       ...inbuiltMangaSources.where(
-        (inbuilt) => !SourceManager.instance.sources
-            .any((source) => source.identifier == inbuilt.identifier),
+        (inbuilt) =>
+            !(currentUserSettings?.disabledProviders ?? const <String>[]).contains(inbuilt.identifier) &&
+            !SourceManager.instance.sources
+                .any((source) => source.identifier == inbuilt.identifier),
       ),
   ];
   int count = 0;

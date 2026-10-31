@@ -394,7 +394,7 @@ class _GeneralSettingState extends State<GeneralSetting> {
               Padding(
                 padding: const EdgeInsets.only(bottom: 20),
                 child: Text(
-                  "No manga providers installed. Add a repository or extension first.",
+                  "No manga provider is available. Re-enable one under Built-in providers or install an extension.",
                   style: textStyle(),
                 ),
               )

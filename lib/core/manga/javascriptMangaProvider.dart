@@ -1,6 +1,7 @@
 import 'package:animestream/core/anime/providers/providerDetails.dart';
 import 'package:animestream/core/anime/providers/providerManager.dart';
 import 'package:animestream/core/data/preferences.dart';
+import 'package:animestream/core/data/settings.dart';
 import 'package:animestream/core/extensions/javascript/javascript_provider_http.dart';
 import 'package:animestream/core/extensions/javascript/javascript_runtime.dart';
 import 'package:animestream/core/extensions/mangayomi/mangayomi_providers.dart';
@@ -58,17 +59,24 @@ class JavaScriptMangaProvider implements MangaChapterProvider {
   static Future<List<ProviderDetails>> installedDetails({
     ProviderManager? providerManager,
   }) async {
+    // The inbuilt sources are switchable in "Built-in providers", which stores
+    // the hidden identifiers under the same key the anime ones use.
+    final disabled = await _disabledBuiltinSourceIds();
+    final inbuilt = inbuiltMangaSources
+        .where((source) => !disabled.contains(source.identifier))
+        .toList(growable: false);
+
     final List<ProviderDetails> installed;
     try {
       installed = await (providerManager ?? ProviderManager()).getSavedProviders();
     } catch (_) {
       // A storage failure must not take the caller down with it, and the
       // inbuilt sources need no storage to be usable.
-      return inbuiltMangaSources;
+      return inbuilt;
     }
-    final identifiers = inbuiltMangaSources.map((source) => source.identifier).toSet();
+    final identifiers = inbuilt.map((source) => source.identifier).toSet();
     return <ProviderDetails>[
-      ...inbuiltMangaSources,
+      ...inbuilt,
       // A stored extension reusing an inbuilt identifier must not shadow the
       // compiled one, so the first occurrence wins.
       ...installed.where(_isUsableMangaExtension).where(
@@ -84,7 +92,10 @@ class JavaScriptMangaProvider implements MangaChapterProvider {
     ProviderManager? providerManager,
   }) async {
     final inbuilt = inbuiltMangaProviderFor(identifier);
-    if (inbuilt != null) return inbuilt;
+    if (inbuilt != null) {
+      final disabled = await _disabledBuiltinSourceIds();
+      return disabled.contains(identifier) ? null : inbuilt;
+    }
     for (final details in await installedDetails(providerManager: providerManager)) {
       if (details.identifier == identifier) return _fromDetails(details);
     }
@@ -130,6 +141,20 @@ class JavaScriptMangaProvider implements MangaChapterProvider {
     }
 
     return _fromDetails(candidates.first);
+  }
+
+  /// Identifiers of built-in sources the user switched off.
+  ///
+  /// A settings read failure is treated as "nothing disabled": the inbuilt
+  /// sources are the app's only out-of-the-box readers, so a broken box must
+  /// not silently hide them.
+  static Future<Set<String>> _disabledBuiltinSourceIds() async {
+    try {
+      final settings = await Settings().getSettings();
+      return (settings.disabledProviders ?? const <String>[]).toSet();
+    } catch (_) {
+      return const <String>{};
+    }
   }
 
   /// True when an installed record can actually serve manga.
