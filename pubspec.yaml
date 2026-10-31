@@ -1,8 +1,8 @@
 name: animestream
-description: "iOS fork of Animestream for streaming and downloading anime."
+description: "Android build of anImestream for streaming anime and reading manga."
 publish_to: "none" #Dont remove this!
 
-version: 1.1.1+1
+version: 1.1.1+3
 
 environment:
   sdk: ">=3.12.0 <4.0.0"
