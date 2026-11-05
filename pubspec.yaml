@@ -78,6 +78,8 @@ dependencies:
 
   flutter_qjs_next: ^1.5.2
 
+  collection: any
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

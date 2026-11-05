@@ -84,7 +84,7 @@ class _DownloaderSettingsState extends State<DownloaderSettings> {
                     value: useRemuxer,
                     description: "Remux streams to MKV",
                     onTapFunction: () {
-                      setState(() async {
+                      setState(() {
                         useRemuxer = !useRemuxer;
                       });
                       writeSettings(SettingsModal(useMkvRemuxer: useRemuxer));
@@ -94,7 +94,7 @@ class _DownloaderSettingsState extends State<DownloaderSettings> {
                     value: writeSubtitleTrackToVideo,
                     description: "only works while remuxing",
                     onTapFunction: () {
-                      setState(() async {
+                      setState(() {
                         writeSubtitleTrackToVideo = !writeSubtitleTrackToVideo;
                       });
                       writeSettings(SettingsModal(writeSubtitleTrackToVideo: writeSubtitleTrackToVideo));

@@ -166,6 +166,8 @@ class DownloaderHelper {
         if (currentAttempt >= totalAttempts) {
           throw Exception("NUMBER OF DOWNLOAD ATTEMPTS EXCEEDED, KILLING THE DOWNLOAD.");
         }
+        // let the network breathe between attempts
+        await Future.delayed(const Duration(seconds: 1));
       }
     }
     throw Exception("THIS SHOULD'NT BE THROWN");
