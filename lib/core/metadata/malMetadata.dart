@@ -165,7 +165,7 @@ class MalAnimeMetadata implements AnimeMetadataProvider {
       ];
       // MAL's related_manga field is a documented no-op, so most anime would
       // never show their source manga. Kitsu's MAL mapping supplies it.
-      if (malRelatedManga.isEmpty && _metadataEnabled('kitsu')) {
+      if (malRelatedManga.isEmpty && MalAnimeMetadata.isEnabled('kitsu')) {
         try {
           related.addAll(
             await KitsuAnimeMetadata().mangaRelationsForMal(providerId),
@@ -336,6 +336,12 @@ bool _metadataEnabled(String source) {
     return alt is Map ? alt['ja']?.toString() : null;
   }
 
+  static bool isEnabled(String source) {
+    final disabled =
+        currentUserSettings?.disabledMetadataProviders ?? const <String>[];
+    return !disabled.contains(source);
+  }
+
   static List<String> _alternateTitles(Map<String, dynamic> node) {
     final titles = <String>[];
     final alt = node['alternative_titles'];
@@ -475,7 +481,7 @@ class MalMangaMetadata implements MangaMetadataProvider {
         ...malRelatedAnime,
       ];
       // Same MAL bug on the manga endpoint: `related_anime` is always empty.
-      if (malRelatedAnime.isEmpty && _metadataEnabled('kitsu')) {
+      if (malRelatedAnime.isEmpty && MalAnimeMetadata.isEnabled('kitsu')) {
         try {
           relations.addAll(
             await KitsuMangaMetadata().animeRelationsForMal(providerId),
