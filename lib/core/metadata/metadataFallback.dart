@@ -61,8 +61,8 @@ class AnimeMetadataRouter {
   /// Kitsu and Simkl ids are packed below these offsets so a negative id can be
   /// decoded after a restart. MAL ids are simply negated: AniList ids are
   /// positive, so the ranges cannot collide.
-  static const int _kitsuOffset = 1000000000;
-  static const int _simklOffset = 2000000000;
+  static const int _kitsuOffset = kitsuAnimeIdOffset;
+  static const int _simklOffset = simklAnimeIdOffset;
 
   final Map<int, _AnimeFallbackEntry> _entries = <int, _AnimeFallbackEntry>{};
   final Map<String, int> _ids = <String, int>{};
@@ -92,17 +92,8 @@ class AnimeMetadataRouter {
   bool isFallbackId(int id) => id < 0;
 
   int _idFor(AnimeMetadataSummary summary) {
-    final raw = int.tryParse(summary.providerId);
-    if (raw != null && raw > 0) {
-      switch (summary.source) {
-        case 'simkl':
-          return -_simklOffset - raw;
-        case 'kitsu':
-          return -_kitsuOffset - raw;
-        default:
-          return -raw;
-      }
-    }
+    final encoded = animeFallbackId(summary.source, summary.providerId);
+    if (encoded != null) return encoded;
 
     final key = '${summary.source}:${summary.providerId}';
     final existing = _ids[key];

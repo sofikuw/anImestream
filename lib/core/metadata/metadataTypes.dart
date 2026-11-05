@@ -1,5 +1,29 @@
 import 'package:animestream/core/manga/types.dart';
 
+/// Offsets used to pack Kitsu and Simkl ids below AniList's positive id range.
+///
+/// Shared with the providers so a manga relation can link to the anime info
+/// page without importing the router (which would create an import cycle).
+const int kitsuAnimeIdOffset = 1000000000;
+const int simklAnimeIdOffset = 2000000000;
+
+/// Deterministic fallback id for an anime provider id.
+///
+/// Returns null for non-numeric ids; those need the router's in-memory
+/// registry, which only exists for results the app itself produced.
+int? animeFallbackId(String source, String providerId) {
+  final raw = int.tryParse(providerId);
+  if (raw == null || raw <= 0) return null;
+  switch (source) {
+    case 'simkl':
+      return -simklAnimeIdOffset - raw;
+    case 'kitsu':
+      return -kitsuAnimeIdOffset - raw;
+    default:
+      return -raw;
+  }
+}
+
 /// Thrown when AniList is unavailable and none of the configured fallbacks
 /// could answer. Callers already treat metadata failures as recoverable, so
 /// this is a plain exception rather than a new error channel.

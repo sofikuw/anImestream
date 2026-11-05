@@ -111,6 +111,10 @@ class MangaDetails {
   final List<MangaCharacter> characters;
   final List<MangaRelation> relations;
 
+  /// "If you liked this, read..." entries. Manga relations and recommendations
+  /// are separate lists because the page gives them separate rails.
+  final List<MangaRelation> recommendations;
+
   final int? volumes;
   final String? startDate;
   final String? endDate;
@@ -135,6 +139,7 @@ class MangaDetails {
     List<String> authors = const <String>[],
     List<MangaCharacter> characters = const <MangaCharacter>[],
     List<MangaRelation> relations = const <MangaRelation>[],
+    List<MangaRelation> recommendations = const <MangaRelation>[],
     this.volumes,
     this.startDate,
     this.endDate,
@@ -145,6 +150,7 @@ class MangaDetails {
   })  : authors = List<String>.unmodifiable(authors),
         characters = List<MangaCharacter>.unmodifiable(characters),
         relations = List<MangaRelation>.unmodifiable(relations),
+        recommendations = List<MangaRelation>.unmodifiable(recommendations),
         alternateTitles = List<String>.unmodifiable(alternateTitles);
 
   String get title => summary.title;

@@ -265,6 +265,19 @@ class AnilistManga implements MangaMetadataSource {
                 }
               }
             }
+            recommendations(perPage: 10, sort: RATING_DESC) {
+              edges {
+                node {
+                  mediaRecommendation {
+                    id
+                    type
+                    title { english romaji native }
+                    coverImage { large }
+                    averageScore
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -339,6 +352,32 @@ class AnilistManga implements MangaMetadataSource {
       }
     }
 
+    final recommendations = <MangaRelation>[];
+    final recommendationData = info['recommendations'];
+    if (recommendationData is Map && recommendationData['edges'] is List) {
+      final seen = <String>{};
+      for (final edge
+          in (recommendationData['edges'] as List).whereType<Map>()) {
+        final node = edge['node'];
+        final media = node is Map ? node['mediaRecommendation'] : null;
+        if (media is! Map) continue;
+        final cover = media['coverImage'];
+        final score = media['averageScore'];
+        final id = media['id']?.toString();
+        if (id == null || !seen.add(id)) continue;
+        recommendations.add(
+          MangaRelation(
+            id: id,
+            title: _title(media['title']),
+            cover: cover is Map ? cover['large']?.toString() : null,
+            type: media['type']?.toString(),
+            relationType: 'RECOMMENDATION',
+            rating: score is int ? score / 10 : null,
+          ),
+        );
+      }
+    }
+
     final mediaListEntry = info['mediaListEntry'];
     final volumes = info['volumes'];
     final description = info['description'];
@@ -358,6 +397,7 @@ class AnilistManga implements MangaMetadataSource {
       authors: authors,
       characters: characters,
       relations: relations,
+      recommendations: recommendations,
       volumes: volumes is int ? volumes : null,
       startDate: _formatDate(info['startDate']),
       endDate: _formatDate(info['endDate']),

@@ -164,46 +164,47 @@ class _AnimeCardState extends State<AnimeCard> {
                       ),
                     ),
                   ),
-                  Positioned(
-                    right: 0,
-                    bottom: 10,
-                    child: AnimatedContainer(
-                      duration: Duration(milliseconds: 200),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.only(
-                            topLeft: Radius.circular(15),
-                            bottomRight: Radius.circular(widget.isMobile
-                                ? 15
-                                : isFocused
-                                    ? 4
-                                    : 9)),
-                        color: appTheme.accentColor,
-                      ),
-                      width: width / 2,
-                      padding: EdgeInsets.only(left: 5, right: 5, top: 2, bottom: 2),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.star,
-                            color: appTheme.onAccent,
-                            size: 13,
-                          ),
-                          Text(
-                            " ${widget.rating ?? '??'}",
-                            style: TextStyle(
-                              fontSize: 14,
+                  if (widget.rating != null)
+                    Positioned(
+                      right: 0,
+                      bottom: 10,
+                      child: AnimatedContainer(
+                        duration: Duration(milliseconds: 200),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.only(
+                              topLeft: Radius.circular(15),
+                              bottomRight: Radius.circular(widget.isMobile
+                                  ? 15
+                                  : isFocused
+                                      ? 4
+                                      : 9)),
+                          color: appTheme.accentColor,
+                        ),
+                        width: width / 2,
+                        padding: EdgeInsets.only(left: 5, right: 5, top: 2, bottom: 2),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.star,
                               color: appTheme.onAccent,
-                              fontFamily: "NotoSans",
-                              fontWeight: FontWeight.bold,
+                              size: 13,
                             ),
-                          ),
-                        ],
+                            Text(
+                              " ${widget.rating}",
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: appTheme.onAccent,
+                                fontFamily: "NotoSans",
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  )
+                    )
                 ],
               ),
               Text(

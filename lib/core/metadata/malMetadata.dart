@@ -1,5 +1,7 @@
+import 'package:animestream/core/app/runtimeDatas.dart';
 import 'package:animestream/core/database/mal/login.dart';
 import 'package:animestream/core/manga/types.dart';
+import 'package:animestream/core/metadata/kitsuMetadata.dart';
 import 'package:animestream/core/metadata/metadataTypes.dart';
 import 'package:animestream/core/network/network.dart';
 
@@ -25,12 +27,13 @@ class MalAnimeMetadata implements AnimeMetadataProvider {
   static const String _animeFields =
       'id,title,main_picture,alternative_titles,start_date,end_date,synopsis,'
       'mean,media_type,status,genres,num_episodes,average_episode_duration,'
-      'studios,related_anime,recommendations';
+      'studios,related_anime,related_manga,recommendations';
 
   static const String _mangaFields =
       'id,title,main_picture,alternative_titles,start_date,end_date,synopsis,'
       'mean,media_type,status,genres,num_volumes,num_chapters,'
-      'authors{first_name,last_name},related_manga,recommendations';
+      'authors{first_name,last_name},related_anime,related_manga,'
+      'recommendations';
 
   @override
   String get id => 'mal';
@@ -104,7 +107,11 @@ class MalAnimeMetadata implements AnimeMetadataProvider {
         .toList();
   }
 
-  static AnimeMetadataSummary _summaryAnime(Map<String, dynamic> node) {
+  static AnimeMetadataSummary _summaryAnime(
+    Map<String, dynamic> node, {
+    String? format,
+    bool cache = true,
+  }) {
     final picture = node['main_picture'];
     final cover = picture is Map
         ? (picture['large'] ?? picture['medium'])?.toString()
@@ -120,7 +127,7 @@ class MalAnimeMetadata implements AnimeMetadataProvider {
       rating: _double(node['mean']),
       // MAL reports 0 for a show whose episode count is not announced yet.
       totalEpisodes: episodes == 0 ? null : episodes,
-      format: _format(node['media_type']),
+      format: format ?? _format(node['media_type']),
       status: _animeStatus(node['status']),
       genres: genres is List
           ? genres
@@ -130,7 +137,7 @@ class MalAnimeMetadata implements AnimeMetadataProvider {
               .toList()
           : const <String>[],
     );
-    _summaries[summary.providerId] = summary;
+    if (cache) _summaries[summary.providerId] = summary;
     return summary;
   }
 
@@ -151,6 +158,20 @@ class MalAnimeMetadata implements AnimeMetadataProvider {
       final node = Map<String, dynamic>.from(json);
       final summary = _summaryAnime(node);
       final alt = node['alternative_titles'];
+      final malRelatedManga = _relations(node['related_manga'], manga: true);
+      final related = <AnimeMetadataSummary>[
+        ..._relations(node['related_anime']),
+        ...malRelatedManga,
+      ];
+      // MAL's related_manga field is a documented no-op, so most anime would
+      // never show their source manga. Kitsu's MAL mapping supplies it.
+      if (malRelatedManga.isEmpty && _metadataEnabled('kitsu')) {
+        try {
+          related.addAll(
+            await KitsuAnimeMetadata().mangaRelationsForMal(providerId),
+          );
+        } catch (_) {}
+      }
 
       return AnimeMetadataDetails(
         summary: summary,
@@ -165,7 +186,7 @@ class MalAnimeMetadata implements AnimeMetadataProvider {
         startDate: node['start_date']?.toString(),
         endDate: node['end_date']?.toString(),
         rating: summary.rating,
-        related: _relations(node['related_anime']),
+        related: related,
         recommended: _relations(node['recommendations']),
         synonyms: alt is Map && alt['synonyms'] is List
             ? (alt['synonyms'] as List).whereType<String>().toList()
@@ -198,13 +219,27 @@ class MalAnimeMetadata implements AnimeMetadataProvider {
     return _relations(json['recommendations']);
   }
 
-  static List<AnimeMetadataSummary> _relations(Object? value) {
+  /// Relation and recommendation nodes are shallow: MAL returns only id,
+  /// title and picture, with no `media_type`. The caller says whether the list
+  /// is anime or manga instead of guessing from the (absent) format. These
+  /// shallow summaries are never cached, so they cannot replace a full details
+  /// summary under the same provider id.
+  static List<AnimeMetadataSummary> _relations(
+    Object? value, {
+    bool manga = false,
+  }) {
     if (value is! List) return const <AnimeMetadataSummary>[];
     return value
         .whereType<Map>()
         .map((row) => row['node'])
         .whereType<Map>()
-        .map((node) => _summaryAnime(Map<String, dynamic>.from(node)))
+        .map(
+          (node) => _summaryAnime(
+            Map<String, dynamic>.from(node),
+            format: manga ? 'MANGA' : null,
+            cache: false,
+          ),
+        )
         .toList();
   }
 
@@ -288,6 +323,12 @@ class MalAnimeMetadata implements AnimeMetadataProvider {
         .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n')
         .replaceAll(RegExp(r'<[^>]+>'), '')
         .trim();
+  }
+
+  static bool _metadataEnabled(String source) {
+    final disabled =
+        currentUserSettings?.disabledMetadataProviders ?? const <String>[];
+    return !disabled.contains(source);
   }
 
   static String? _nativeTitle(Map<String, dynamic> node) {
@@ -428,6 +469,19 @@ class MalMangaMetadata implements MangaMetadataProvider {
       }
       final node = Map<String, dynamic>.from(json);
       final summary = _summary(node);
+      final malRelatedAnime = _relations(node['related_anime'], anime: true);
+      final relations = <MangaRelation>[
+        ..._relations(node['related_manga']),
+        ...malRelatedAnime,
+      ];
+      // Same MAL bug on the manga endpoint: `related_anime` is always empty.
+      if (malRelatedAnime.isEmpty && _metadataEnabled('kitsu')) {
+        try {
+          relations.addAll(
+            await KitsuMangaMetadata().animeRelationsForMal(providerId),
+          );
+        } catch (_) {}
+      }
       final authors = <String>[];
       final authorRows = node['authors'];
       if (authorRows is List) {
@@ -448,7 +502,8 @@ class MalMangaMetadata implements MangaMetadataProvider {
         banner: null,
         authors: authors,
         characters: const <MangaCharacter>[],
-        relations: _relations(node['related_manga']),
+        relations: relations,
+        recommendations: _relations(node['recommendations']),
         volumes: MalAnimeMetadata._int(node['num_volumes']),
         startDate: node['start_date']?.toString(),
         endDate: node['end_date']?.toString(),
@@ -467,7 +522,25 @@ class MalMangaMetadata implements MangaMetadataProvider {
     }
   }
 
-  static List<MangaRelation> _relations(Object? value) {
+  Future<List<MangaRelation>> recommendationsFor(String providerId) async {
+    final res = await get(
+      '$_base/manga/$providerId',
+      headers: _headers,
+      queryParameters: <String, String>{'fields': 'recommendations'},
+      cacheDuration: const Duration(hours: 12),
+    );
+    final json = res.json;
+    if (json is! Map) return const <MangaRelation>[];
+    return _relations(json['recommendations']);
+  }
+
+  /// `related_anime` rows become links to the anime info page. Their ids are
+  /// encoded with the shared fallback scheme so [Info] can decode them; manga
+  /// rows keep the `mal:` route prefix.
+  static List<MangaRelation> _relations(
+    Object? value, {
+    bool anime = false,
+  }) {
     if (value is! List) return const <MangaRelation>[];
     final found = <MangaRelation>[];
     for (final row in value.whereType<Map>()) {
@@ -475,18 +548,34 @@ class MalMangaMetadata implements MangaMetadataProvider {
       if (node is! Map) continue;
       final typed = Map<String, dynamic>.from(node);
       final picture = typed['main_picture'];
-      found.add(
-        MangaRelation(
-          id: 'mal:${typed['id']}',
-          title: MalAnimeMetadata._title(typed),
-          cover: picture is Map
-              ? (picture['large'] ?? picture['medium'])?.toString()
-              : null,
-          type: MalAnimeMetadata._format(typed['media_type']),
-          relationType:
-              (row['relation_type_formatted'] ?? row['relation_type'])?.toString(),
-        ),
-      );
+      final cover = picture is Map
+          ? (picture['large'] ?? picture['medium'])?.toString()
+          : null;
+      final relationType =
+          (row['relation_type_formatted'] ?? row['relation_type'])?.toString();
+      if (anime) {
+        final animeId = animeFallbackId('mal', typed['id'].toString());
+        if (animeId == null) continue;
+        found.add(
+          MangaRelation(
+            id: animeId.toString(),
+            title: MalAnimeMetadata._title(typed),
+            cover: cover,
+            type: 'ANIME',
+            relationType: relationType,
+          ),
+        );
+      } else {
+        found.add(
+          MangaRelation(
+            id: 'mal:${typed['id']}',
+            title: MalAnimeMetadata._title(typed),
+            cover: cover,
+            type: 'MANGA',
+            relationType: relationType,
+          ),
+        );
+      }
     }
     return found;
   }

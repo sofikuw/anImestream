@@ -207,6 +207,83 @@ class KitsuAnimeMetadata implements AnimeMetadataProvider {
     );
   }
 
+  /// MAL's own `related_manga` / `related_anime` fields are documented as
+  /// broken (they always come back empty). Kitsu has a mapping for most MAL
+  /// entries, so it can supply the cross-media half of the relation rail.
+  Future<List<AnimeMetadataSummary>> mangaRelationsForMal(String malId) async {
+    final kitsuId = await _kitsuIdForMapping('myanimelist/anime', malId);
+    if (kitsuId == null) return const <AnimeMetadataSummary>[];
+    final res = await get(
+      '$_base/anime/$kitsuId',
+      headers: _headers,
+      queryParameters: <String, String>{
+        'include': 'mediaRelationships.destination',
+      },
+      cacheDuration: const Duration(hours: 12),
+    );
+    final json = res.json;
+    final data = json is Map ? json['data'] : null;
+    if (data is! Map) return const <AnimeMetadataSummary>[];
+    final item = Map<String, dynamic>.from(data);
+    final includedById = _includedById(json);
+    return _mediaRelations(item, includedById)
+        .where((summary) => (summary.format ?? '').toUpperCase() == 'MANGA')
+        .toList(growable: false);
+  }
+
+  static Map<String, Map<String, dynamic>> _includedById(dynamic json) {
+    final included = json is Map && json['included'] is List
+        ? (json['included'] as List).whereType<Map>()
+        : const <Map>[];
+    final found = <String, Map<String, dynamic>>{};
+    for (final entry in included) {
+      final type = entry['type']?.toString();
+      final id = entry['id']?.toString();
+      if (type != null && id != null) {
+        found['$type:$id'] = Map<String, dynamic>.from(entry);
+      }
+    }
+    return found;
+  }
+
+  static final Map<String, String> _kitsuIds = <String, String>{};
+
+  static Future<String?> _kitsuIdForMapping(
+    String site,
+    String externalId,
+  ) async {
+    final key = '$site:$externalId';
+    final cached = _kitsuIds[key];
+    if (cached != null) return cached;
+    final res = await get(
+      '$_base/mappings',
+      headers: _headers,
+      queryParameters: <String, String>{
+        'filter[externalSite]': site,
+        'filter[externalId]': externalId,
+        'page[limit]': '1',
+        'include': 'item',
+      },
+      cacheDuration: const Duration(days: 1),
+    );
+    final json = res.json;
+    if (json is! Map || json['data'] is! List) return null;
+    for (final row in (json['data'] as List).whereType<Map>()) {
+      final relationships = row['relationships'];
+      if (relationships is! Map) continue;
+      final mapping = relationships['item'];
+      if (mapping is! Map) continue;
+      final item = mapping['data'];
+      if (item is! Map) continue;
+      final id = item['id']?.toString();
+      if (id != null && id.isNotEmpty) {
+        _kitsuIds[key] = id;
+        return id;
+      }
+    }
+    return null;
+  }
+
   static List<AnimeMetadataSummary> _mediaRelations(
     Map<String, dynamic> item,
     Map<String, Map<String, dynamic>> includedById,
@@ -474,7 +551,9 @@ class KitsuMangaMetadata implements MangaMetadataProvider {
     final res = await get(
       '$_base/manga/$providerId',
       headers: _headers,
-      queryParameters: <String, String>{'include': 'categories'},
+      queryParameters: <String, String>{
+        'include': 'categories,mediaRelationships.destination,mappings',
+      },
       cacheDuration: const Duration(hours: 12),
     );
     final json = res.json;
@@ -488,6 +567,14 @@ class KitsuMangaMetadata implements MangaMetadataProvider {
     final included = json is Map && json['included'] is List
         ? (json['included'] as List).whereType<Map>()
         : const <Map>[];
+    final includedById = <String, Map<String, dynamic>>{};
+    for (final entry in included) {
+      final type = entry['type']?.toString();
+      final id = entry['id']?.toString();
+      if (type != null && id != null) {
+        includedById['$type:$id'] = Map<String, dynamic>.from(entry);
+      }
+    }
 
     final genres = <String>[];
     for (final entry in included) {
@@ -501,19 +588,143 @@ class KitsuMangaMetadata implements MangaMetadataProvider {
     final titles = attrs['titles'];
     final native = titles is Map ? titles['ja_jp']?.toString() : null;
 
+    var recommendations = const <MangaRelation>[];
+    final malId = _malMangaId(includedById.values);
+    final disabledMetadata =
+        currentUserSettings?.disabledMetadataProviders ?? const <String>[];
+    if (malId != null && !disabledMetadata.contains('mal')) {
+      try {
+        recommendations = await MalMangaMetadata().recommendationsFor(malId);
+      } catch (_) {}
+    }
+
     return MangaDetails(
       summary: summary,
       synopsis: KitsuAnimeMetadata._clean(attrs['synopsis']?.toString()),
       banner: KitsuAnimeMetadata._banner(attrs),
       authors: const <String>[],
       characters: const <MangaCharacter>[],
-      relations: const <MangaRelation>[],
+      relations: _mediaRelations(item, includedById),
+      recommendations: recommendations,
       volumes: KitsuAnimeMetadata._int(attrs['volumeCount']),
       startDate: attrs['startDate']?.toString(),
       endDate: attrs['endDate']?.toString(),
       alternateTitles: _alternateTitles(attrs, summary.title),
       nativeTitle: native,
     );
+  }
+
+  /// MAL's `related_anime` field on manga is broken the same way as the anime
+  /// side; Kitsu's manga mapping fills it in.
+  Future<List<MangaRelation>> animeRelationsForMal(String malId) async {
+    final kitsuId =
+        await KitsuAnimeMetadata._kitsuIdForMapping('myanimelist/manga', malId);
+    if (kitsuId == null) return const <MangaRelation>[];
+    final res = await get(
+      '$_base/manga/$kitsuId',
+      headers: _headers,
+      queryParameters: <String, String>{
+        'include': 'mediaRelationships.destination',
+      },
+      cacheDuration: const Duration(hours: 12),
+    );
+    final json = res.json;
+    final data = json is Map ? json['data'] : null;
+    if (data is! Map) return const <MangaRelation>[];
+    final item = Map<String, dynamic>.from(data);
+    return _mediaRelations(item, KitsuAnimeMetadata._includedById(json))
+        .where((relation) => relation.type == 'ANIME')
+        .toList(growable: false);
+  }
+
+  /// Kitsu splits relations by destination type: an adaptation points at an
+  /// anime, other editions point at manga. Both belong on the manga page, but
+  /// only the manga links stay inside the manga reader.
+  static List<MangaRelation> _mediaRelations(
+    Map<String, dynamic> item,
+    Map<String, Map<String, dynamic>> includedById,
+  ) {
+    final relationships = item['relationships'];
+    if (relationships is! Map) return const <MangaRelation>[];
+    final refs = relationships['mediaRelationships'];
+    if (refs is! Map || refs['data'] is! List) {
+      return const <MangaRelation>[];
+    }
+
+    final found = <MangaRelation>[];
+    final seen = <String>{};
+    for (final ref in (refs['data'] as List).whereType<Map>()) {
+      final mediaRelation = includedById['${ref['type']}:${ref['id']}'];
+      if (mediaRelation == null) continue;
+      final destination = mediaRelation['relationships'];
+      if (destination is! Map) continue;
+      final target = destination['destination'];
+      if (target is! Map) continue;
+      final destinationRef = target['data'];
+      if (destinationRef is! Map) continue;
+      final type = destinationRef['type']?.toString();
+      final id = destinationRef['id']?.toString();
+      if (type == null || id == null) continue;
+      final media = includedById['$type:$id'];
+      if (media == null) continue;
+      final role = mediaRelation['attributes'];
+      final relation = _relation(
+        media,
+        type: type,
+        relationType: role is Map
+            ? role['role']?.toString().toUpperCase()
+            : null,
+      );
+      if (relation == null || !seen.add(relation.id)) continue;
+      found.add(relation);
+    }
+    return found;
+  }
+
+  static MangaRelation? _relation(
+    Map<String, dynamic> media, {
+    required String type,
+    String? relationType,
+  }) {
+    final id = media['id']?.toString();
+    final attributes = media['attributes'];
+    if (id == null || attributes is! Map) return null;
+    final attrs = Map<String, dynamic>.from(attributes);
+    final title = KitsuAnimeMetadata._title(attrs);
+    final cover = KitsuAnimeMetadata._cover(attrs);
+    final rating = KitsuAnimeMetadata._rating(attrs['averageRating']);
+    if (type == 'anime') {
+      final animeId = animeFallbackId('kitsu', id);
+      if (animeId == null) return null;
+      return MangaRelation(
+        id: animeId.toString(),
+        title: title,
+        cover: cover,
+        type: 'ANIME',
+        relationType: relationType,
+        rating: rating,
+      );
+    }
+    return MangaRelation(
+      id: 'kitsu:$id',
+      title: title,
+      cover: cover,
+      type: 'MANGA',
+      relationType: relationType,
+      rating: rating,
+    );
+  }
+
+  static String? _malMangaId(Iterable<Map<String, dynamic>> included) {
+    for (final entry in included) {
+      if (entry['type'] != 'mappings') continue;
+      final attrs = entry['attributes'];
+      if (attrs is! Map) continue;
+      if (attrs['externalSite']?.toString() != 'myanimelist/manga') continue;
+      final id = attrs['externalId']?.toString();
+      if (id != null && id.isNotEmpty) return id;
+    }
+    return null;
   }
 
   static List<String> _alternateTitles(

@@ -56,6 +56,14 @@ than pretending to cover the fork's earlier life. That history is in the git log
 - **Kitsu details are complete.** The info page now shows characters, related
   adaptations (including the source manga) and recommendations, using Kitsu's
   mappings to fill the recommendation rail from MyAnimeList.
+- **Anime and manga relations cross over.** MAL exposes `related_manga` on
+  anime and `related_anime` on manga but always returns them empty; both types
+  are now shown anyway, filling the missing half through Kitsu's MAL mapping.
+  Tapping a relation opens the matching reader instead of a wrong-id page.
+- **Manga recommendations exist.** MAL and Kitsu manga details now fill a
+  recommendation rail (MAL directly, Kitsu through its MAL mapping), and
+  AniList manga pages request recommendations as well. Cards with no rating
+  hide the star badge instead of showing `??`.
 
 ## [0.3.0] - 2026-10-29
 

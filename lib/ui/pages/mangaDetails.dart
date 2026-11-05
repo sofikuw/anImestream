@@ -980,6 +980,16 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
               ],
             ),
           ),
+          if (details.recommendations.isNotEmpty)
+            Container(
+              margin: EdgeInsets.only(top: 20),
+              child: Column(
+                children: [
+                  _categoryTitle('Recommendations'),
+                  _related(details.recommendations, context),
+                ],
+              ),
+            ),
           SizedBox(height: MediaQuery.of(context).padding.bottom + 40),
         ],
       ),
