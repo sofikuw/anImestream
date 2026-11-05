@@ -325,11 +325,11 @@ class MalAnimeMetadata implements AnimeMetadataProvider {
         .trim();
   }
 
-  static bool _metadataEnabled(String source) {
-    final disabled =
-        currentUserSettings?.disabledMetadataProviders ?? const <String>[];
-    return !disabled.contains(source);
-  }
+bool _metadataEnabled(String source) {
+  final disabled =
+      currentUserSettings?.disabledMetadataProviders ?? const <String>[];
+  return !disabled.contains(source);
+}
 
   static String? _nativeTitle(Map<String, dynamic> node) {
     final alt = node['alternative_titles'];
