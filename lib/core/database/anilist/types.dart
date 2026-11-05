@@ -116,6 +116,7 @@ class AnilistAnimeRelatedRecommendation extends DatabaseRelatedRecommendation {
   final String type;
   final double? rating;
   final String? relationType;
+  final String? openId;
 
   AnilistAnimeRelatedRecommendation({
     required this.cover,
@@ -124,6 +125,7 @@ class AnilistAnimeRelatedRecommendation extends DatabaseRelatedRecommendation {
     required this.title,
     required this.type,
     this.relationType,
+    this.openId,
   });
 }
 

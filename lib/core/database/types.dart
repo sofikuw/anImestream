@@ -15,6 +15,10 @@ abstract class DatabaseRelatedRecommendation {
   String get type;
   double? rating;
   String? relationType;
+
+  /// Set for fallback manga entries, which are opened by
+  /// `MangaDetailsPage` with a provider-prefixed id instead of an AniList id.
+  String? get openId => null;
 }
 
 class AlternateDatabaseId {

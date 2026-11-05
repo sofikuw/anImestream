@@ -1345,7 +1345,8 @@ class _InfoMobileState extends State<InfoMobile> {
                 // page instead of refusing to open it at all.
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (context) => MangaDetailsPage(id: item.id.toString()),
+                    builder: (context) =>
+                        MangaDetailsPage(id: item.openId ?? item.id.toString()),
                   ),
                 );
                 return;
@@ -1377,7 +1378,7 @@ class _InfoMobileState extends State<InfoMobile> {
                             : () => Navigator.of(context).push(
                                   MaterialPageRoute(
                                     builder: (context) =>
-                                        MangaDetailsPage(id: item.id.toString()),
+                                        MangaDetailsPage(id: item.openId ?? item.id.toString()),
                                   ),
                                 ),
                       )

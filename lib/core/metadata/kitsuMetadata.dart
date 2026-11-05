@@ -1,4 +1,6 @@
+import 'package:animestream/core/app/runtimeDatas.dart';
 import 'package:animestream/core/manga/types.dart';
+import 'package:animestream/core/metadata/malMetadata.dart';
 import 'package:animestream/core/metadata/metadataTypes.dart';
 import 'package:animestream/core/network/network.dart';
 
@@ -96,7 +98,11 @@ class KitsuAnimeMetadata implements AnimeMetadataProvider {
         .toList();
   }
 
-  static AnimeMetadataSummary _summary(Map<String, dynamic> item) {
+  static AnimeMetadataSummary _summary(
+    Map<String, dynamic> item, {
+    String? relationType,
+    String? format,
+  }) {
     final attributes = item['attributes'];
     if (attributes is! Map) {
       throw Exception('Kitsu returned an anime without attributes');
@@ -112,8 +118,9 @@ class KitsuAnimeMetadata implements AnimeMetadataProvider {
       banner: _banner(attrs),
       rating: _rating(attrs['averageRating']),
       totalEpisodes: _int(attrs['episodeCount']),
-      format: _format(attrs['subtype']),
+      format: format ?? _format(attrs['subtype']),
       status: _animeStatus(attrs['status']),
+      relationType: relationType,
       genres: genres,
     );
   }
@@ -124,7 +131,9 @@ class KitsuAnimeMetadata implements AnimeMetadataProvider {
       '$_base/anime/$providerId',
       headers: _headers,
       queryParameters: <String, String>{
-        'include': 'categories,animeProductions.producer',
+        'include':
+            'categories,animeProductions.producer,characters.character,'
+                'mediaRelationships.destination,mappings',
       },
       cacheDuration: const Duration(hours: 12),
     );
@@ -136,9 +145,17 @@ class KitsuAnimeMetadata implements AnimeMetadataProvider {
     final item = Map<String, dynamic>.from(data);
     final summary = _summary(item);
     final attrs = Map<String, dynamic>.from(item['attributes'] as Map);
+    final includedById = <String, Map<String, dynamic>>{};
     final included = json is Map && json['included'] is List
         ? (json['included'] as List).whereType<Map>()
         : const <Map>[];
+    for (final entry in included) {
+      final type = entry['type']?.toString();
+      final id = entry['id']?.toString();
+      if (type != null && id != null) {
+        includedById['$type:$id'] = Map<String, dynamic>.from(entry);
+      }
+    }
 
     final genres = <String>[];
     final studios = <String>[];
@@ -155,6 +172,16 @@ class KitsuAnimeMetadata implements AnimeMetadataProvider {
       }
     }
 
+    var recommended = const <AnimeMetadataSummary>[];
+    final malId = _malId(includedById.values);
+    final disabledMetadata =
+        currentUserSettings?.disabledMetadataProviders ?? const <String>[];
+    if (malId != null && !disabledMetadata.contains('mal')) {
+      try {
+        recommended = await MalAnimeMetadata().recommendationsFor(malId);
+      } catch (_) {}
+    }
+
     return AnimeMetadataDetails(
       summary: summary,
       synopsis: _clean(attrs['synopsis']?.toString()),
@@ -168,6 +195,9 @@ class KitsuAnimeMetadata implements AnimeMetadataProvider {
       startDate: attrs['startDate']?.toString(),
       endDate: attrs['endDate']?.toString(),
       rating: summary.rating,
+      related: _mediaRelations(item, includedById),
+      recommended: recommended,
+      characters: _characters(item, includedById),
       synonyms: attrs['abbreviatedTitles'] is List
           ? (attrs['abbreviatedTitles'] as List)
               .whereType<String>()
@@ -175,6 +205,100 @@ class KitsuAnimeMetadata implements AnimeMetadataProvider {
               .toList()
           : const <String>[],
     );
+  }
+
+  static List<AnimeMetadataSummary> _mediaRelations(
+    Map<String, dynamic> item,
+    Map<String, Map<String, dynamic>> includedById,
+  ) {
+    final relationships = item['relationships'];
+    if (relationships is! Map) return const <AnimeMetadataSummary>[];
+    final refs = relationships['mediaRelationships'];
+    if (refs is! Map || refs['data'] is! List) {
+      return const <AnimeMetadataSummary>[];
+    }
+
+    final found = <AnimeMetadataSummary>[];
+    final seen = <String>{};
+    for (final ref in (refs['data'] as List).whereType<Map>()) {
+      final mediaRelation = includedById['${ref['type']}:${ref['id']}'];
+      if (mediaRelation == null) continue;
+      final destination = mediaRelation['relationships'];
+      if (destination is! Map) continue;
+      final target = destination['destination'];
+      if (target is! Map) continue;
+      final destinationRef = target['data'];
+      if (destinationRef is! Map) continue;
+      final key = '${destinationRef['type']}:${destinationRef['id']}';
+      final media = includedById[key];
+      if (media == null || !seen.add(key)) continue;
+      final role = mediaRelation['attributes'];
+      final relationType =
+          role is Map ? role['role']?.toString().toUpperCase() : null;
+      final isManga = destinationRef['type']?.toString() == 'manga';
+      found.add(_summary(
+        media,
+        relationType: relationType,
+        format: isManga ? 'MANGA' : null,
+      ));
+    }
+    return found;
+  }
+
+  static List<Map<String, dynamic>> _characters(
+    Map<String, dynamic> item,
+    Map<String, Map<String, dynamic>> includedById,
+  ) {
+    final relationships = item['relationships'];
+    if (relationships is! Map) return const <Map<String, dynamic>>[];
+    final refs = relationships['characters'];
+    if (refs is! Map || refs['data'] is! List) {
+      return const <Map<String, dynamic>>[];
+    }
+
+    final found = <Map<String, dynamic>>[];
+    final seen = <String>{};
+    for (final ref in (refs['data'] as List).whereType<Map>()) {
+      final mediaCharacter = includedById['${ref['type']}:${ref['id']}'];
+      if (mediaCharacter == null) continue;
+      final rel = mediaCharacter['relationships'];
+      if (rel is! Map) continue;
+      final characterRef = rel['character'];
+      if (characterRef is! Map) continue;
+      final characterData = characterRef['data'];
+      if (characterData is! Map) continue;
+      final key = '${characterData['type']}:${characterData['id']}';
+      if (!seen.add(key)) continue;
+      final character = includedById[key];
+      if (character == null) continue;
+      final attrs = character['attributes'];
+      if (attrs is! Map) continue;
+      final image = attrs['image'];
+      final role = mediaCharacter['attributes'];
+      found.add({
+        'name': attrs['name']?.toString() ??
+            attrs['canonicalName']?.toString() ??
+            'Unknown',
+        'role': (role is Map ? role['role']?.toString() : null)?.toUpperCase() ??
+            'SUPPORTING',
+        'image': (image is Map ? (image['original'] ?? image['large']) : null)
+                ?.toString() ??
+            '',
+      });
+    }
+    return found;
+  }
+
+  static String? _malId(Iterable<Map<String, dynamic>> included) {
+    for (final entry in included) {
+      if (entry['type'] != 'mappings') continue;
+      final attrs = entry['attributes'];
+      if (attrs is! Map) continue;
+      if (attrs['externalSite']?.toString() != 'myanimelist/anime') continue;
+      final id = attrs['externalId']?.toString();
+      if (id != null && id.isNotEmpty) return id;
+    }
+    return null;
   }
 
   static Map<String, String?> _titleMap(Map<String, dynamic> attrs) {

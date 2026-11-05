@@ -14,7 +14,8 @@ class MetadataUnavailableException implements Exception {
 
 /// A search / browse result from a fallback metadata provider.
 ///
-/// [source] is the provider's stable id ("mal", "kitsu") and [providerId] is
+/// [source] is the provider's stable id ("mal", "kitsu" or "simkl") and
+/// [providerId] is
 /// the id that provider uses. The routers turn the pair into an app-local id
 /// before handing a result to the UI, so the rest of the app never has to know
 /// which site a card came from.
@@ -31,6 +32,7 @@ class AnimeMetadataSummary {
   final int? totalEpisodes;
   final String? format;
   final String? status;
+  final String? relationType;
   final List<String> genres;
 
   AnimeMetadataSummary({
@@ -43,6 +45,7 @@ class AnimeMetadataSummary {
     this.totalEpisodes,
     this.format,
     this.status,
+    this.relationType,
     List<String> genres = const <String>[],
   }) : genres = List<String>.unmodifiable(genres);
 }
@@ -63,6 +66,7 @@ class AnimeMetadataDetails {
   final List<AnimeMetadataSummary> related;
   final List<AnimeMetadataSummary> recommended;
   final List<String> synonyms;
+  final List<Map<String, dynamic>> characters;
 
   AnimeMetadataDetails({
     required this.summary,
@@ -80,11 +84,13 @@ class AnimeMetadataDetails {
     List<AnimeMetadataSummary> related = const <AnimeMetadataSummary>[],
     List<AnimeMetadataSummary> recommended = const <AnimeMetadataSummary>[],
     List<String> synonyms = const <String>[],
+    List<Map<String, dynamic>> characters = const <Map<String, dynamic>>[],
   })  : genres = List<String>.unmodifiable(genres),
         studios = List<String>.unmodifiable(studios),
         related = List<AnimeMetadataSummary>.unmodifiable(related),
         recommended = List<AnimeMetadataSummary>.unmodifiable(recommended),
-        synonyms = List<String>.unmodifiable(synonyms);
+        synonyms = List<String>.unmodifiable(synonyms),
+        characters = List<Map<String, dynamic>>.unmodifiable(characters);
 }
 
 abstract class AnimeMetadataProvider {

@@ -33,7 +33,7 @@ class _BuiltInProvidersPageState extends State<BuiltInProvidersPage> {
     'simkl',
   ];
 
-  static const List<String> _fallbackProviders = <String>['mal', 'kitsu'];
+  static const List<String> _fallbackProviders = <String>['mal', 'kitsu', 'simkl'];
 
   @override
   void initState() {
@@ -112,16 +112,7 @@ class _BuiltInProvidersPageState extends State<BuiltInProvidersPage> {
     }
 
     final database = currentUserSettings?.database ?? Databases.anilist;
-    if (_disabledMetadata.contains('anilist')) {
-      // AniList is also the wrapper that routes to the fallbacks. Keep it as
-      // the logical database even when its own API is disabled, otherwise a
-      // switch to MAL would call MAL's unimplemented search path instead.
-      if (database != Databases.anilist) {
-        await Settings().writeSettings(
-          SettingsModal(database: Databases.anilist),
-        );
-      }
-    } else if (_disabledMetadata.contains(database.name)) {
+    if (_disabledMetadata.contains(database.name)) {
       for (final candidate in Databases.values) {
         if (!_disabledMetadata.contains(candidate.name)) {
           await Settings().writeSettings(
@@ -227,6 +218,11 @@ class _BuiltInProvidersPageState extends State<BuiltInProvidersPage> {
                         "extension or re-enable one to read chapters.",
                       ),
                     _sectionTitle("Metadata"),
+                    _note(
+                      "Pick one of these under Select Database to make it the "
+                      "primary metadata source. Fallbacks are used when AniList "
+                      "is disabled or the selected source has no result.",
+                    ),
                     for (final name in _metadataProviders)
                       _switch(
                         title: _metadataName(name),
@@ -237,8 +233,8 @@ class _BuiltInProvidersPageState extends State<BuiltInProvidersPage> {
                     _sectionTitle("Metadata fallbacks"),
                     _note(
                       "Used when AniList is unavailable, in this order: "
-                      "MyAnimeList, then Kitsu. Manga fallbacks use the same "
-                      "providers.",
+                      "MyAnimeList, Kitsu, then Simkl. Manga fallbacks use the "
+                      "same providers.",
                     ),
                     for (final id in _fallbackProviders)
                       _switch(
@@ -247,7 +243,9 @@ class _BuiltInProvidersPageState extends State<BuiltInProvidersPage> {
                             ? "Enable MyAnimeList under Metadata first"
                             : id == 'mal'
                                 ? "MyAnimeList search, browse and details"
-                                : "Kitsu search, browse and details",
+                                : id == 'simkl'
+                                    ? "Simkl search and details"
+                                    : "Kitsu search, browse and details",
                         value: _fallbacks.contains(id),
                         onChanged: (value) => _toggleFallback(id, value),
                       ),

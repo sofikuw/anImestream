@@ -186,6 +186,18 @@ class MalAnimeMetadata implements AnimeMetadataProvider {
     }
   }
 
+  Future<List<AnimeMetadataSummary>> recommendationsFor(String providerId) async {
+    final res = await get(
+      '$_base/anime/$providerId',
+      headers: _headers,
+      queryParameters: <String, String>{'fields': 'recommendations'},
+      cacheDuration: const Duration(hours: 12),
+    );
+    final json = res.json;
+    if (json is! Map) return const <AnimeMetadataSummary>[];
+    return _relations(json['recommendations']);
+  }
+
   static List<AnimeMetadataSummary> _relations(Object? value) {
     if (value is! List) return const <AnimeMetadataSummary>[];
     return value

@@ -41,6 +41,18 @@ than pretending to cover the fork's earlier life. That history is in the git log
   wait (briefly) for the player to finish parsing the manifest, so the Android
   audio-track list is populated instead of permanently empty.
 
+### Fixed
+- **Metadata fallbacks stay usable without AniList.** Choosing MyAnimeList or
+  Simkl as the database now routes search and details through that provider
+  instead of hitting an unimplemented path, and the provider list can fall
+  through MAL, Kitsu and Simkl in order.
+- **Fallback related and recommended cards open the right page.** Fallback
+  entries are marked as anime or manga instead of reusing the media format, so
+  MAL/Kitsu recommendations no longer open the manga reader by mistake.
+- **Kitsu details are complete.** The info page now shows characters, related
+  adaptations (including the source manga) and recommendations, using Kitsu's
+  mappings to fill the recommendation rail from MyAnimeList.
+
 ## [0.3.0] - 2026-10-29
 
 ### Added

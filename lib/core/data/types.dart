@@ -57,8 +57,9 @@ class SettingsModal {
 
   /// Metadata databases the user removed from search and browse.
   ///
-  /// Disabling AniList keeps it as the router that forwards to the configured
-  /// fallbacks; the other databases are not fallback providers themselves.
+  /// Disabling AniList routes search and browse through the configured
+  /// fallbacks. MAL, Kitsu and Simkl can also be selected as the database,
+  /// which makes that provider the first metadata source.
   final List<String>? disabledMetadataProviders;
 
   /// Ordered fallback database ids used when AniList is unavailable.

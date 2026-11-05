@@ -32,6 +32,11 @@ class DatabaseHandler extends Database {
 
   @override
   Future<List<DatabaseSearchResult>> search(String query) async {
+    if (db == Databases.mal ||
+        (db == Databases.anilist &&
+            !AnimeMetadataRouter.instance.anilistEnabled)) {
+      return AnimeMetadataRouter.instance.search(query);
+    }
     return await getDatabaseInstance(db).search(query);
   }
 

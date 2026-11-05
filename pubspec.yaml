@@ -2,7 +2,7 @@ name: animestream
 description: "Android build of anImestream for streaming anime and reading manga."
 publish_to: "none" #Dont remove this!
 
-version: 1.2.0+4
+version: 1.2.1+5
 
 environment:
   sdk: ">=3.13.0 <4.0.0"

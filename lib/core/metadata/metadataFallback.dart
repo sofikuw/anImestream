@@ -7,6 +7,7 @@ import 'package:animestream/core/manga/types.dart';
 import 'package:animestream/core/metadata/kitsuMetadata.dart';
 import 'package:animestream/core/metadata/malMetadata.dart';
 import 'package:animestream/core/metadata/metadataTypes.dart';
+import 'package:animestream/core/metadata/simklMetadata.dart';
 
 /// Reads the provider-related settings once per call so a settings change takes
 /// effect on the next request without a restart.
@@ -39,10 +40,10 @@ class _AnimeFallbackEntry {
 /// Routes anime metadata to AniList's fallbacks and owns the app-local ids
 /// that let fallback results travel through the existing int-id UI.
 ///
-/// AniList ids are positive; fallback ids are negative. For MAL and Kitsu the
-/// negative id is a deterministic encoding of the provider id, so a local
-/// watch-history row still resolves after a restart. A registry covers any
-/// provider id that is not numeric, though both current providers use numbers.
+/// AniList ids are positive; fallback ids are negative. For MAL, Kitsu and
+/// Simkl the negative id is a deterministic encoding of the provider id, so a
+/// local watch-history row still resolves after a restart. A registry covers
+/// provider ids that are not numeric, though all current providers use numbers.
 class AnimeMetadataRouter {
   AnimeMetadataRouter._();
 
@@ -52,22 +53,31 @@ class AnimeMetadataRouter {
       <String, AnimeMetadataProvider>{
     'mal': MalAnimeMetadata(),
     'kitsu': KitsuAnimeMetadata(),
+    'simkl': SimklAnimeMetadata(),
   };
 
-  /// Kitsu ids are packed below this offset so a negative id can be decoded
-  /// after a restart. MAL ids are simply negated: AniList ids are positive, so
-  /// the two ranges cannot collide.
+  /// Kitsu and Simkl ids are packed below these offsets so a negative id can be
+  /// decoded after a restart. MAL ids are simply negated: AniList ids are
+  /// positive, so the ranges cannot collide.
   static const int _kitsuOffset = 1000000000;
+  static const int _simklOffset = 2000000000;
 
   final Map<int, _AnimeFallbackEntry> _entries = <int, _AnimeFallbackEntry>{};
   final Map<String, int> _ids = <String, int>{};
-  int _nextId = -2000000000;
+  int _nextId = -3000000000;
 
   List<AnimeMetadataProvider> get _enabled {
     final found = <AnimeMetadataProvider>[];
+    final selected = currentUserSettings?.database?.name;
+    if (selected != null &&
+        selected != 'anilist' &&
+        MetadataSettings.isEnabled(selected)) {
+      final preferred = _providers[selected];
+      if (preferred != null) found.add(preferred);
+    }
     for (final source in MetadataSettings.fallbackOrder) {
       final provider = _providers[source];
-      if (provider != null) found.add(provider);
+      if (provider != null && !found.contains(provider)) found.add(provider);
     }
     return found;
   }
@@ -82,7 +92,14 @@ class AnimeMetadataRouter {
   int _idFor(AnimeMetadataSummary summary) {
     final raw = int.tryParse(summary.providerId);
     if (raw != null && raw > 0) {
-      return summary.source == 'mal' ? -raw : -_kitsuOffset - raw;
+      switch (summary.source) {
+        case 'simkl':
+          return -_simklOffset - raw;
+        case 'kitsu':
+          return -_kitsuOffset - raw;
+        default:
+          return -raw;
+      }
     }
 
     final key = '${summary.source}:${summary.providerId}';
@@ -214,6 +231,9 @@ class AnimeMetadataRouter {
     if (entry != null) {
       source = entry.source;
       providerId = entry.providerId;
+    } else if (id <= -_simklOffset) {
+      source = 'simkl';
+      providerId = (-(id + _simklOffset)).toString();
     } else if (id <= -_kitsuOffset) {
       source = 'kitsu';
       providerId = (-(id + _kitsuOffset)).toString();
@@ -248,7 +268,7 @@ class AnimeMetadataRouter {
         'end': details.endDate ?? '',
       },
       banner: details.banner ?? summary.banner,
-      characters: const <Map<String, dynamic>>[],
+      characters: details.characters,
       cover: summary.cover,
       duration: details.duration ?? '??',
       episodes: details.episodes ?? summary.totalEpisodes,
@@ -273,17 +293,18 @@ class AnimeMetadataRouter {
   List<AnilistAnimeRelatedRecommendation> _toRelated(
     List<AnimeMetadataSummary> list,
   ) {
-    return list
-        .map(
-          (summary) => AnilistAnimeRelatedRecommendation(
-            cover: summary.cover,
-            id: _idFor(summary),
-            rating: summary.rating,
-            title: summary.title,
-            type: summary.format ?? 'ANIME',
-          ),
-        )
-        .toList(growable: false);
+    return list.map((summary) {
+      final isManga = (summary.format ?? '').toUpperCase() == 'MANGA';
+      return AnilistAnimeRelatedRecommendation(
+        cover: summary.cover,
+        id: _idFor(summary),
+        rating: summary.rating,
+        title: summary.title,
+        type: isManga ? 'MANGA' : 'ANIME',
+        relationType: summary.relationType,
+        openId: isManga ? '${summary.source}:${summary.providerId}' : null,
+      );
+    }).toList(growable: false);
   }
 }
 

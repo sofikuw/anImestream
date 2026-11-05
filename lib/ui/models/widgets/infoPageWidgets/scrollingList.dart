@@ -102,7 +102,7 @@ class ScrollingList {
                   onTap: isManga
                       ? () => Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (context) => MangaDetailsPage(id: it.id.toString()),
+                              builder: (context) => MangaDetailsPage(id: it.openId ?? it.id.toString()),
                             ),
                           )
                       : null,
