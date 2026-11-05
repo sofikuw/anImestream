@@ -3,7 +3,6 @@ import 'package:animestream/core/data/watching.dart';
 import 'package:animestream/ui/models/bottomSheets/batchDownload.dart';
 import 'package:animestream/ui/models/bottomSheets/commentSection.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -388,13 +387,14 @@ class _InfoMobileState extends State<InfoMobile> {
                                   style: TextStyle(color: appTheme.backgroundColor, fontWeight: FontWeight.bold)),
                             ),
                           ),
-                          if (kDebugMode)
-                            IconButton(
+                          IconButton(
                               tooltip: "Batch download",
                               onPressed: () {
                                 showModalBottomSheet(
                                     context: context,
                                     showDragHandle: true,
+                                    isScrollControlled: true,
+                                    backgroundColor: appTheme.modalSheetBackgroundColor,
                                     builder: (context) {
                                       return BatchDownloadSheetContent(
                                         provider: provider,
