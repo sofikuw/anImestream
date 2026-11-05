@@ -20,17 +20,26 @@ than pretending to cover the fork's earlier life. That history is in the git log
   own app bar hidden on Android and iOS, with a floating button to bring the
   chrome back (and an app-bar button to go fullscreen again). Desktop layouts
   keep their window chrome.
+- **Batch downloads.** Every episode can be queued at once from the info page,
+  with a chosen quality and dub/sub audio track per episode.
+- **Split audio downloads.** The downloader now fetches the video and the
+  chosen audio rendition separately and muxes both into the MKV, so dub tracks
+  are preserved instead of lost during remuxing.
 
 ### Changed
-- **Material 3 manga reader controls.** The reader's settings sheet now uses
-  segmented buttons for layout and reading direction plus a switch for zoom
-  (options that do not apply stay visible but disabled), and the bottom bar is
-  a Material surface with a Material slider instead of the hand-painted dot
-  track.
+- **Reader chrome stays as 1.0 designed it.** The dot-track bottom bar and the
+  always-available app bar were kept; only tap-to-toggle fullscreen and the
+  paged pinch/double-tap zoom were added on top.
 - **Zoom improvements.** Pinching now runs up to 5x with boundary margins,
   double-tapping zooms in around the tapped point (double-tap again to reset),
   and every page gets its own transformation so a zoomed page never leaks its
   scale onto the next one.
+- **One HLS parser.** Playback extraction, batch quality detection and
+  downloads share the new `hlsParser`; playlist URIs and attributes are
+  resolved correctly instead of being string-patched.
+- **Track switching no longer races the playlist.** Audio and quality changes
+  wait (briefly) for the player to finish parsing the manifest, so the Android
+  audio-track list is populated instead of permanently empty.
 
 ## [0.3.0] - 2026-10-29
 

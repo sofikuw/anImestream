@@ -137,21 +137,22 @@ class BetterPlayerWrapper implements VideoController {
     }
   }
 
-  /// The URL whose ASMS manifest has already been waited for.
-  ///
-  /// better_player parses the HLS/DASH master playlist in the background
-  /// (`setupDataSource` does not await it), so the very first query usually
-  /// runs before the audio renditions exist. Waiting once per source closes
-  /// that race; remembering the URL keeps a manifest that genuinely has no
-  /// separate tracks (or fails to load) from stalling every later query.
-  String? _audioTracksWaitedFor;
+  /// Sources whose ASMS manifest has already been waited for, so a stream
+  /// without separate tracks (or one the parser could not fetch) is only
+  /// waited on once instead of stalling every later query.
+  String? _audioWaitedFor;
+  String? _videoWaitedFor;
+
+  static const _asmsWaitAttempts = 20;
 
   @override
   Future<List<AudioStream>> getAudioTracks() async {
     try {
-      // better_player already parses the HLS/DASH audio renditions for us.
-      final tracks = await _asmsAudioTracks();
-      if (tracks.isEmpty) {
+      final tracks = await _waitForAsms(
+        audio: true,
+        read: () => controller.betterPlayerAsmsAudioTracks,
+      );
+      if (tracks == null || tracks.isEmpty) {
         Logs.player.log("Player exposed no separate audio tracks for this stream");
         return [];
       }
@@ -171,36 +172,42 @@ class BetterPlayerWrapper implements VideoController {
     }
   }
 
-  /// The ASMS audio renditions, waiting for the background parse when it is
-  /// still in flight for this source.
-  Future<List<BetterPlayerAsmsAudioTrack>> _asmsAudioTracks() async {
+  /// better_player parses the HLS/DASH master playlist in the background
+  /// (setupDataSource does not await it), so the first query usually races it.
+  Future<List<T>?> _waitForAsms<T>({required bool audio, required List<T>? Function() read}) async {
     final source = controller.betterPlayerDataSource;
-    if (source == null || source.useAsmsAudioTracks != true) {
-      return const <BetterPlayerAsmsAudioTrack>[];
-    }
-    final url = source.url.toLowerCase();
+    final url = source?.url;
+    final asmsEnabled = audio ? source?.useAsmsAudioTracks : source?.useAsmsTracks;
+    if (source == null || url == null || asmsEnabled != true) return read();
+    final lower = url.toLowerCase();
     final isAsms = source.videoFormat == BetterPlayerVideoFormat.hls ||
         source.videoFormat == BetterPlayerVideoFormat.dash ||
-        url.contains('.m3u8') ||
-        url.contains('.mpd');
-    if (!isAsms) return const <BetterPlayerAsmsAudioTrack>[];
+        lower.contains('.m3u8') ||
+        lower.contains('.mpd');
+    if (!isAsms) return read();
 
-    var tracks = controller.betterPlayerAsmsAudioTracks;
-    if (tracks == null && _audioTracksWaitedFor != source.url) {
-      _audioTracksWaitedFor = source.url;
-      // Bounded: a manifest with no separate audio (or one the parser could not
-      // fetch) must not hold up playback startup forever.
-      for (var attempt = 0; attempt < 20 && tracks == null; attempt++) {
+    var tracks = read();
+    final alreadyWaited = audio ? _audioWaitedFor == url : _videoWaitedFor == url;
+    if (tracks == null && !alreadyWaited) {
+      if (audio) {
+        _audioWaitedFor = url;
+      } else {
+        _videoWaitedFor = url;
+      }
+      for (var attempt = 0; attempt < _asmsWaitAttempts && tracks == null; attempt++) {
         await Future<void>.delayed(const Duration(milliseconds: 100));
-        tracks = controller.betterPlayerAsmsAudioTracks;
+        tracks = read();
       }
     }
-    return tracks ?? const <BetterPlayerAsmsAudioTrack>[];
+    return tracks;
   }
 
   @override
   Future<void> setAudioTrack(AudioStream aud) async {
-    final asmsTracks = controller.betterPlayerAsmsAudioTracks;
+    final asmsTracks = await _waitForAsms(
+      audio: true,
+      read: () => controller.betterPlayerAsmsAudioTracks,
+    );
     if (asmsTracks == null || asmsTracks.isEmpty) return;
 
     final track = asmsTracks.firstWhereOrNull(
@@ -220,29 +227,17 @@ class BetterPlayerWrapper implements VideoController {
 
   @override
   void setQuality(QualityStream qs) async {
-    final track = _qsToAsmsTrack(qs);
-    if (track == null) {
-      return print("[ERROR] No matching track found for '${qs.resolution}', cannot set quality.");
+    final tracks = await _waitForAsms(
+      audio: false,
+      read: () => controller.betterPlayerAsmsTracks,
+    );
+    if (tracks == null || tracks.isEmpty) {
+      return Logs.player.log("No ASMS video tracks to set '${qs.resolution}' from");
     }
-
-    print("Found matching track: $track");
+    final height = int.tryParse(qs.resolution.split("x").last);
+    final track = tracks.firstWhereOrNull((t) => height != null && t.height == height) ?? tracks.first;
+    Logs.player.log("Setting quality to ${track.height}p (requested '${qs.resolution}')");
     return controller.setTrack(track);
   }
 
-  BetterPlayerAsmsTrack? _qsToAsmsTrack(QualityStream qs) {
-    try {
-      return controller.betterPlayerAsmsTracks.firstWhere((element) {
-        final resMatch = element.height == (int.tryParse(qs.resolution.split("x").last) ?? 0);
-        final bwMatch = element.bitrate == (qs.bandwidth ?? 0);
-        return resMatch && bwMatch;
-      }, orElse: () {
-        print("[ERROR] No matching track found for '${qs.resolution}', defaulting to first track.");
-        return controller.betterPlayerAsmsTracks.first;
-      });
-    } catch (err) {
-      return null;
-    }
-    // return BetterPlayerAsmsTrack('', int.tryParse(qs.resolution.split("x").first) ?? 0,
-    //     int.tryParse(qs.resolution.split("x").last) ?? 0, qs.bandwidth ?? 0, 0, '', '');
-  }
 }

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:animestream/core/app/logging.dart';
 import 'package:animestream/core/commons/extractQuality.dart';
 import 'package:animestream/ui/models/playerControllers/videoController.dart';
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:fvp/fvp.dart';
 import 'package:video_player/video_player.dart';
@@ -146,9 +147,14 @@ class FvpWrapper implements VideoController {
 
   @override
   void setQuality(QualityStream qs) async {
-    // The player owns track selection; swapping the source here would restart
-    // the stream and drop the audio track the user picked.
-    Logs.player.log("FvpWrapper.setQuality('${qs.quality}') left to the player.");
+    final height = int.tryParse(qs.resolution.split("x").last);
+    if (height == null) return Logs.player.log("Invalid quality resolution '${qs.resolution}'");
+    final info = controller.getMediaInfo();
+    final track = info?.video?.firstWhereOrNull((t) => t.codec.height == height);
+    if (track == null) return Logs.player.log("No fvp video track at ${height}p for '${qs.resolution}'");
+    await controller.pause();
+    controller.setVideoTracks([track.index]);
+    await controller.play();
   }
 
   @override

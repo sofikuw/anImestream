@@ -158,6 +158,7 @@ class MangaDownloader {
       status: DownloadStatus.downloading,
       fileName: '$mangaTitle - ${chapter.displayTitle}',
       progress: 0,
+      mock: true, // queued for the UI only; downloads bypass DownloadManager
     );
     DownloadManager.enqueue(downloadItem);
 
