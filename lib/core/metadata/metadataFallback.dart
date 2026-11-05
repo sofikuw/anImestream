@@ -21,13 +21,15 @@ class MetadataSettings {
 
   static bool get anilistEnabled => isEnabled('anilist');
 
-  /// The user's fallback order, filtered to providers that still exist and are
-  /// still enabled. An empty list means "no fallback".
-  static List<String> get fallbackOrder {
-    final configured = currentUserSettings?.metadataFallbacks;
-    final order = configured ?? const <String>['mal', 'kitsu'];
-    return order.where(isEnabled).toList(growable: false);
-  }
+  /// Enabled fallback sources, in the order they are tried after AniList.
+  ///
+  /// Every provider is a first-class metadata source now, so the order is fixed
+  /// instead of configured separately: Kitsu comes before Simkl because Kitsu
+  /// can also fill Discover rails.
+  static const List<String> priority = <String>['mal', 'kitsu', 'simkl'];
+
+  static List<String> get fallbackOrder =>
+      priority.where(isEnabled).toList(growable: false);
 }
 
 class _AnimeFallbackEntry {

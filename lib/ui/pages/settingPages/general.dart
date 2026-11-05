@@ -175,7 +175,7 @@ class _GeneralSettingState extends State<GeneralSetting> {
                         );
                       },
                       label: "Built-in providers",
-                      description: "Remove defaults and choose metadata fallbacks",
+                      description: "Choose streaming, manga and metadata sources",
                       suffixIcon: Icon(Icons.navigate_next_rounded),
                     ),
                     ClickableItem(

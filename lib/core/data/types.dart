@@ -55,17 +55,12 @@ class SettingsModal {
   /// otherwise reappear on every launch.
   final List<String>? disabledProviders;
 
-  /// Metadata databases the user removed from search and browse.
+  /// Metadata sources the user turned off.
   ///
-  /// Disabling AniList routes search and browse through the configured
-  /// fallbacks. MAL, Kitsu and Simkl can also be selected as the database,
-  /// which makes that provider the first metadata source.
+  /// AniList is preferred when enabled; otherwise search, Discover and details
+  /// use the enabled fallback sources in priority order. Selecting MAL or Simkl
+  /// as the database makes that provider the first source.
   final List<String>? disabledMetadataProviders;
-
-  /// Ordered fallback database ids used when AniList is unavailable.
-  ///
-  /// Defaults to MAL then Kitsu. Empty means no fallback.
-  final List<String>? metadataFallbacks;
 
   /// Enable extra speed options in player (4x,5x,8x,10x) [defaults to false]
   final bool? enableSuperSpeeds;
@@ -126,7 +121,6 @@ class SettingsModal {
     this.database,
     this.disabledProviders,
     this.disabledMetadataProviders,
-    this.metadataFallbacks,
     this.enableSuperSpeeds,
     this.useQueuedDownloads,
     this.useFramelessWindow,
@@ -165,9 +159,6 @@ class SettingsModal {
       disabledMetadataProviders: map['disabledMetadataProviders'] is List
           ? (map['disabledMetadataProviders'] as List).whereType<String>().toList()
           : const <String>[],
-      metadataFallbacks: map['metadataFallbacks'] is List
-          ? (map['metadataFallbacks'] as List).whereType<String>().toList()
-          : const <String>['mal', 'kitsu'],
       enableSuperSpeeds: map['enableSuperSpeeds'] ?? false,
       useQueuedDownloads: map['useQueuedDownloads'] ?? false,
       useFramelessWindow: map['useFramelessWindow'] ?? false,
@@ -203,7 +194,6 @@ class SettingsModal {
       'database': database?.name,
       'disabledProviders': disabledProviders,
       'disabledMetadataProviders': disabledMetadataProviders,
-      'metadataFallbacks': metadataFallbacks,
       'enableSuperSpeeds': enableSuperSpeeds,
       'useQueuedDownloads': useQueuedDownloads,
       'useFramelessWindow': useFramelessWindow,

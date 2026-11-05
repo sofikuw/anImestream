@@ -25,15 +25,13 @@ class _BuiltInProvidersPageState extends State<BuiltInProvidersPage> {
   bool _loaded = false;
   final Set<String> _disabledProviders = <String>{};
   final Set<String> _disabledMetadata = <String>{};
-  final Set<String> _fallbacks = <String>{'mal', 'kitsu'};
 
   static const List<String> _metadataProviders = <String>[
     'anilist',
     'mal',
+    'kitsu',
     'simkl',
   ];
-
-  static const List<String> _fallbackProviders = <String>['mal', 'kitsu', 'simkl'];
 
   @override
   void initState() {
@@ -49,9 +47,6 @@ class _BuiltInProvidersPageState extends State<BuiltInProvidersPage> {
     _disabledMetadata
       ..clear()
       ..addAll(settings.disabledMetadataProviders ?? const <String>[]);
-    _fallbacks
-      ..clear()
-      ..addAll(settings.metadataFallbacks ?? const <String>['mal', 'kitsu']);
     if (mounted) {
       setState(() => _loaded = true);
     }
@@ -63,9 +58,6 @@ class _BuiltInProvidersPageState extends State<BuiltInProvidersPage> {
         disabledProviders: _disabledProviders.toList(growable: false),
         disabledMetadataProviders:
             _disabledMetadata.toList(growable: false),
-        metadataFallbacks: _fallbackProviders
-            .where(_fallbacks.contains)
-            .toList(growable: false),
       ),
     );
 
@@ -142,26 +134,6 @@ class _BuiltInProvidersPageState extends State<BuiltInProvidersPage> {
       } else {
         _disabledMetadata.add(name);
       }
-      if (!enabled) {
-        // A disabled metadata database cannot answer a fallback request.
-        _fallbacks.remove(name);
-        if (name == 'anilist' && _fallbacks.isEmpty) {
-          // AniList is the only primary source. Keep at least one fallback so
-          // search does not silently become empty.
-          _fallbacks.add(_disabledMetadata.contains('mal') ? 'kitsu' : 'mal');
-        }
-      }
-    });
-    _save();
-  }
-
-  void _toggleFallback(String id, bool enabled) {
-    setState(() {
-      if (enabled) {
-        _fallbacks.add(id);
-      } else {
-        _fallbacks.remove(id);
-      }
     });
     _save();
   }
@@ -219,9 +191,10 @@ class _BuiltInProvidersPageState extends State<BuiltInProvidersPage> {
                       ),
                     _sectionTitle("Metadata"),
                     _note(
-                      "Pick one of these under Select Database to make it the "
-                      "primary metadata source. Fallbacks are used when AniList "
-                      "is disabled or the selected source has no result.",
+                      "These sources supply search, Discover and details. If "
+                      "the active source is unavailable, the app switches to "
+                      "the next enabled one: MyAnimeList, Kitsu, then Simkl. "
+                      "Turn one off to stop using it.",
                     ),
                     for (final name in _metadataProviders)
                       _switch(
@@ -230,29 +203,10 @@ class _BuiltInProvidersPageState extends State<BuiltInProvidersPage> {
                         value: !_disabledMetadata.contains(name),
                         onChanged: (value) => _toggleMetadata(name, value),
                       ),
-                    _sectionTitle("Metadata fallbacks"),
-                    _note(
-                      "Used when AniList is unavailable, in this order: "
-                      "MyAnimeList, Kitsu, then Simkl. Manga fallbacks use the "
-                      "same providers.",
-                    ),
-                    for (final id in _fallbackProviders)
-                      _switch(
-                        title: _metadataName(id),
-                        subtitle: id == 'mal' && _disabledMetadata.contains('mal')
-                            ? "Enable MyAnimeList under Metadata first"
-                            : id == 'mal'
-                                ? "MyAnimeList search, browse and details"
-                                : id == 'simkl'
-                                    ? "Simkl search and details"
-                                    : "Kitsu search, browse and details",
-                        value: _fallbacks.contains(id),
-                        onChanged: (value) => _toggleFallback(id, value),
-                      ),
-                    if (_fallbacks.isEmpty)
+                    if (_metadataProviders.every((name) => _disabledMetadata.contains(name)))
                       _note(
-                        "No metadata fallback is enabled. If AniList is down, "
-                        "search and Discover will show an error instead.",
+                        "No metadata source is enabled. Search, Discover and "
+                        "details will show an error until one is turned on.",
                       ),
                   ],
                 ),
@@ -324,11 +278,13 @@ class _BuiltInProvidersPageState extends State<BuiltInProvidersPage> {
   static String _metadataDescription(String id) {
     switch (id) {
       case 'anilist':
-        return 'Primary source for anime and manga';
+        return 'Search, Discover and details for anime and manga';
       case 'mal':
-        return 'Anime and manga metadata, also used as a fallback';
+        return 'Search, Discover and details for anime and manga';
+      case 'kitsu':
+        return 'Search, Discover and details; also fills gaps in MAL';
       case 'simkl':
-        return 'Anime metadata';
+        return 'Search and details only; no Discover rails';
       default:
         return '';
     }

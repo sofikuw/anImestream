@@ -40,6 +40,10 @@ than pretending to cover the fork's earlier life. That history is in the git log
 - **Track switching no longer races the playlist.** Audio and quality changes
   wait (briefly) for the player to finish parsing the manifest, so the Android
   audio-track list is populated instead of permanently empty.
+- **One metadata list.** *Metadata* and *Metadata fallbacks* are merged into a
+  single section with AniList, MyAnimeList, Kitsu and Simkl. Every enabled
+  source can answer search and details; when AniList is unavailable the app
+  falls through the enabled sources automatically.
 
 ### Fixed
 - **Metadata fallbacks stay usable without AniList.** Choosing MyAnimeList or
