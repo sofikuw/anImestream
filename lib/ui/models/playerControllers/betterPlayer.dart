@@ -137,12 +137,25 @@ class BetterPlayerWrapper implements VideoController {
     }
   }
 
+  /// The URL whose ASMS manifest has already been waited for.
+  ///
+  /// better_player parses the HLS/DASH master playlist in the background
+  /// (`setupDataSource` does not await it), so the very first query usually
+  /// runs before the audio renditions exist. Waiting once per source closes
+  /// that race; remembering the URL keeps a manifest that genuinely has no
+  /// separate tracks (or fails to load) from stalling every later query.
+  String? _audioTracksWaitedFor;
+
   @override
   Future<List<AudioStream>> getAudioTracks() async {
     try {
       // better_player already parses the HLS/DASH audio renditions for us.
-      final tracks = controller.betterPlayerAsmsAudioTracks;
-      if (tracks == null || tracks.isEmpty) return [];
+      final tracks = await _asmsAudioTracks();
+      if (tracks.isEmpty) {
+        Logs.player.log("Player exposed no separate audio tracks for this stream");
+        return [];
+      }
+      Logs.player.log("Player exposed ${tracks.length} audio track(s)");
       return tracks.map((t) {
         return AudioStream(
           groupId: (t.id ?? 0).toString(),
@@ -156,6 +169,33 @@ class BetterPlayerWrapper implements VideoController {
       Logs.player.log("Failed to get audio tracks in BetterPlayerWrapper: $e");
       return [];
     }
+  }
+
+  /// The ASMS audio renditions, waiting for the background parse when it is
+  /// still in flight for this source.
+  Future<List<BetterPlayerAsmsAudioTrack>> _asmsAudioTracks() async {
+    final source = controller.betterPlayerDataSource;
+    if (source == null || source.useAsmsAudioTracks != true) {
+      return const <BetterPlayerAsmsAudioTrack>[];
+    }
+    final url = source.url.toLowerCase();
+    final isAsms = source.videoFormat == BetterPlayerVideoFormat.hls ||
+        source.videoFormat == BetterPlayerVideoFormat.dash ||
+        url.contains('.m3u8') ||
+        url.contains('.mpd');
+    if (!isAsms) return const <BetterPlayerAsmsAudioTrack>[];
+
+    var tracks = controller.betterPlayerAsmsAudioTracks;
+    if (tracks == null && _audioTracksWaitedFor != source.url) {
+      _audioTracksWaitedFor = source.url;
+      // Bounded: a manifest with no separate audio (or one the parser could not
+      // fetch) must not hold up playback startup forever.
+      for (var attempt = 0; attempt < 20 && tracks == null; attempt++) {
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+        tracks = controller.betterPlayerAsmsAudioTracks;
+      }
+    }
+    return tracks ?? const <BetterPlayerAsmsAudioTrack>[];
   }
 
   @override

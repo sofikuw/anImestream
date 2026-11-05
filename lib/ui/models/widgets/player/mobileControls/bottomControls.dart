@@ -4,6 +4,7 @@ import 'package:animestream/ui/models/providers/playerDataProvider.dart';
 import 'package:animestream/ui/models/providers/playerProvider.dart';
 import 'package:animestream/ui/pages/settingPages/common.dart';
 import 'package:animestream/ui/pages/settingPages/subtitle.dart';
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -240,7 +241,30 @@ class BottomControls extends StatelessWidget {
                       ),
                     ),
                     IconButton(
-                      onPressed: () {
+                      onPressed: () async {
+                        // The manifest parse runs in the background, so a stream
+                        // whose tracks were not ready at startup can still have
+                        // them by the time this is opened. Ask the player again
+                        // instead of showing a stale empty list.
+                        final tracks = await playerProvider.controller.getAudioTracks();
+                        if (tracks.isNotEmpty) {
+                          dataProvider.updateAudioTracks(tracks);
+                          final current = dataProvider.state.currentAudioTrack;
+                          if (!tracks.any((track) => track.url == current.url)) {
+                            // Nothing valid is selected yet (the list arrived
+                            // after startup): apply the same dub preference the
+                            // watch page uses, then fall back to the first track.
+                            final wantsDub = dataProvider.state.currentStream.dub ||
+                                dataProvider.preferDubs;
+                            final preferred = (wantsDub
+                                    ? tracks.firstWhereOrNull((track) => track.isEnglish)
+                                    : null) ??
+                                tracks.first;
+                            dataProvider.updateCurrentAudioTrack(preferred);
+                            playerProvider.controller.setAudioTrack(preferred);
+                          }
+                        }
+                        if (!context.mounted) return;
                         showModalBottomSheet(
                             context: context,
                             isScrollControlled: true,
