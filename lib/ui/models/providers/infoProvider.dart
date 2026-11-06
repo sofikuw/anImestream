@@ -349,7 +349,20 @@ class InfoProvider extends ChangeNotifier {
         )
         .toList();
     if (match.isEmpty) match = sr;
-    final links = await sourceManager.getAnimeEpisodes(selectedSource.identifier, match[0]['alias']!);
+    if (match.isEmpty) {
+      _epSearcherror = true;
+      _manualSearchQuery = null;
+      notifyListeners();
+      return;
+    }
+    final alias = match[0]['alias'];
+    if (alias == null || alias.isEmpty) {
+      _epSearcherror = true;
+      _manualSearchQuery = null;
+      notifyListeners();
+      return;
+    }
+    final links = await sourceManager.getAnimeEpisodes(selectedSource.identifier, alias);
     paginate(links);
     _foundName = match[0]['name'];
     notifyListeners();
