@@ -1,5 +1,6 @@
 import 'package:animestream/core/anime/providers/providerDetails.dart';
 import 'package:animestream/core/anime/providers/providerManager.dart';
+import 'package:animestream/core/app/runtimeDatas.dart';
 import 'package:animestream/core/data/preferences.dart';
 import 'package:animestream/core/data/settings.dart';
 import 'package:animestream/core/extensions/javascript/javascript_provider_http.dart';
@@ -78,13 +79,17 @@ class JavaScriptMangaProvider implements MangaChapterProvider {
       return inbuilt;
     }
     final identifiers = inbuilt.map((source) => source.identifier).toSet();
+    final nsfwMode = currentUserSettings?.nsfwMode ?? false;
     return <ProviderDetails>[
       ...inbuilt,
       // A stored extension reusing an inbuilt identifier must not shadow the
       // compiled one, so the first occurrence wins.
-      ...installed.where(_isUsableMangaExtension).where(
-            (details) => identifiers.add(details.identifier),
-          ),
+      ...installed
+          .where(_isUsableMangaExtension)
+          .where((details) => identifiers.add(details.identifier))
+          // Hidden while NSFW mode is off: still installed, just not offered
+          // as a source and not picked as the fallback reader.
+          .where((details) => nsfwMode || !details.nsfw),
     ];
   }
 

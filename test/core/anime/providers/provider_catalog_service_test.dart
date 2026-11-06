@@ -58,6 +58,23 @@ void main() {
       );
     });
 
+    test('reads the optional NSFW flag, defaulting to false', () {
+      final repository = ProviderRepository.fromIndexUrl(
+        'https://repo.example.test/providers/index.json',
+      );
+      final safe = JsAnimeProviderManifest.fromMap(
+        _manifest(hash: List<String>.filled(64, 'b').join()),
+        repository: repository,
+      );
+      final adult = JsAnimeProviderManifest.fromMap(
+        _manifest(hash: List<String>.filled(64, 'c').join(), nsfw: true),
+        repository: repository,
+      );
+
+      expect(safe.nsfw, isFalse);
+      expect(adult.nsfw, isTrue);
+    });
+
     test('rejects unsupported schema versions and path traversal', () {
       final repository =
           ProviderRepository.fromIndexUrl('https://repo.example.test/index.json');
@@ -278,6 +295,7 @@ Map<String, dynamic> _manifest({
   required String hash,
   int manifestVersion = 1,
   String entrypoint = 'sample.js',
+  bool nsfw = false,
 }) {
   return <String, dynamic>{
     'manifestVersion': manifestVersion,
@@ -290,6 +308,7 @@ Map<String, dynamic> _manifest({
     'entrypointSha256': hash,
     'allowedHosts': <String>['api.example.test'],
     'supportDownloads': false,
+    'nsfw': nsfw,
   };
 }
 

@@ -14,6 +14,10 @@ class ProviderDetails {
   final String? repositoryUrl;
   final String? sourceSha256;
 
+  /// Catalog-declared adult flag. Hidden from source pickers unless NSFW mode
+  /// is on; it never disables or uninstalls the provider by itself.
+  final bool nsfw;
+
   /// Content types this provider serves: "anime" and/or "manga".
   ///
   /// Defaults to ["anime"] so records written before this field existed -- and
@@ -50,6 +54,7 @@ class ProviderDetails {
     this.enabled = true,
     this.repositoryUrl,
     this.sourceSha256,
+    this.nsfw = false,
     List<String> contentTypes = const <String>['anime'],
     this.format = 'animestream',
     this.baseUrl,
@@ -72,6 +77,7 @@ class ProviderDetails {
     bool? enabled,
     String? repositoryUrl,
     String? sourceSha256,
+    bool? nsfw,
     List<String>? contentTypes,
     String? format,
     String? baseUrl,
@@ -92,6 +98,7 @@ class ProviderDetails {
       enabled: enabled ?? this.enabled,
       repositoryUrl: repositoryUrl ?? this.repositoryUrl,
       sourceSha256: sourceSha256 ?? this.sourceSha256,
+      nsfw: nsfw ?? this.nsfw,
       contentTypes: contentTypes ?? this.contentTypes,
       format: format ?? this.format,
       baseUrl: baseUrl ?? this.baseUrl,
@@ -115,6 +122,7 @@ class ProviderDetails {
       'enabled': enabled,
       'repositoryUrl': repositoryUrl,
       'sourceSha256': sourceSha256,
+      'nsfw': nsfw,
       'contentTypes': contentTypes,
       'format': format,
       'baseUrl': baseUrl,
@@ -140,6 +148,7 @@ class ProviderDetails {
       enabled: (map['enabled'] ?? true) as bool,
       repositoryUrl: map['repositoryUrl'] as String?,
       sourceSha256: map['sourceSha256'] as String?,
+      nsfw: (map['nsfw'] ?? false) as bool,
       contentTypes: map['contentTypes'] is List
           ? (map['contentTypes'] as List).whereType<String>().toList()
           : const <String>['anime'],
@@ -158,7 +167,7 @@ class ProviderDetails {
 
   @override
   String toString() {
-    return 'ProviderDetails(name: $name, identifier: $identifier, version: $version, icon: $icon, code: $code, supportDownloads: $supportDownloads, scriptType: $scriptType, allowedHosts: $allowedHosts, enabled: $enabled, repositoryUrl: $repositoryUrl, sourceSha256: $sourceSha256, contentTypes: $contentTypes, format: $format, baseUrl: $baseUrl, apiUrl: $apiUrl, lang: $lang, dateFormat: $dateFormat, dateFormatLocale: $dateFormatLocale)';
+    return 'ProviderDetails(name: $name, identifier: $identifier, version: $version, icon: $icon, code: $code, supportDownloads: $supportDownloads, scriptType: $scriptType, allowedHosts: $allowedHosts, enabled: $enabled, repositoryUrl: $repositoryUrl, sourceSha256: $sourceSha256, nsfw: $nsfw, contentTypes: $contentTypes, format: $format, baseUrl: $baseUrl, apiUrl: $apiUrl, lang: $lang, dateFormat: $dateFormat, dateFormatLocale: $dateFormatLocale)';
   }
 
   @override
@@ -175,6 +184,7 @@ class ProviderDetails {
       enabled.hashCode ^
       repositoryUrl.hashCode ^
       sourceSha256.hashCode ^
+      nsfw.hashCode ^
       format.hashCode ^
       baseUrl.hashCode ^
       apiUrl.hashCode ^
@@ -200,6 +210,7 @@ class ProviderDetails {
       other.enabled == enabled &&
       other.repositoryUrl == repositoryUrl &&
       other.sourceSha256 == sourceSha256 &&
+      other.nsfw == nsfw &&
       other.format == format &&
       other.baseUrl == baseUrl &&
       other.apiUrl == apiUrl &&

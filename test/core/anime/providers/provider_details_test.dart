@@ -51,5 +51,30 @@ void main() {
       expect(restored.repositoryUrl, details.repositoryUrl);
       expect(restored.sourceSha256, details.sourceSha256);
     });
+
+    test('round trips the catalog NSFW flag', () {
+      final details = ProviderDetails(
+        name: 'Adult',
+        identifier: 'adult',
+        version: '1.0.0',
+        code: 'module.exports = {};',
+        nsfw: true,
+      );
+
+      final restored = ProviderDetails.fromMap(details.toMap());
+
+      expect(restored.nsfw, isTrue);
+      expect(restored, details);
+    });
+
+    test('treats records saved before the NSFW flag as safe', () {
+      final details = ProviderDetails.fromMap(<String, dynamic>{
+        'name': 'Legacy',
+        'identifier': 'legacy',
+        'version': '1',
+      });
+
+      expect(details.nsfw, isFalse);
+    });
   });
 }

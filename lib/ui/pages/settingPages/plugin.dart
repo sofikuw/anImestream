@@ -12,7 +12,14 @@ import 'package:animestream/ui/pages/settingPages/common.dart';
 import 'package:flutter/material.dart';
 
 class PluginPage extends StatefulWidget {
-  const PluginPage({super.key});
+  const PluginPage({super.key, this.initialRepositoryUrl});
+
+  /// Repository catalog URL to add as soon as the page opens.
+  ///
+  /// Used by the `astrm://add-repo` deep link so the one-click button in a
+  /// repository README lands here with the repository already added instead of
+  /// making the user paste the URL again.
+  final String? initialRepositoryUrl;
 
   @override
   State<PluginPage> createState() => _PluginPageState();
@@ -33,6 +40,7 @@ class _PluginPageState extends State<PluginPage>
   Map<String, String> _repositoryErrors = <String, String>{};
   bool _loading = true;
   String? _pageError;
+  bool _handledInitialUrl = false;
 
   @override
   void initState() {
@@ -83,6 +91,11 @@ class _PluginPageState extends State<PluginPage>
         _pageError = _readableError(error);
         _loading = false;
       });
+    }
+    final initialUrl = widget.initialRepositoryUrl;
+    if (!_handledInitialUrl && initialUrl != null && initialUrl.trim().isNotEmpty) {
+      _handledInitialUrl = true;
+      await _addRepositoryUrl(initialUrl.trim());
     }
   }
 
@@ -141,7 +154,10 @@ class _PluginPageState extends State<PluginPage>
     );
     controller.dispose();
     if (rawUrl == null || rawUrl.trim().isEmpty) return;
+    await _addRepositoryUrl(rawUrl.trim());
+  }
 
+  Future<void> _addRepositoryUrl(String rawUrl) async {
     try {
       final repository = ProviderRepository.fromIndexUrl(rawUrl);
       if (_repositories.any((item) => item.id == repository.id)) {
@@ -571,14 +587,15 @@ class _PluginPageState extends State<PluginPage>
   }
 
   Widget _catalogTab() {
+    final nsfwMode = currentUserSettings?.nsfwMode ?? false;
     final entries = <_CatalogEntry>[];
     for (final repository in _repositories) {
       final catalog = _catalogs[repository.id];
       if (catalog == null) continue;
       entries.addAll(
-        catalog.providers.map(
-          (provider) => _CatalogEntry(repository, provider),
-        ),
+        catalog.providers
+            .where((provider) => nsfwMode || !provider.nsfw)
+            .map((provider) => _CatalogEntry(repository, provider)),
       );
     }
     if (_repositories.isEmpty) {
@@ -592,12 +609,23 @@ class _PluginPageState extends State<PluginPage>
     }
     if (entries.isEmpty) {
       final failed = _repositoryErrors.isNotEmpty;
+      final hasAdultEntries = _repositories.any(
+        (repository) =>
+            _catalogs[repository.id]?.providers.any((provider) => provider.nsfw) ??
+            false,
+      );
       return _emptyState(
         failed ? Icons.cloud_off_rounded : Icons.search_rounded,
-        failed ? 'Catalogs could not be loaded' : 'No providers listed',
+        failed
+            ? 'Catalogs could not be loaded'
+            : hasAdultEntries
+                ? 'Only adult providers listed'
+                : 'No providers listed',
         failed
             ? 'Check the repository URL and connection in the Repositories tab.'
-            : 'The added catalogs do not list any providers.',
+            : hasAdultEntries
+                ? 'Turn on NSFW mode under Settings → General to see them.'
+                : 'The added catalogs do not list any providers.',
         actionLabel: 'Refresh',
         onAction: _load,
       );

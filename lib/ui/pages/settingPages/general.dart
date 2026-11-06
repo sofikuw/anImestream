@@ -186,6 +186,17 @@ class _GeneralSettingState extends State<GeneralSetting> {
                       description: "Add or remove providers",
                       suffixIcon: Icon(Icons.navigate_next_rounded),
                     ),
+                    ToggleItem(
+                      onTapFunction: () async {
+                        final enabled = !(currentUserSettings?.nsfwMode ?? false);
+                        await writeSettings(SettingsModal(nsfwMode: enabled));
+                        await SourceManager.instance.refreshInstalledProviders();
+                        if (mounted) setState(() {});
+                      },
+                      label: "NSFW mode",
+                      description: "Show adult providers and unfiltered metadata",
+                      value: currentUserSettings?.nsfwMode ?? false,
+                    ),
                     ClickableItem(
                       label: "Cache Manager",
                       onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (context) => CacheSetting())),

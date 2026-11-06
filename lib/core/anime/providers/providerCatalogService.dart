@@ -245,6 +245,7 @@ class ProviderCatalogService {
       enabled: enabled,
       repositoryUrl: repository.indexUrl,
       sourceSha256: verified.sha256,
+      nsfw: manifest.nsfw,
       format: manifest.format,
       baseUrl: manifest.baseUrl,
       apiUrl: manifest.apiUrl,

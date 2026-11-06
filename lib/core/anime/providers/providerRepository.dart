@@ -90,6 +90,7 @@ class JsAnimeProviderManifest {
     required this.repositoryUrl,
     required this.codeUrl,
     this.format = 'animestream',
+    this.nsfw = false,
     this.iconUrl,
     this.baseUrl,
     this.apiUrl,
@@ -120,6 +121,10 @@ class JsAnimeProviderManifest {
 
   /// `animestream` for native modules, `mangayomi` for MangaYomi extensions.
   final String format;
+
+  /// Adult content flag declared by the catalog. Providers flagged here are
+  /// hidden from source pickers unless NSFW mode is enabled.
+  final bool nsfw;
 
   /// Optional icon, used by MangaYomi catalogs.
   final String? iconUrl;
@@ -263,6 +268,7 @@ class JsAnimeProviderManifest {
       contentTypes: List<String>.unmodifiable(declaredContentTypes),
       repositoryUrl: repository.indexUrl,
       codeUrl: codeUrl,
+      nsfw: _nsfwFlag(map['nsfw']),
     );
   }
 
@@ -326,6 +332,7 @@ class JsAnimeProviderManifest {
       repositoryUrl: repository.indexUrl,
       codeUrl: codeUri,
       format: 'mangayomi',
+      nsfw: _nsfwFlag(map['nsfw']),
       iconUrl: icon?.toString(),
       baseUrl: baseUri.toString(),
       apiUrl: apiUri?.toString(),
@@ -412,6 +419,10 @@ class JsAnimeProviderManifest {
   static bool _isSemver(String value) =>
       RegExp(r'^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$')
           .hasMatch(value);
+
+  /// Native catalogs write `"nsfw": true`; MangaYomi indexes write `0`/`1`.
+  /// Anything else (including a missing field) is treated as safe.
+  static bool _nsfwFlag(Object? value) => value == true || value == 1;
 
   /// Returns -1, 0, or 1 for supported `major.minor.patch` versions.
   static int compareVersions(String left, String right) {

@@ -41,6 +41,13 @@ class SourceManager {
           supportDownloads: !_undownloadableSources.contains(e.toLowerCase())))
       .toList();
 
+  /// Whether adult providers should be listed.
+  ///
+  /// Read from settings rather than stored on the provider: a provider
+  /// installed while NSFW mode was on reappears when it is turned back on,
+  /// with no reinstall and no write to the saved provider record.
+  bool get nsfwMode => currentUserSettings?.nsfwMode ?? false;
+
   /// Used till complete migration to remote providers is complete.
   bool _useInbuiltProviders = true;
 
@@ -107,6 +114,7 @@ class SourceManager {
         (provider) =>
             provider.enabled &&
             provider.scriptType.toLowerCase() == 'javascript' &&
+            (nsfwMode || !provider.nsfw) &&
             !builtInIdentifiers.contains(provider.identifier),
       ),
     );
@@ -124,7 +132,8 @@ class SourceManager {
           .where(
             (provider) =>
                 provider.enabled &&
-                provider.scriptType.toLowerCase() == 'javascript',
+                provider.scriptType.toLowerCase() == 'javascript' &&
+                (nsfwMode || !provider.nsfw),
           )
           .where(
             (provider) => !builtInIdentifiers.contains(provider.identifier),
@@ -213,8 +222,11 @@ AnimeProvider getClass(String source) {
 List<DropdownMenuEntry> getSourceDropdownList({String contentType = 'anime'}) {
   List<DropdownMenuEntry> widget = [];
   final sources = <ProviderDetails>[
-    ...SourceManager.instance.sources
-        .where((source) => source.contentTypes.contains(contentType)),
+    ...SourceManager.instance.sources.where(
+      (source) =>
+          source.contentTypes.contains(contentType) &&
+          (SourceManager.instance.nsfwMode || !source.nsfw),
+    ),
     if (contentType == 'manga') ...[
       ...inbuiltMangaSources.where(
         (inbuilt) =>

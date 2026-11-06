@@ -36,6 +36,7 @@ import 'package:animestream/ui/models/widgets/loader.dart';
 import 'package:animestream/ui/pages/info.dart';
 import 'package:animestream/ui/pages/mainNav.dart';
 import 'package:animestream/ui/pages/mangaReader.dart';
+import 'package:animestream/ui/pages/settingPages/plugin.dart';
 import 'package:animestream/ui/theme/divergent.dart';
 import 'package:animestream/ui/theme/themes.dart';
 import 'package:animestream/ui/theme/types.dart';
@@ -254,6 +255,19 @@ class _AnimeStreamState extends State<AnimeStream> {
                     ) ??
                     print("Nah");
                 break;
+              }
+            }
+          case "add-repo":
+            {
+              final url = uri.queryParameters['url'];
+              if (url != null && url.isNotEmpty) {
+                AnimeStream.navigatorKey.currentState?.push(
+                      MaterialPageRoute(
+                        builder: (context) => PluginPage(initialRepositoryUrl: url),
+                      ),
+                    );
+              } else {
+                floatingSnackBar("Add-repo link is missing a url.");
               }
             }
           default:
