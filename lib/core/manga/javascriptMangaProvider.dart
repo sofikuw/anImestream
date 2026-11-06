@@ -6,6 +6,7 @@ import 'package:animestream/core/extensions/javascript/javascript_provider_http.
 import 'package:animestream/core/extensions/javascript/javascript_runtime.dart';
 import 'package:animestream/core/extensions/mangayomi/mangayomi_providers.dart';
 import 'package:animestream/core/manga/mangaProvider.dart';
+import 'package:animestream/core/manga/providers/apkBridgeProviders.dart';
 import 'package:animestream/core/manga/providers/inbuiltMangaProviders.dart';
 import 'package:animestream/core/manga/types.dart';
 
@@ -62,9 +63,11 @@ class JavaScriptMangaProvider implements MangaChapterProvider {
     // The inbuilt sources are switchable in "Built-in providers", which stores
     // the hidden identifiers under the same key the anime ones use.
     final disabled = await _disabledBuiltinSourceIds();
-    final inbuilt = inbuiltMangaSources
-        .where((source) => !disabled.contains(source.identifier))
-        .toList(growable: false);
+    await refreshApkBridgeSources();
+    final inbuilt = <ProviderDetails>[
+      ...inbuiltMangaSources.where((source) => !disabled.contains(source.identifier)),
+      ...apkBridgeMangaSources.where((source) => !disabled.contains(source.identifier)),
+    ];
 
     final List<ProviderDetails> installed;
     try {
@@ -91,6 +94,8 @@ class JavaScriptMangaProvider implements MangaChapterProvider {
     String identifier, {
     ProviderManager? providerManager,
   }) async {
+    final apk = apkBridgeProviderFor(identifier);
+    if (apk != null) return apk;
     final inbuilt = inbuiltMangaProviderFor(identifier);
     if (inbuilt != null) {
       final disabled = await _disabledBuiltinSourceIds();

@@ -24,6 +24,7 @@ import 'package:animestream/core/data/theme.dart';
 import 'package:animestream/core/manga/anilistManga.dart';
 import 'package:animestream/core/manga/javascriptMangaProvider.dart';
 import 'package:animestream/core/manga/mangaProvider.dart';
+import 'package:animestream/core/manga/providers/apkBridgeProviders.dart';
 import 'package:animestream/core/manga/types.dart';
 import 'package:animestream/ui/models/notification.dart';
 import 'package:animestream/ui/models/providers/appProvider.dart';
@@ -93,6 +94,7 @@ void main(List<String> args) async {
       ..loadProviders(clearBeforeLoading: false);
 
     HttpOverrides.global = _HttpOverrides();
+    await refreshApkBridgeSources();
 
     // await dotenv.load(fileName: ".env");
 

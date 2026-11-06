@@ -11,6 +11,7 @@ import 'package:animestream/core/anime/providers/providerManager.dart';
 import 'package:animestream/core/anime/providers/providerPlugin.dart';
 import 'package:animestream/core/anime/providers/types.dart';
 import 'package:animestream/core/app/runtimeDatas.dart';
+import 'package:animestream/core/manga/providers/apkBridgeProviders.dart';
 import 'package:animestream/core/manga/providers/inbuiltMangaProviders.dart';
 import 'package:flutter/material.dart';
 
@@ -214,13 +215,20 @@ List<DropdownMenuEntry> getSourceDropdownList({String contentType = 'anime'}) {
   final sources = <ProviderDetails>[
     ...SourceManager.instance.sources
         .where((source) => source.contentTypes.contains(contentType)),
-    if (contentType == 'manga')
+    if (contentType == 'manga') ...[
       ...inbuiltMangaSources.where(
         (inbuilt) =>
             !(currentUserSettings?.disabledProviders ?? const <String>[]).contains(inbuilt.identifier) &&
             !SourceManager.instance.sources
                 .any((source) => source.identifier == inbuilt.identifier),
       ),
+      ...apkBridgeMangaSources.where(
+        (inbuilt) =>
+            !(currentUserSettings?.disabledProviders ?? const <String>[]).contains(inbuilt.identifier) &&
+            !SourceManager.instance.sources
+                .any((source) => source.identifier == inbuilt.identifier),
+      ),
+    ],
   ];
   int count = 0;
   for (final source in sources) {
