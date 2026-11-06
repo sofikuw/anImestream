@@ -55,10 +55,11 @@ class _ApkBridgeSettingState extends State<ApkBridgeSetting> {
       type: FileType.custom,
       allowedExtensions: const <String>['apk'],
     );
-    if (result == null || result.files.isEmpty) return;
-    final path = result.files.single.path;
+    if (result == null || result.isEmpty) return;
+    final picked = result.single;
+    final path = picked.path;
     if (path == null) return;
-    final name = result.files.single.name.replaceAll('.apk', '');
+    final name = picked.name.replaceAll('.apk', '');
     _config.entries = <ApkBridgeEntry>[
       ..._config.entries,
       ApkBridgeEntry(name: name, apkPath: path),
