@@ -238,41 +238,43 @@ class _AnimeStreamState extends State<AnimeStream> {
   void listenDeepLinkCall() {
     _appLinks = AppLinks();
     _sub = _appLinks.uriLinkStream.listen((uri) {
-      if (uri.scheme == "astrm") {
-        Logs.app.log("Invoked DeepLink uri: ${uri.toString()}");
-        String host = uri.host;
-        switch (host) {
-          case "info":
-            {
-              final id = int.tryParse(uri.queryParameters['id'] ?? "nothing");
-              if (id != null) {
-                AnimeStream.navigatorKey.currentState?.push(
-                      MaterialPageRoute(
-                        builder: (context) => AppWrapper(
-                          firstPage: Info(id: id),
-                        ),
+      final isAddRepoAppLink = uri.scheme == "https" &&
+          uri.host == "sofikuw.is-not-a.dev" &&
+          uri.path.startsWith("/anImestream-extensions/open");
+      if (uri.scheme != "astrm" && !isAddRepoAppLink) return;
+      Logs.app.log("Invoked DeepLink uri: ${uri.toString()}");
+      String host = isAddRepoAppLink ? "add-repo" : uri.host;
+      switch (host) {
+        case "info":
+          {
+            final id = int.tryParse(uri.queryParameters['id'] ?? "nothing");
+            if (id != null) {
+              AnimeStream.navigatorKey.currentState?.push(
+                    MaterialPageRoute(
+                      builder: (context) => AppWrapper(
+                        firstPage: Info(id: id),
                       ),
-                    ) ??
-                    print("Nah");
-                break;
-              }
+                    ),
+                  ) ??
+                  print("Nah");
+              break;
             }
-          case "add-repo":
-            {
-              final url = uri.queryParameters['url'];
-              if (url != null && url.isNotEmpty) {
-                AnimeStream.navigatorKey.currentState?.push(
-                      MaterialPageRoute(
-                        builder: (context) => PluginPage(initialRepositoryUrl: url),
-                      ),
-                    );
-              } else {
-                floatingSnackBar("Add-repo link is missing a url.");
-              }
+          }
+        case "add-repo":
+          {
+            final url = uri.queryParameters['url'];
+            if (url != null && url.isNotEmpty) {
+              AnimeStream.navigatorKey.currentState?.push(
+                    MaterialPageRoute(
+                      builder: (context) => PluginPage(initialRepositoryUrl: url),
+                    ),
+                  );
+            } else {
+              floatingSnackBar("Add-repo link is missing a url.");
             }
-          default:
-            floatingSnackBar("BAD-DEEPLINK: Host $host not recognized!");
-        }
+          }
+        default:
+          floatingSnackBar("BAD-DEEPLINK: Host $host not recognized!");
       }
     });
   }
