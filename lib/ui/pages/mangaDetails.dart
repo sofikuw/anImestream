@@ -448,6 +448,63 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
                   backgroundColor: Color.fromARGB(69, 0, 0, 0),
                 ),
               ),
+              ElevatedButton(
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) {
+                      return AlertDialog(
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            child: Text("No"),
+                          ),
+                          TextButton(
+                            onPressed: () async {
+                              await removeReading(widget.id);
+                              await _refreshLastRead();
+                              Navigator.pop(context);
+                            },
+                            child: Text("Yes"),
+                            style: TextButton.styleFrom(
+                              backgroundColor: appTheme.accentColor,
+                              foregroundColor: appTheme.onAccent,
+                            ),
+                          ),
+                        ],
+                        content: Padding(
+                          padding: const EdgeInsets.all(10),
+                          child: Text.rich(
+                            TextSpan(text: "Remove \"", style: TextStyle(fontSize: 15), children: [
+                              TextSpan(
+                                  text: "${details.title}",
+                                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                              TextSpan(
+                                  text: "\" from your reading history?",
+                                  style: TextStyle(fontSize: 15)),
+                            ]),
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  shape: CircleBorder(
+                    side: BorderSide(
+                      color: appTheme.accentColor,
+                    ),
+                  ),
+                  fixedSize: Size(50, 50),
+                  backgroundColor: appTheme.backgroundColor,
+                  padding: EdgeInsets.zero,
+                ),
+                child: Icon(
+                  Icons.delete_outline_rounded,
+                  color: appTheme.accentColor,
+                  size: 28,
+                ),
+              ),
             ],
           ),
         ),
