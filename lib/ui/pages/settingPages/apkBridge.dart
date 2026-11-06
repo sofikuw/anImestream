@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
+import 'package:animestream/core/app/runtimeDatas.dart';
 import 'package:animestream/core/manga/apkBridgeConfig.dart';
 import 'package:animestream/core/manga/providers/apkBridgeProviders.dart';
 import 'package:animestream/ui/models/widgets/clickableItem.dart';
@@ -50,7 +51,7 @@ class _ApkBridgeSettingState extends State<ApkBridgeSetting> {
   }
 
   Future<void> _addApk() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: const <String>['apk'],
     );
