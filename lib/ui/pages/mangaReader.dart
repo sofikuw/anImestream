@@ -160,7 +160,7 @@ class _MangaReaderPageState extends State<MangaReaderPage> {
         return presence.setActivity(
           PresenceActivity(
             type: PresenceActivityType.watching,
-            details: "Reading $title",
+            details: title,
             state: chapter,
             start: _presenceStart ??= DateTime.now().millisecondsSinceEpoch,
           ),
