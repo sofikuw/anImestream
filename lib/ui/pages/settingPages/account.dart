@@ -14,9 +14,8 @@ import 'package:animestream/core/database/simkl/login.dart';
 import 'package:animestream/core/database/simkl/types.dart';
 import 'package:animestream/core/integrations/discord/gatewayRPC.dart';
 import 'package:animestream/ui/models/snackBar.dart';
-import 'package:animestream/ui/models/widgets/clickableItem.dart';
 import 'package:animestream/ui/models/widgets/loader.dart';
-import 'package:animestream/ui/models/widgets/toggleItem.dart';
+import 'package:animestream/ui/pages/discordLogin.dart';
 import 'package:animestream/ui/pages/settingPages/common.dart';
 import 'package:animestream/ui/models/providers/appProvider.dart';
 import 'package:animestream/ui/pages/settingPages/widgets/database_account_card.dart';
@@ -36,6 +35,7 @@ class _AccountSettingState extends State<AccountSetting> {
   bool malLoggedIn = false;
   bool discordLoggedIn = false;
   bool hasDiscordToken = false;
+  String? discordUsername;
 
   UserModal? user;
   UserModal? simklUser;
@@ -74,14 +74,19 @@ class _AccountSettingState extends State<AccountSetting> {
     final simklToken = await getSecureVal(SecureStorageKey.simklToken);
     final malToken = await getSecureVal(SecureStorageKey.malToken);
     final discordToken = await getSecureVal(SecureStorageKey.discordToken);
+    final discordName = await getSecureVal(SecureStorageKey.discordUsername);
+
+    final mobile = Platform.isAndroid || Platform.isIOS;
 
     if (mounted) {
       setState(() {
         anilistLoggedIn = aniToken != null;
         simklLoggedIn = simklToken != null;
         malLoggedIn = malToken != null;
-        discordLoggedIn = discordToken != null;
+        discordLoggedIn =
+            discordToken != null || (!mobile && (currentUserSettings?.enableDiscordRichPresence ?? false));
         hasDiscordToken = discordToken != null;
+        discordUsername = discordName;
       });
     }
   }
@@ -232,41 +237,22 @@ class _AccountSettingState extends State<AccountSetting> {
                             onLogout: () => _handleLogout(db),
                           );
                         }).toList(),
+                        DatabaseAccountCard(
+                          databaseName: "discord",
+                          loggedIn: discordLoggedIn,
+                          userModal: discordLoggedIn
+                              ? UserModal(
+                                  id: -1,
+                                  name: discordUsername ?? "Discord user",
+                                  avatar: null,
+                                  banner: null,
+                                )
+                              : null,
+                          onLogin: _discordLogin,
+                          onLogout: _discordLogout,
+                        ),
                       ],
                     ),
-              if (!loading) ...[
-                const SizedBox(height: 35),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    "Rich Presence",
-                    style: textStyle().copyWith(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                ToggleItem(
-                  label: "Discord Rich Presence",
-                  description: Platform.isAndroid || Platform.isIOS
-                      ? "Shows the episode or chapter you are on. Needs a Discord token."
-                      : "Shows the episode or chapter you are on.",
-                  value: currentUserSettings?.enableDiscordRichPresence ?? false,
-                  onTapFunction: _toggleDiscordPresence,
-                ),
-                if (Platform.isAndroid || Platform.isIOS)
-                  ClickableItem(
-                    onTap: () async {
-                      await _promptDiscordToken(context);
-                    },
-                    label: "Discord token",
-                    description: hasDiscordToken
-                        ? "Saved in this device's keystore. Tap to replace or remove."
-                        : "Required for Rich Presence on mobile.",
-                    suffixIcon: Icon(
-                      hasDiscordToken ? Icons.check_circle_rounded : Icons.key_rounded,
-                      color: hasDiscordToken ? appTheme.accentColor : appTheme.textSubColor,
-                    ),
-                  ),
-              ],
             ],
           ),
         ),
@@ -279,23 +265,21 @@ class _AccountSettingState extends State<AccountSetting> {
     if (mounted) setState(() {});
   }
 
-  Future<void> _toggleDiscordPresence() async {
-    final enabling = !(currentUserSettings?.enableDiscordRichPresence ?? false);
-
-    if (!enabling) {
-      await writeSettings(SettingsModal(enableDiscordRichPresence: false));
-      if (!mounted) return;
-      setState(() {});
-      await DiscordPresenceManager.instance.stop();
-      return;
-    }
-
+  Future<void> _discordLogin() async {
     final mobile = Platform.isAndroid || Platform.isIOS;
     if (mobile && !hasDiscordToken) {
-      final saved = await _promptDiscordToken(context);
-      if (!saved) return;
+      final result = await Navigator.of(context).push<String>(
+        MaterialPageRoute(builder: (_) => const DiscordLoginPage()),
+      );
+      if (!mounted) return;
+      if (result == 'manual') {
+        final saved = await _promptDiscordToken(context);
+        if (!saved) return;
+      } else if (result != 'saved') {
+        return;
+      }
+      if (!mounted) return;
     }
-    if (!mounted) return;
     if (mobile) {
       final accepted = await _confirmDiscordRisk(context);
       if (!accepted) return;
@@ -305,12 +289,11 @@ class _AccountSettingState extends State<AccountSetting> {
     if (!mounted) return;
     setState(() {});
 
-    // Verify the saved token right away so a bad one fails here instead of
-    // silently during playback.
+    // Verify the token right away so a bad one fails here instead of silently
+    // during playback. The socket connects before IDENTIFY completes, so wait
+    // briefly for READY or for Discord to reject the token.
     final presence = DiscordPresenceManager.instance;
     await presence.start();
-    // The socket connects before IDENTIFY completes, so wait briefly for READY
-    // or for Discord to reject the token.
     final deadline = DateTime.now().add(const Duration(seconds: 8));
     while (!presence.isConnected &&
         presence.lastError.value == null &&
@@ -325,7 +308,30 @@ class _AccountSettingState extends State<AccountSetting> {
       if (!mounted) return;
       setState(() {});
       floatingSnackBar(problem);
+      return;
     }
+
+    final tokenPresent = await DiscordTokenStore.hasToken();
+    final storedName = await getSecureVal(SecureStorageKey.discordUsername);
+    if (!mounted) return;
+    setState(() {
+      discordLoggedIn = true;
+      hasDiscordToken = tokenPresent;
+      discordUsername = presence.username ?? storedName;
+    });
+  }
+
+  Future<void> _discordLogout() async {
+    await DiscordPresenceManager.instance.stop();
+    await DiscordTokenStore.clear();
+    await storeSecureVal(SecureStorageKey.discordUsername, null);
+    await writeSettings(SettingsModal(enableDiscordRichPresence: false));
+    if (!mounted) return;
+    setState(() {
+      discordLoggedIn = false;
+      hasDiscordToken = false;
+      discordUsername = null;
+    });
   }
 
   /// Asks for a Discord user token.
@@ -416,10 +422,10 @@ class _AccountSettingState extends State<AccountSetting> {
         backgroundColor: appTheme.backgroundColor,
         title: const Text("Before you continue"),
         content: const Text(
-          "Rich Presence on mobile signs in with your Discord account token to the "
-          "Discord gateway. This is not an official Discord integration: using a user "
-          "token can get the account suspended, and the token grants full access to it.\n\n"
-          "Only use a token you are willing to risk. Never share it.",
+          "Rich Presence on mobile signs in to the Discord gateway with your "
+          "account's session. This is not an official Discord integration: using it "
+          "can get the account suspended, and that session grants full access.\n\n"
+          "Only continue with an account you are willing to risk.",
         ),
         actions: [
           TextButton(

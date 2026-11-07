@@ -158,6 +158,7 @@ class _MangaReaderPageState extends State<MangaReaderPage> {
             type: PresenceActivityType.watching,
             details: "Reading $title",
             state: chapter,
+            start: DateTime.now().millisecondsSinceEpoch ~/ 1000,
           ),
         );
       }),

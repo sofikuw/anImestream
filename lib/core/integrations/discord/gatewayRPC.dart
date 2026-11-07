@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:animestream/core/app/env.dart';
 import 'package:animestream/core/app/logging.dart';
 import 'package:animestream/core/app/runtimeDatas.dart';
 import 'package:animestream/core/commons/enums.dart';
@@ -35,6 +36,10 @@ class PresenceActivity {
   final String? state;
   final String? url;
   final int? start;
+  final String? largeImage;
+  final String? largeText;
+  final String? smallImage;
+  final String? smallText;
 
   const PresenceActivity({
     this.name = 'anImestream',
@@ -43,6 +48,10 @@ class PresenceActivity {
     this.state,
     this.url,
     this.start,
+    this.largeImage = 'animestream',
+    this.largeText = 'anImestream',
+    this.smallImage,
+    this.smallText,
   });
 
   static String _clamp(String value) {
@@ -64,10 +73,20 @@ class PresenceActivity {
       'name': _clamp(name),
       'type': type.code,
     };
+    // Without an application id Discord cannot resolve an icon or assets and
+    // falls back to the generic "?" card.
+    final applicationId = AnimeStreamEnvironment.discordApplicationId;
+    if (applicationId.isNotEmpty) activity['application_id'] = applicationId;
     if (url != null) activity['url'] = url;
     if (details != null && details!.trim().isNotEmpty) activity['details'] = _clamp(details!.trim());
     if (state != null && state!.trim().isNotEmpty) activity['state'] = _clamp(state!.trim());
     if (start != null) activity['timestamps'] = <String, dynamic>{'start': start};
+    final assets = <String, dynamic>{};
+    if (largeImage != null) assets['large_image'] = largeImage;
+    if (largeText != null) assets['large_text'] = _clamp(largeText!.trim());
+    if (smallImage != null) assets['small_image'] = smallImage;
+    if (smallText != null) assets['small_text'] = _clamp(smallText!.trim());
+    if (assets.isNotEmpty) activity['assets'] = assets;
     return activity;
   }
 
@@ -83,6 +102,8 @@ class PresenceActivity {
       statusDisplayType: DiscordStatusDisplayType.details,
       state: state,
       timestamps: start != null ? DiscordTimestamps(start: start) : null,
+      largeAsset: largeImage == null ? null : DiscordAsset.fromKey(largeImage, text: largeText),
+      smallAsset: smallImage == null ? null : DiscordAsset.fromKey(smallImage, text: smallText),
     );
   }
 }
@@ -192,6 +213,7 @@ class DiscordGatewayRPC {
 
   final ValueNotifier<bool> connected = ValueNotifier<bool>(false);
   final ValueNotifier<String?> error = ValueNotifier<String?>(null);
+  final ValueNotifier<String?> username = ValueNotifier<String?>(null);
 
   bool get isConnected => connected.value;
 
@@ -285,6 +307,16 @@ class DiscordGatewayRPC {
           _reconnectAttempts = 0;
           connected.value = true;
           error.value = null;
+          final user = data is Map ? data['user'] : null;
+          if (user is Map) {
+            final name = (user['global_name'] ?? user['username'])?.toString();
+            if (name != null && name.isNotEmpty) {
+              username.value = name;
+              // Remembered so the account card can greet the user before the
+              // next connect. Not a credential: the token stays separate.
+              unawaited(storeSecureVal(SecureStorageKey.discordUsername, name));
+            }
+          }
           _flushPresence();
         }
         break;
@@ -448,6 +480,9 @@ class DiscordPresenceManager {
   /// True once the gateway has completed IDENTIFY (or the desktop IPC client is
   /// connected).
   bool get isConnected => _gateway?.isConnected ?? _desktop != null;
+
+  /// Discord name reported by READY, when connected through the gateway.
+  String? get username => _gateway?.username.value;
 
   Future<void> start() async {
     if (!_enabled) return;
