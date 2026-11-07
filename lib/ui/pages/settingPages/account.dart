@@ -74,7 +74,13 @@ class _AccountSettingState extends State<AccountSetting> {
     final simklToken = await getSecureVal(SecureStorageKey.simklToken);
     final malToken = await getSecureVal(SecureStorageKey.malToken);
     final discordToken = await getSecureVal(SecureStorageKey.discordToken);
-    final discordName = await getSecureVal(SecureStorageKey.discordUsername);
+    var discordName = await getSecureVal(SecureStorageKey.discordUsername);
+    if (discordToken != null && (discordName == null || discordName.isEmpty)) {
+      discordName = await DiscordTokenStore.fetchUsername();
+      if (discordName != null) {
+        await storeSecureVal(SecureStorageKey.discordUsername, discordName);
+      }
+    }
 
     final mobile = Platform.isAndroid || Platform.isIOS;
 
@@ -313,11 +319,15 @@ class _AccountSettingState extends State<AccountSetting> {
 
     final tokenPresent = await DiscordTokenStore.hasToken();
     final storedName = await getSecureVal(SecureStorageKey.discordUsername);
+    final username = presence.username ?? storedName ?? await DiscordTokenStore.fetchUsername();
+    if (username != null) {
+      await storeSecureVal(SecureStorageKey.discordUsername, username);
+    }
     if (!mounted) return;
     setState(() {
       discordLoggedIn = true;
       hasDiscordToken = tokenPresent;
-      discordUsername = presence.username ?? storedName;
+      discordUsername = username;
     });
   }
 

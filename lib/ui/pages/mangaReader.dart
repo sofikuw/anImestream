@@ -86,6 +86,10 @@ class _MangaReaderPageState extends State<MangaReaderPage> {
   /// an arrow is tapped, which is why it is state and not `widget.chapter`.
   late MangaChapter _chapter;
 
+  /// When this reading session started, for the Discord elapsed timer. Kept
+  /// across chapter changes so the timer does not jump back to 0:00.
+  int? _presenceStart;
+
   final PageController _pageController = PageController();
   final ScrollController _scrollController = ScrollController();
 
@@ -158,7 +162,7 @@ class _MangaReaderPageState extends State<MangaReaderPage> {
             type: PresenceActivityType.watching,
             details: "Reading $title",
             state: chapter,
-            start: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+            start: _presenceStart ??= DateTime.now().millisecondsSinceEpoch,
           ),
         );
       }),

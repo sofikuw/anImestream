@@ -78,8 +78,14 @@ class PresenceActivity {
     final applicationId = AnimeStreamEnvironment.discordApplicationId;
     if (applicationId.isNotEmpty) activity['application_id'] = applicationId;
     if (url != null) activity['url'] = url;
-    if (details != null && details!.trim().isNotEmpty) activity['details'] = _clamp(details!.trim());
+    if (details != null && details!.trim().isNotEmpty) {
+      activity['details'] = _clamp(details!.trim());
+      // Without this Discord shows "Watching anImestream" in the profile line
+      // instead of the actual details.
+      activity['status_display_type'] = 2;
+    }
     if (state != null && state!.trim().isNotEmpty) activity['state'] = _clamp(state!.trim());
+    // Discord reads timestamps in milliseconds. Seconds render as ~56 years.
     if (start != null) activity['timestamps'] = <String, dynamic>{'start': start};
     final assets = <String, dynamic>{};
     if (largeImage != null) assets['large_image'] = largeImage;
@@ -182,6 +188,36 @@ class DiscordTokenStore {
   static Future<void> save(String token) => storeSecureVal(_key, normalize(token));
 
   static Future<void> clear() => storeSecureVal(_key, null);
+
+  /// Looks up the signed in account. The gateway only reports the user after
+  /// READY, so this fills the account card on a cold start.
+  ///
+  /// Host is fixed; the token never leaves Discord.
+  static Future<String?> fetchUsername() async {
+    final token = await read();
+    if (token == null) return null;
+    final client = HttpClient();
+    try {
+      final request = await client.getUrl(Uri.parse('https://discord.com/api/v10/users/@me'));
+      request.headers.set(HttpHeaders.authorizationHeader, token);
+      final response = await request.close();
+      if (response.statusCode != 200) {
+        await response.drain<void>();
+        return null;
+      }
+      final body = await response.transform(utf8.decoder).join();
+      final json = jsonDecode(body);
+      if (json is Map) {
+        final name = (json['global_name'] ?? json['username'])?.toString();
+        if (name != null && name.trim().isNotEmpty) return name;
+      }
+    } catch (e) {
+      Logs.app.log('Discord user lookup failed: $e');
+    } finally {
+      client.close();
+    }
+    return null;
+  }
 }
 
 /// Discord Gateway client. This is the only way to publish Rich Presence from

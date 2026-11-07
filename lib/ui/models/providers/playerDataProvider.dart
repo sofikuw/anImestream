@@ -57,6 +57,8 @@ class PlayerDataProvider extends ChangeNotifier {
 
   final DiscordPresenceManager discord = DiscordPresenceManager.instance;
 
+  int? _presenceStart;
+
   late SubtitleSettings subtitleSettings;
 
   /// Call this to refresh/init subs settings
@@ -236,12 +238,13 @@ class PlayerDataProvider extends ChangeNotifier {
         details: showTitle,
         state: "Episode ${_state.currentEpIndex + 1}",
         url: "https://www.twitch.tv/anImestream",
-        start: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        start: _presenceStart ??= DateTime.now().millisecondsSinceEpoch,
       ),
     );
   }
 
   Future<void> stopRPC() async {
+    _presenceStart = null;
     await discord.setActivity(null);
     await discord.stop();
   }
