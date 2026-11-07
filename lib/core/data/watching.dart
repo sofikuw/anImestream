@@ -60,7 +60,8 @@ Future<void> storeWatching(
 Future<void> updateWatching(int? id, String title, int watched, List<AlternateDatabaseId> otherIds) async {
   try {
     Logs.app.log("UPDATING WATCHED TO $watched");
-    if ((id ?? 0) >= 0 && await AniListLogin().isAnilistLoggedIn()) {
+    // Respect active database (AniList, MAL, or Simkl) via SyncHandler instead of hardcoding AniList login check.
+    if ((id ?? 0) >= 0) {
       if (id == null) throw Exception("ERR_NO_ID_PROVIDED");
       SyncHandler().mutateAnimeList(
         id: id,
