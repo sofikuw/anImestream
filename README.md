@@ -237,3 +237,8 @@ anImestream does not host, provide or distribute anime or manga content. It
 accesses third-party sources and APIs chosen by the user. Users are responsible
 for complying with applicable laws, terms of service and copyright
 requirements.
+
+
+## Credits & Acknowledgments
+
+- **jepsefan** ([@jepsefan](https://github.com/jepsefan)) — For the `assrender` Android native library and integration reference (`animestream-test`), enabling native hardware-accelerated ASS subtitle rendering in the app. Special thanks and contributor invitation!
