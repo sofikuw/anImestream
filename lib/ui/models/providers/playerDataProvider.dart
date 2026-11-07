@@ -234,10 +234,12 @@ class PlayerDataProvider extends ChangeNotifier {
   Future<void> updatePresence() async {
     await discord.setActivity(
       PresenceActivity(
-        type: PresenceActivityType.streaming,
+        // Watching, not streaming: Discord's streaming card has no elapsed
+        // timer and a different header, so anime would not match the manga
+        // reader's card.
+        type: PresenceActivityType.watching,
         details: showTitle,
         state: "Episode ${_state.currentEpIndex + 1}",
-        url: "https://www.twitch.tv/anImestream",
         start: _presenceStart ??= DateTime.now().millisecondsSinceEpoch,
       ),
     );
