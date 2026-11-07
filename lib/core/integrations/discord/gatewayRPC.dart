@@ -48,8 +48,11 @@ class PresenceActivity {
     this.state,
     this.url,
     this.start,
-    this.largeImage = 'animestream',
-    this.largeText = 'anImestream',
+    // Leave the art to Discord's defaults: with no assets it shows the app's
+    // icon and name, which avoids a blank card when the app has no uploaded
+    // art asset under this key.
+    this.largeImage,
+    this.largeText,
     this.smallImage,
     this.smallText,
   });
