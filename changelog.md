@@ -25,6 +25,9 @@ than pretending to cover the fork's earlier life. That history is in the git log
 - **Split audio downloads.** The downloader now fetches the video and the
   chosen audio rendition separately and muxes both into the MKV, so dub tracks
   are preserved instead of lost during remuxing.
+- **Discord Rich Presence.** The current anime episode or manga chapter is
+  shown on the Discord profile, with the app name and icon, an elapsed timer
+  and a working sign-in flow.
 
 ### Changed
 - **Reader chrome stays as 1.0 designed it.** The dot-track bottom bar and the
@@ -64,6 +67,24 @@ than pretending to cover the fork's earlier life. That history is in the git log
   recommendation rail (MAL directly, Kitsu through its MAL mapping), and
   AniList manga pages request recommendations as well. Cards with no rating
   hide the star badge instead of showing `??`.
+- **Opening a manga no longer creates a Downloads folder.** The downloader
+  builds the chapter path lazily, so the empty
+  `Download/animestream/manga/<title>_<id>` tree appears only when a chapter is
+  actually downloaded.
+- **Unified Discord cards.** Anime and manga presence now use the same activity
+  type and timestamp format, so both show an elapsed timer and the app icon.
+
+### Removed
+- **APK bridge.** The Aniyomi-style `ApkBridge` settings page and the bridge
+  provider are gone; it never worked without a native extension loader.
+- **MangaYomi extensions.** The MangaYomi catalog parser, JavaScript shim and
+  runtime bridge were removed. Only anImestream's own manifest format is
+  supported.
+- **Seanime manga provider.** Unused provider implementation deleted.
+
+### Changed
+- **README rewritten.** Installation, extension rules and build instructions
+  now describe the app as it actually ships, with a logo and badges.
 
 ## [0.3.0] - 2026-10-29
 
