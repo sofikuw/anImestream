@@ -6,14 +6,14 @@ import 'package:animestream/core/commons/enums.dart';
 import 'package:animestream/ui/models/playerControllers/videoController.dart';
 import 'package:animestream/ui/models/widgets/subtitles/subViewer.dart';
 import 'package:animestream/ui/models/widgets/subtitles/subtitleSettings.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// Optional libass overlay for external ASS/SSA files.
+/// Native libass-backed subtitle overlay for ASS/SSA files.
 ///
-/// Uses the Android method channel instead of Better Player's subtitle pipeline.
-/// Falls back to the regular [SubViewer] when the native renderer is missing
-/// (for example on x86_64 builds, where the assrender AAR has no native libs).
+/// Uses Android PlatformViews (`AndroidView`) embedding [SubtitleOverlayView],
+/// enabling subtitles to render natively and persist seamlessly inside Android PiP mode.
 class ExternalAssOverlay extends StatefulWidget {
   const ExternalAssOverlay({
     super.key,
@@ -37,7 +37,6 @@ class ExternalAssOverlay extends StatefulWidget {
 class _ExternalAssOverlayState extends State<ExternalAssOverlay> {
   static const _channel = MethodChannel('animestream.app/assrender');
   Timer? _timer;
-  Uint8List? _frame;
   bool _ready = false;
   bool _fallback = false;
   bool _rendering = false;
@@ -84,7 +83,6 @@ class _ExternalAssOverlayState extends State<ExternalAssOverlay> {
     _timer?.cancel();
     _ready = false;
     _fallback = false;
-    _frame = null;
     _lastPosition = -1;
     if (!Platform.isAndroid) {
       _fallback = true;
@@ -151,12 +149,11 @@ class _ExternalAssOverlayState extends State<ExternalAssOverlay> {
     if (position == _lastPosition) return;
     _rendering = true;
     try {
-      final frame = await _channel.invokeMethod<Uint8List>(
+      await _channel.invokeMethod<bool>(
         'render', {'timeMs': position},
       );
       if (!mounted || !_ready || generation != _generation) return;
       _lastPosition = position;
-      setState(() => _frame = frame);
     } catch (error) {
       debugPrint('[ASSRENDER] Render failed: $error');
       _ready = false;
@@ -193,18 +190,11 @@ class _ExternalAssOverlayState extends State<ExternalAssOverlay> {
       );
     }
 
-    final frame = _frame;
-    return IgnorePointer(
-      child: frame == null
-          ? const SizedBox.expand()
-          : SizedBox.expand(
-              child: Image.memory(
-                frame,
-                fit: BoxFit.contain,
-                gaplessPlayback: true,
-                filterQuality: FilterQuality.low,
-              ),
-            ),
+    return const IgnorePointer(
+      child: AndroidView(
+        viewType: 'animestream.app/subtitle_overlay',
+        creationParamsCodec: StandardMessageCodec(),
+      ),
     );
   }
 }

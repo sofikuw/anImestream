@@ -2,23 +2,24 @@ package app.animestream
 
 import android.graphics.Bitmap
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.github.assrender.AssDirectBridge
-import java.io.ByteArrayOutputStream
+import io.github.assrender.SubtitleOverlayView
 
-/**
- * External ASS/SSA subtitle renderer for AnimeStream's Flutter subtitle layer.
- * Requires the assrender Android AAR to be added to the app's Gradle dependencies.
- * Never changes Better Player or its ExoPlayer instance.
- */
 class ExternalAssRenderer : MethodChannel.MethodCallHandler {
     private var handle: Long = 0
-    private var width = 0
-    private var height = 0
+    private var width = 1280
+    private var height = 720
     private var bitmap: Bitmap? = null
-    private var lastEmptySecond: Long = -1
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    companion object {
+        var activeOverlayView: SubtitleOverlayView? = null
+    }
 
     private val supported: Boolean by lazy {
         try {
@@ -51,7 +52,7 @@ class ExternalAssRenderer : MethodChannel.MethodCallHandler {
                         throw IllegalArgumentException("Invalid ASS/SSA script")
                     }
                     bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-                    Log.i("ASSRENDER", "Script loaded: bytes=${script.size}, size=${width}x${height}")
+                    Log.i("ASSRENDER", "Script loaded: bytes=${script.size}, size=${width}x{height}")
                     result.success(true)
                 }
                 "render" -> {
@@ -60,17 +61,18 @@ class ExternalAssRenderer : MethodChannel.MethodCallHandler {
                         result.success(null)
                     } else {
                         val timeMs = (call.argument<Number>("timeMs") ?: 0).toLong()
-                        if (!AssDirectBridge.nativeRender(handle, timeMs, target)) {
-                            if (timeMs / 1000 != lastEmptySecond) {
-                                lastEmptySecond = timeMs / 1000
-                                Log.i("ASSRENDER", "Native render produced no image at ${timeMs}ms; check libass event timing and fonts")
+                        val hasContent = AssDirectBridge.nativeRender(handle, timeMs, target)
+                        mainHandler.post {
+                            val view = activeOverlayView
+                            if (view != null) {
+                                if (hasContent) {
+                                    view.updateBitmap(target)
+                                } else {
+                                    view.clear()
+                                }
                             }
-                            result.success(null)
-                        } else {
-                            val output = ByteArrayOutputStream()
-                            target.compress(Bitmap.CompressFormat.PNG, 100, output)
-                            result.success(output.toByteArray())
                         }
+                        result.success(hasContent)
                     }
                 }
                 "dispose" -> {
@@ -80,8 +82,6 @@ class ExternalAssRenderer : MethodChannel.MethodCallHandler {
                 else -> result.notImplemented()
             }
         } catch (t: Throwable) {
-            // UnsatisfiedLinkError is an Error, not an Exception: catch Throwable so a
-            // missing ABI never takes the app down.
             release()
             result.error("ASS_RENDER_FAILED", t.message ?: t.toString(), null)
         }
@@ -91,6 +91,9 @@ class ExternalAssRenderer : MethodChannel.MethodCallHandler {
         if (handle != 0L) {
             AssDirectBridge.nativeDestroy(handle)
             handle = 0
+        }
+        mainHandler.post {
+            activeOverlayView?.clear()
         }
         bitmap?.recycle()
         bitmap = null
