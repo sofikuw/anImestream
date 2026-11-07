@@ -65,10 +65,15 @@ class MangaDownloader {
   /// in any file manager. A user-configured download path wins.
   /// iOS has no shared Downloads tree, so chapters stay in the documents
   /// directory there.
+  ///
+  /// The directory is only created when [create] is set. Opening a manga asks
+  /// whether each chapter is downloaded, and doing that must not leave an empty
+  /// manga tree in the user's Downloads folder before anything was downloaded.
   static Future<Directory> _mangaRoot(
     String mangaId,
-    String mangaTitle,
-  ) async {
+    String mangaTitle, {
+    bool create = false,
+  }) async {
     if (Platform.isAndroid) {
       final configured = currentUserSettings?.downloadPath;
       final base = (configured != null && configured.trim().isNotEmpty)
@@ -79,12 +84,12 @@ class MangaDownloader {
       final root = Directory(
         '${base.replaceAll(RegExp(r'[/\\]+$'), '')}${Platform.pathSeparator}manga${Platform.pathSeparator}$folderName',
       );
-      if (!await root.exists()) await root.create(recursive: true);
+      if (create && !await root.exists()) await root.create(recursive: true);
       return root;
     }
     final documents = await getApplicationDocumentsDirectory();
     final root = Directory('${documents.path}/manga');
-    if (!await root.exists()) await root.create(recursive: true);
+    if (create && !await root.exists()) await root.create(recursive: true);
     return root;
   }
 
@@ -92,9 +97,10 @@ class MangaDownloader {
   static Future<Directory> chapterDirectory(
     String mangaId,
     String mangaTitle,
-    MangaChapter chapter,
-  ) async {
-    final root = await _mangaRoot(mangaId, mangaTitle);
+    MangaChapter chapter, {
+    bool create = false,
+  }) async {
+    final root = await _mangaRoot(mangaId, mangaTitle, create: create);
     // Format: <ChapterTitle>_<chapterId>
     final folderName = '${_safe(chapter.displayTitle)}_${_safe(chapter.id)}';
     return Directory(
@@ -174,7 +180,12 @@ class MangaDownloader {
         return false;
       }
 
-      final dir = await chapterDirectory(mangaId, mangaTitle, chapter);
+      final dir = await chapterDirectory(
+        mangaId,
+        mangaTitle,
+        chapter,
+        create: true,
+      );
       if (await dir.exists()) await dir.delete(recursive: true);
       await dir.create(recursive: true);
 
