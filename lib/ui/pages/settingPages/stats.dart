@@ -27,6 +27,13 @@ class _UserStatsState extends State<UserStats> {
 
   Future<void> fetchUserStats() async {
     try {
+      if (getActiveDatabase() != Databases.anilist) {
+        setState(() {
+          stats = AnilistUserStats(episodesWatched: 0, minutesWatched: 0, notInPlanned: 0, genres: []);
+          timeSpent = convertMinutes(0);
+        });
+        return;
+      }
       final res = await AnilistQueries().getUserStats(user.name);
       final genreRes = res.genres.isNotEmpty ? await AnilistQueries().getGenreThumbnail(res.genres[0].genre) : [];
       setState(() {
