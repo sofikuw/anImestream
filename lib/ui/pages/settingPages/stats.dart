@@ -1,4 +1,4 @@
-import 'package:animestream/core/commons/enums.dart';
+import 'package:animestream/core/database/database.dart';
 import 'dart:math';
 import 'dart:ui';
 
