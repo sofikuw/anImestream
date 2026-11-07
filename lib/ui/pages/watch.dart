@@ -649,8 +649,8 @@ class _WatchState extends State<Watch> with WidgetsBindingObserver {
                     ),
                   ),
                   if (playerProvider.state.showSubs && playerDataProvider.state.currentStream.subtitle != null)
-                    // ASS is rendered by native libass on Android; VTT/SRT and
-                    // non-Android platforms keep the existing SubViewer.
+                    // ASS is rendered by native libass on Android (works seamlessly in PiP);
+                    // VTT/SRT and non-Android platforms keep the existing SubViewer.
                     if (Platform.isAndroid &&
                         (playerDataProvider.state.currentStream.subtitleFormat ?? 'ASS').toLowerCase() == 'ass')
                       ExternalAssOverlay(
