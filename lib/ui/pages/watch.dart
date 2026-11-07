@@ -204,10 +204,12 @@ class _WatchState extends State<Watch> with WidgetsBindingObserver {
       } catch (e) {
         Logs.player.log("PiP listener couldnt be added: ${e.toString()}");
       }
-    } else if (Platform.isWindows || Platform.isLinux) {
-      await dataProvider.startRPC();
-      await dataProvider.updatePresence();
     }
+
+    // Desktop uses the local Discord IPC client; Android and iOS use the
+    // gateway when a token is saved. Both are no-ops when presence is off.
+    await dataProvider.startRPC();
+    await dataProvider.updatePresence();
   }
 
   void _markPlayerReady() {

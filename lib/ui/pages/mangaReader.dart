@@ -7,6 +7,7 @@ import 'package:animestream/core/commons/enums/loadingState.dart';
 import 'package:animestream/core/data/preferences.dart';
 import 'package:animestream/core/data/reading.dart';
 import 'package:animestream/core/data/types.dart';
+import 'package:animestream/core/integrations/discord/gatewayRPC.dart';
 import 'package:animestream/core/manga/mangaDownloader.dart';
 import 'package:animestream/core/manga/mangaProvider.dart';
 import 'package:animestream/core/manga/types.dart';
@@ -139,6 +140,28 @@ class _MangaReaderPageState extends State<MangaReaderPage> {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     }
     load();
+    _syncPresence();
+  }
+
+  /// Publishes "Reading <manga> · <chapter>" on Discord when presence is on.
+  ///
+  /// [DiscordPresenceManager.start] is idempotent: the first reader opens the gateway,
+  /// later chapter steps reuse it. Doing nothing when presence is disabled.
+  void _syncPresence() {
+    final presence = DiscordPresenceManager.instance;
+    final title = widget.manga.title;
+    final chapter = _chapter.displayTitle;
+    unawaited(
+      presence.start().then((_) {
+        return presence.setActivity(
+          PresenceActivity(
+            type: PresenceActivityType.watching,
+            details: "Reading $title",
+            state: chapter,
+          ),
+        );
+      }),
+    );
   }
 
   @override
@@ -150,6 +173,8 @@ class _MangaReaderPageState extends State<MangaReaderPage> {
     if (_immersiveSupported) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     }
+    unawaited(DiscordPresenceManager.instance.setActivity(null));
+    unawaited(DiscordPresenceManager.instance.stop());
     super.dispose();
   }
 
@@ -276,6 +301,7 @@ class _MangaReaderPageState extends State<MangaReaderPage> {
       ),
     );
 
+    _syncPresence();
     await load();
   }
 

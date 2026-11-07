@@ -6,10 +6,9 @@ import 'package:animestream/core/data/preferences.dart';
 import 'package:animestream/core/database/aniskip/aniskip.dart';
 import 'package:animestream/core/database/database.dart';
 import 'package:animestream/core/database/types.dart';
-import 'package:animestream/core/integrations/discord/desktopRPC.dart';
+import 'package:animestream/core/integrations/discord/gatewayRPC.dart';
 import 'package:animestream/ui/models/sources.dart';
 import 'package:animestream/ui/models/widgets/subtitles/subtitleSettings.dart';
-import 'package:dart_discord_presence/dart_discord_presence.dart';
 import 'package:flutter/material.dart';
 
 /// Handle the state of player. manages datas like quality, servers etc..
@@ -56,7 +55,7 @@ class PlayerDataProvider extends ChangeNotifier {
 
   PlayerDataProviderState get state => _state;
 
-  final discord = (currentUserSettings?.enableDiscordRichPresence ?? false) ? DiscordDesktopRPC() : null;
+  final DiscordPresenceManager discord = DiscordPresenceManager.instance;
 
   late SubtitleSettings subtitleSettings;
 
@@ -154,7 +153,7 @@ class PlayerDataProvider extends ChangeNotifier {
   /// Update the state of currentEpIndex
   void updateCurrentEpIndex(int newIndex) {
     _state = _state.copyWith(currentEpIndex: newIndex, preloadStarted: false, preloadedSources: []);
-    if (discord != null) updatePresence();
+    updatePresence();
     notifyListeners();
   }
 
@@ -227,25 +226,24 @@ class PlayerDataProvider extends ChangeNotifier {
   }
 
   Future<void> startRPC() async {
-    await discord?.initiateConnection();
+    await discord.start();
   }
 
   Future<void> updatePresence() async {
-    await discord?.updatePresence(
-      DiscordPresence(
-        type: DiscordActivityType.watching,
-        details: "$showTitle",
-        statusDisplayType: DiscordStatusDisplayType.details,
+    await discord.setActivity(
+      PresenceActivity(
+        type: PresenceActivityType.streaming,
+        details: showTitle,
         state: "Episode ${_state.currentEpIndex + 1}",
-        largeAsset: DiscordAsset.fromUrl(coverImageUrl),
-        smallAsset: DiscordAsset.fromKey("app_icon"),
-        timestamps: DiscordTimestamps(start: DateTime.now().millisecondsSinceEpoch ~/ 1000),
+        url: "https://www.twitch.tv/anImestream",
+        start: DateTime.now().millisecondsSinceEpoch ~/ 1000,
       ),
     );
   }
 
   Future<void> stopRPC() async {
-    await discord?.dispose();
+    await discord.setActivity(null);
+    await discord.stop();
   }
 
   /// Update subtitle settings

@@ -114,16 +114,6 @@ class _GeneralSettingState extends State<GeneralSetting> {
                         setState(() {});
                       },
                     ),
-                    if (Platform.isWindows || Platform.isLinux)
-                      ToggleItem(
-                        label: "Enable Discord Rich Presence",
-                        value: currentUserSettings?.enableDiscordRichPresence ?? false,
-                        onTapFunction: () async {
-                          await writeSettings(SettingsModal(
-                              enableDiscordRichPresence: !(currentUserSettings!.enableDiscordRichPresence ?? false)));
-                          setState(() {});
-                        },
-                      ),
                     if (kDebugMode)
                       ClickableItem(
                         onTap: () {
