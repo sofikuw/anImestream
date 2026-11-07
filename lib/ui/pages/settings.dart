@@ -4,7 +4,6 @@ import 'package:animestream/ui/pages/settingPages/appInfo.dart';
 import 'package:animestream/ui/pages/settingPages/common.dart';
 import 'package:animestream/ui/pages/settingPages/downloader.dart';
 import 'package:animestream/ui/pages/settingPages/general.dart';
-import 'package:animestream/ui/pages/settingPages/apkBridge.dart';
 import 'package:animestream/ui/pages/settingPages/player.dart';
 import 'package:animestream/ui/pages/settingPages/ui.dart';
 import 'package:flutter/material.dart';
@@ -57,11 +56,6 @@ class _SettingsPageState extends State<SettingsPage> {
         label: "General",
         description: "Basic tweaks",
         navigateTo: GeneralSetting()),
-    SettingItem(
-        icon: Icons.extension_rounded,
-        label: "ApkBridge",
-        description: "Aniyomi extensions via bridge",
-        navigateTo: ApkBridgeSetting()),
     // SettingItem(
     //     icon: Icons.storage_rounded,
     //     label: "Cache Manager",

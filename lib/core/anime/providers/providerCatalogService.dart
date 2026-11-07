@@ -38,9 +38,6 @@ class ProviderCatalogService {
     } on FormatException catch (error) {
       throw FormatException('Repository catalog is not valid UTF-8 JSON: $error');
     }
-    if (decoded is List) {
-      return _fetchMangayomiCatalog(repository, decoded);
-    }
     if (decoded is! Map<String, dynamic>) {
       throw const FormatException('Repository catalog must be a JSON object.');
     }
@@ -71,50 +68,6 @@ class ProviderCatalogService {
         );
       }
       providers.add(manifest);
-    }
-    return ProviderCatalog(
-      repository: repository,
-      providers: List<JsAnimeProviderManifest>.unmodifiable(providers),
-    );
-  }
-
-  /// Parses a MangaYomi `index.json` array.
-  ///
-  /// Entries are skipped rather than fatal: a MangaYomi index mixes Dart and
-  /// JavaScript sources, and one Dart entry must not hide the 100 runnable
-  /// JavaScript ones around it.
-  ProviderCatalog _fetchMangayomiCatalog(
-    ProviderRepository repository,
-    List<dynamic> rawEntries,
-  ) {
-    if (rawEntries.length > 2000) {
-      throw const FormatException(
-        'MangaYomi catalog has too many entries (max 2000).',
-      );
-    }
-    final providers = <JsAnimeProviderManifest>[];
-    final identifiers = <String>{};
-    for (var index = 0; index < rawEntries.length; index++) {
-      final raw = rawEntries[index];
-      if (raw is! Map) continue;
-      final JsAnimeProviderManifest manifest;
-      try {
-        manifest = JsAnimeProviderManifest.fromMangayomiMap(
-          Map<String, dynamic>.from(raw),
-          repository: repository,
-          index: index,
-        );
-      } on FormatException {
-        continue;
-      }
-      if (!identifiers.add(manifest.identifier)) continue;
-      providers.add(manifest);
-    }
-    if (providers.isEmpty) {
-      throw const FormatException(
-        'This MangaYomi catalog has no JavaScript extensions this app can run. '
-        'Its entry may be Dart-only.',
-      );
     }
     return ProviderCatalog(
       repository: repository,
@@ -186,24 +139,6 @@ class ProviderCatalogService {
         'Provider manifest does not belong to this repository.',
       );
     }
-    if (manifest.isMangayomi) {
-      // MangaYomi indexes carry no digest and may point at a source repo on
-      // another host. The URL was already required to be public HTTPS when
-      // parsed; pin the digest of what we actually download.
-      if (manifest.codeUrl.scheme != 'https') {
-        throw const FormatException(
-          'MangaYomi source code must be fetched over HTTPS.',
-        );
-      }
-      final bytes = await _getBytes(
-        manifest.codeUrl,
-        maxBytes: maxProviderCodeBytes,
-      );
-      return _VerifiedCode(
-        code: utf8.decode(bytes),
-        sha256: sha256.convert(bytes).toString(),
-      );
-    }
     if (manifest.codeUrl.host != repository.uri.host ||
         manifest.codeUrl.scheme != 'https') {
       throw const FormatException(
@@ -236,7 +171,6 @@ class ProviderCatalogService {
       name: manifest.name,
       identifier: manifest.identifier,
       version: manifest.version,
-      icon: manifest.iconUrl,
       code: verified.code,
       supportDownloads: manifest.supportDownloads,
       scriptType: 'javascript',
@@ -246,12 +180,6 @@ class ProviderCatalogService {
       repositoryUrl: repository.indexUrl,
       sourceSha256: verified.sha256,
       nsfw: manifest.nsfw,
-      format: manifest.format,
-      baseUrl: manifest.baseUrl,
-      apiUrl: manifest.apiUrl,
-      lang: manifest.lang,
-      dateFormat: manifest.dateFormat,
-      dateFormatLocale: manifest.dateFormatLocale,
     );
   }
 

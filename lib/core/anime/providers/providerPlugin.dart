@@ -4,7 +4,6 @@ import 'package:animestream/core/anime/providers/providerDetails.dart';
 import 'package:animestream/core/anime/providers/providerManager.dart';
 import 'package:animestream/core/extensions/javascript/javascript_provider_http.dart';
 import 'package:animestream/core/extensions/javascript/javascript_runtime.dart';
-import 'package:animestream/core/extensions/mangayomi/mangayomi_providers.dart';
 import 'package:http/http.dart' as http;
 
 /// Creates and caches adapters for installed JavaScript anime providers.
@@ -19,8 +18,6 @@ class ProviderPlugin {
   final http.Client Function()? _clientFactory;
   final Map<String, JavaScriptAnimeProvider> _compiledProviders =
       <String, JavaScriptAnimeProvider>{};
-  final Map<String, MangayomiAnimeProvider> _mangayomiProviders =
-      <String, MangayomiAnimeProvider>{};
 
   Future<AnimeProvider?> getProvider(
     String provider, {
@@ -34,12 +31,6 @@ class ProviderPlugin {
         if (cached.isUsable) return cached;
         _compiledProviders.remove(provider);
         await cached.dispose();
-      }
-      final cachedMangayomi = _mangayomiProviders[provider];
-      if (cachedMangayomi != null) {
-        if (cachedMangayomi.isUsable) return cachedMangayomi;
-        _mangayomiProviders.remove(provider);
-        await cachedMangayomi.dispose();
       }
     }
 
@@ -60,13 +51,6 @@ class ProviderPlugin {
       return null;
     }
 
-    if (details.isMangayomi) {
-      if (testCode != null) return null;
-      final adapter = MangayomiAnimeProvider(details);
-      _mangayomiProviders[provider] = adapter;
-      return adapter;
-    }
-
     final httpBridge = JavaScriptProviderHttp(
       allowedHosts: details.allowedHosts,
       clientFactory: _clientFactory,
@@ -85,20 +69,15 @@ class ProviderPlugin {
   /// Release one cached provider's JavaScript context.
   Future<void> disposeProvider(String identifier) async {
     final provider = _compiledProviders.remove(identifier);
-    final mangayomi = _mangayomiProviders.remove(identifier);
     await provider?.dispose();
-    await mangayomi?.dispose();
   }
 
   /// Release all cached JavaScript contexts.
   Future<void> disposeAll() async {
     final providers = _compiledProviders.values.toList(growable: false);
-    final mangayomi = _mangayomiProviders.values.toList(growable: false);
     _compiledProviders.clear();
-    _mangayomiProviders.clear();
     await Future.wait(<Future<void>>[
       ...providers.map((provider) => provider.dispose()),
-      ...mangayomi.map((provider) => provider.dispose()),
     ]);
   }
 }
