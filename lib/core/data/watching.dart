@@ -26,7 +26,8 @@ Future<void> storeWatching(
     Logs.app.log("SETTING WATCHED TO $watched");
     // Negative ids are app-local metadata fallback ids, not AniList media ids.
     // Writing one to AniList would touch the wrong entry, so keep those local.
-    if (id >= 0 && await AniListLogin().isAnilistLoggedIn()) {
+    // Respect user's active database (AniList, MAL, or Simkl) via SyncHandler/DatabaseHandler instead of hardcoding AniList check.
+    if (id >= 0) {
       SyncHandler()
           .mutateAnimeList(id: id, status: MediaStatus.CURRENT, progress: watched, otherIds: alternateDatabases);
     } else {
