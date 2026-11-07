@@ -8,6 +8,7 @@ import 'package:animestream/core/commons/hlsParser/audioStream.dart';
 import 'package:animestream/core/commons/hlsParser/hlsMasterPlaylist.dart';
 import 'package:animestream/core/commons/hlsParser/hlsParser.dart';
 import 'package:animestream/core/commons/hlsParser/qualityStream.dart';
+import 'package:animestream/core/commons/subtitleParsers/util.dart';
 import 'package:animestream/core/data/watching.dart';
 import 'package:animestream/core/commons/enums.dart';
 import 'package:animestream/ui/models/playerControllers/betterPlayer.dart';
@@ -18,6 +19,7 @@ import 'package:animestream/ui/models/providers/playerProvider.dart';
 import 'package:animestream/ui/models/snackBar.dart';
 import 'package:animestream/ui/models/widgets/appWrapper.dart';
 import 'package:animestream/ui/models/widgets/sourceTile.dart';
+import 'package:animestream/ui/models/widgets/subtitleFormatBadge.dart';
 import 'package:animestream/ui/pages/settingPages/common.dart';
 import 'package:animestream/ui/pages/watch.dart';
 import 'package:flutter/material.dart';
@@ -30,6 +32,7 @@ class DownloadStreamOptions({
   required final List<AudioStream> audioStreams,
   required final String server,
   final String? subtitleUrl,
+  final String? subtitleFormat,
   final Map<String, String> headers = const {},
 });
 
@@ -74,6 +77,7 @@ class ServerSelectionBottomSheetState extends State<ServerSelectionBottomSheet> 
                         audioStreams: const [],
                         server: "${element.server}  ${element.backup ? "- backup" : ""}",
                         subtitleUrl: element.subtitle,
+                        subtitleFormat: element.subtitleFormat,
                         headers: element.customHeaders ?? {},
                       ),
                     );
@@ -131,6 +135,7 @@ class ServerSelectionBottomSheetState extends State<ServerSelectionBottomSheet> 
                         audioStreams: const [],
                         server: "${element.server}  ${element.backup ? "- backup" : ""}",
                         subtitleUrl: element.subtitle,
+                        subtitleFormat: element.subtitleFormat,
                         headers: element.customHeaders ?? {},
                       ),
                     );
@@ -162,6 +167,7 @@ class ServerSelectionBottomSheetState extends State<ServerSelectionBottomSheet> 
         audioStreams: list.audioStreams,
         server: "${source.server} ${source.backup ? "- backup" : ""}",
         subtitleUrl: source.subtitle,
+        subtitleFormat: source.subtitleFormat,
         headers: source.customHeaders ?? {},
       );
       mainList.add(downloadStream);
@@ -387,6 +393,8 @@ class _DownloadTileState extends State<_DownloadTile> {
 
   @override
   Widget build(BuildContext context) {
+    final subtitleFormat = SubtitleParserUtil.formatLabel(widget.stream.subtitleFormat, widget.stream.subtitleUrl);
+
     return Container(
       margin: EdgeInsets.only(top: 10),
       child: Material(
@@ -420,9 +428,20 @@ class _DownloadTileState extends State<_DownloadTile> {
                               "${widget.stream.server}",
                               style: TextStyle(color: appTheme.accentColor, fontSize: 18, fontFamily: "Rubik"),
                             ),
-                            Text(
-                              "${widget.stream.videoStream.quality}",
-                              style: TextStyle(color: appTheme.textMainColor, fontSize: 18, fontFamily: "Rubik"),
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    "${widget.stream.videoStream.quality}",
+                                    style: TextStyle(color: appTheme.textMainColor, fontSize: 18, fontFamily: "Rubik"),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                if (subtitleFormat != null) ...[
+                                  const SizedBox(width: 8),
+                                  SubtitleFormatBadge(format: subtitleFormat),
+                                ],
+                              ],
                             ),
                           ],
                         ),

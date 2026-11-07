@@ -91,4 +91,6 @@ flutter {
 
 dependencies {
     implementation("androidx.multidex:multidex:2.0.1")
+    // libass-based ASS/SSA renderer (arm64-v8a + armeabi-v7a).
+    implementation(files("libs/assrender-release.aar"))
 }

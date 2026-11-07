@@ -18,9 +18,13 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity: FlutterActivity() {
 
     private lateinit var channel: MethodChannel
+    private lateinit var assRenderChannel: MethodChannel
+    private val externalAssRenderer = ExternalAssRenderer()
 
     override fun configureFlutterEngine(@NonNull flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        assRenderChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "animestream.app/assrender")
+        assRenderChannel.setMethodCallHandler(externalAssRenderer)
         channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "animestream.app/utils")
         channel.setMethodCallHandler {
                 call, result ->

@@ -1,5 +1,7 @@
 import 'package:animestream/core/anime/providers/types.dart';
 import 'package:animestream/core/app/runtimeDatas.dart';
+import 'package:animestream/core/commons/subtitleParsers/util.dart';
+import 'package:animestream/ui/models/widgets/subtitleFormatBadge.dart';
 import 'package:flutter/material.dart';
 
 class SourceTile extends StatefulWidget {
@@ -19,6 +21,8 @@ class _SourceTileState extends State<SourceTile> {
   bool hovered = false;
   @override
   Widget build(BuildContext context) {
+    final subtitleFormat = SubtitleParserUtil.formatLabel(widget.source.subtitleFormat, widget.source.subtitle);
+
     return Padding(
       padding: EdgeInsets.only(bottom: 10),
       child: InkWell(
@@ -67,12 +71,23 @@ class _SourceTileState extends State<SourceTile> {
                       ),
                     ),
                     SizedBox(height: 4),
-                    Text(
-                      "${widget.source.quality} ${widget.source.backup ? '• Backup' : ''}",
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: appTheme.textSubColor,
-                      ),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            "${widget.source.quality} ${widget.source.backup ? '• Backup' : ''}",
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: appTheme.textSubColor,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (subtitleFormat != null) ...[
+                          const SizedBox(width: 8),
+                          SubtitleFormatBadge(format: subtitleFormat),
+                        ],
+                      ],
                     ),
                   ],
                 ),

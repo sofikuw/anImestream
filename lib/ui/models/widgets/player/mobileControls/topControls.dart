@@ -1,4 +1,5 @@
 import 'package:animestream/core/app/runtimeDatas.dart';
+import 'package:animestream/core/commons/subtitleParsers/util.dart';
 import 'package:animestream/ui/models/providers/playerDataProvider.dart';
 import 'package:animestream/ui/models/providers/playerProvider.dart';
 import 'package:animestream/ui/pages/settingPages/player.dart';
@@ -95,7 +96,7 @@ class TopControls extends StatelessWidget {
                           "\nServer: ${dataProvider.state.currentStream.server} ${dataProvider.state.currentStream.backup ? "\(backup\)" : ''}"
                           "\nQuality: ${dataProvider.state.currentQuality.quality}"
                           "\nBandwidth: ${dataProvider.state.currentQuality.bandwidth ?? 'N/A'}"
-                          "\nSubtitle: ${dataProvider.state.currentStream.subtitle != null ? "${dataProvider.state.currentStream.subtitleFormat}" : "N/A"}",
+                          "\nSubtitle: ${SubtitleParserUtil.formatLabel(dataProvider.state.currentStream.subtitleFormat, dataProvider.state.currentStream.subtitle) ?? "N/A"}",
                         ),
                       ),
                     );
