@@ -1,3 +1,4 @@
+import 'package:animestream/core/commons/enums.dart';
 import 'dart:math';
 import 'dart:ui';
 
@@ -27,7 +28,7 @@ class _UserStatsState extends State<UserStats> {
 
   Future<void> fetchUserStats() async {
     try {
-      if (getActiveDatabase() != Databases.anilist) {
+      if ((currentUserSettings?.database ?? Databases.anilist) != Databases.anilist) {
         setState(() {
           stats = AnilistUserStats(episodesWatched: 0, minutesWatched: 0, notInPlanned: 0, genres: []);
           timeSpent = convertMinutes(0);
