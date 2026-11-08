@@ -8,9 +8,6 @@ environment:
   sdk: ">=3.13.0 <4.0.0"
 
 dependencies:
-  dtorrent_task_v2:
-    git:
-      url: https://github.com/atlet99/dtorrent_task_v2.git
   flutter:
     sdk: flutter
 
