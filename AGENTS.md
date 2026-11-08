@@ -15,6 +15,12 @@
 
   Beta tags look like `divergent-android-v<version>-beta.<hash>` and are published as prereleases.
 
+## Project rules
+
+1. **Version bumps require at least 5 changes.** Do not bump `version:` unless the same release adds, removes or changes at least 5 user-facing things.
+2. **Write the smallest code that works.** Prefer ~10 lines over ~50; no speculative abstraction.
+3. **Delete failed ideas entirely.** If an approach does not work, remove its code completely instead of leaving it disabled, commented out, or unwired.
+
 ## Versioning
 
 - Bump `version: X.Y.Z+N` in `pubspec.yaml`; the workflow derives tag, APK name and build number from it.
