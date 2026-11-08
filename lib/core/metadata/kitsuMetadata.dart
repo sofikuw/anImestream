@@ -458,7 +458,6 @@ class KitsuAnimeMetadata implements AnimeMetadataProvider {
   }
 
   static bool _isSafe(Map item) {
-    if (currentUserSettings?.nsfwMode ?? false) return true;
     final attributes = item['attributes'];
     return attributes is! Map || attributes['nsfw'] != true;
   }

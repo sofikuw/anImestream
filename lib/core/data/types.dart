@@ -104,13 +104,6 @@ class SettingsModal {
   /// Write the subtitle track to video file (only works when using remuxer)
   final bool? writeSubtitleTrackToVideo;
 
-  /// Show adult (NSFW) providers and stop filtering adult metadata results.
-  ///
-  /// Off by default. Providers that declare `"nsfw": true` are still installed
-  /// while this is off, they are just hidden from the source pickers; turning
-  /// it back on brings them back without reinstalling.
-  final bool? nsfwMode;
-
   SettingsModal({
     this.megaSkipDuration,
     this.skipDuration,
@@ -142,7 +135,6 @@ class SettingsModal {
     this.useMkvRemuxer,
     this.enableDiscordRichPresence,
     this.writeSubtitleTrackToVideo,
-    this.nsfwMode,
   });
 
   factory SettingsModal.fromMap(Map<dynamic, dynamic> map) {
@@ -181,7 +173,6 @@ class SettingsModal {
       useMkvRemuxer: map['useMkvRemuxer'] ?? true,
       enableDiscordRichPresence: map['enableDiscordRichPresence'] ?? false,
       writeSubtitleTrackToVideo: map['writeSubtitleTrackToVideo'] ?? false,
-      nsfwMode: map['nsfwMode'] ?? false,
     );
   }
 
@@ -217,7 +208,6 @@ class SettingsModal {
       'useMkvRemuxer': useMkvRemuxer,
       'enableDiscordRichPresence': enableDiscordRichPresence,
       'writeSubtitleTrackToVideo': writeSubtitleTrackToVideo,
-      'nsfwMode': nsfwMode,
     };
   }
 }

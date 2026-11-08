@@ -587,14 +587,13 @@ class _PluginPageState extends State<PluginPage>
   }
 
   Widget _catalogTab() {
-    final nsfwMode = currentUserSettings?.nsfwMode ?? false;
     final entries = <_CatalogEntry>[];
     for (final repository in _repositories) {
       final catalog = _catalogs[repository.id];
       if (catalog == null) continue;
       entries.addAll(
         catalog.providers
-            .where((provider) => nsfwMode || !provider.nsfw)
+            .where((provider) => !provider.nsfw)
             .map((provider) => _CatalogEntry(repository, provider)),
       );
     }
@@ -609,23 +608,12 @@ class _PluginPageState extends State<PluginPage>
     }
     if (entries.isEmpty) {
       final failed = _repositoryErrors.isNotEmpty;
-      final hasAdultEntries = _repositories.any(
-        (repository) =>
-            _catalogs[repository.id]?.providers.any((provider) => provider.nsfw) ??
-            false,
-      );
       return _emptyState(
         failed ? Icons.cloud_off_rounded : Icons.search_rounded,
-        failed
-            ? 'Catalogs could not be loaded'
-            : hasAdultEntries
-                ? 'Only adult providers listed'
-                : 'No providers listed',
+        failed ? 'Catalogs could not be loaded' : 'No providers listed',
         failed
             ? 'Check the repository URL and connection in the Repositories tab.'
-            : hasAdultEntries
-                ? 'Turn on NSFW mode under Settings → General to see them.'
-                : 'The added catalogs do not list any providers.',
+            : 'The added catalogs do not list any providers.',
         actionLabel: 'Refresh',
         onAction: _load,
       );
