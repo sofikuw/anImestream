@@ -5,6 +5,7 @@ import 'dart:ui';
 import 'package:animestream/core/app/runtimeDatas.dart';
 import 'package:animestream/core/database/anilist/queries.dart';
 import 'package:animestream/core/database/anilist/types.dart';
+import 'package:animestream/core/database/mal/mal.dart';
 import 'package:animestream/ui/models/snackBar.dart';
 import 'package:animestream/ui/models/widgets/loader.dart';
 import 'package:animestream/ui/pages/settingPages/common.dart';
@@ -28,11 +29,25 @@ class _UserStatsState extends State<UserStats> {
 
   Future<void> fetchUserStats() async {
     try {
-      if ((currentUserSettings?.database ?? Databases.anilist) != Databases.anilist) {
+      final database = currentUserSettings?.database ?? Databases.anilist;
+      if (database == Databases.mal) {
+        final res = await MAL().getUserStats(user.name);
+        if (!mounted) return;
         setState(() {
-          stats = AnilistUserStats(episodesWatched: 0, minutesWatched: 0, notInPlanned: 0, genres: []);
-          timeSpent = convertMinutes(0);
+          stats = AnilistUserStats(
+            episodesWatched: 0,
+            minutesWatched: res.minutes,
+            notInPlanned: res.entries,
+            genres: [],
+          );
+          timeSpent = convertMinutes(res.minutes);
+          showEpisodes = false;
+          showGenres = false;
         });
+        return;
+      }
+      if (database != Databases.anilist) {
+        setState(() => unavailable = 'Stats are not available for ${database.name}.');
         return;
       }
       final res = await AnilistQueries().getUserStats(user.name);
@@ -43,6 +58,7 @@ class _UserStatsState extends State<UserStats> {
         timeSpent = convertMinutes(res.minutesWatched);
       });
     } catch (err) {
+      if (mounted) setState(() => unavailable = 'Could not load stats.');
       if (currentUserSettings?.showErrors ?? false) {
         floatingSnackBar(err.toString());
       }
@@ -52,6 +68,9 @@ class _UserStatsState extends State<UserStats> {
   late UserModal user;
   String? genreThumbnail;
   AnilistUserStats? stats;
+  String? unavailable;
+  bool showEpisodes = true;
+  bool showGenres = true;
 
   ({int minutes, int hours, int days, int months, int years})? timeSpent;
 
@@ -116,15 +135,23 @@ class _UserStatsState extends State<UserStats> {
                       ),
               ),
             )
-          : Center(
-              child: AnimeStreamLoading(
-                color: appTheme.accentColor,
-              ),
-            ),
+          : unavailable != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Text(unavailable!, style: textStyle(16)),
+                  ),
+                )
+              : Center(
+                  child: AnimeStreamLoading(
+                    color: appTheme.accentColor,
+                  ),
+                ),
     );
   }
 
-  Column _tableSection() {
+  Widget _tableSection() {
+    if (!showGenres) return const SizedBox.shrink();
     return Column(
       children: [
         Container(
@@ -284,19 +311,20 @@ class _UserStatsState extends State<UserStats> {
                   ),
                 ],
               ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    "Episodes watched: ",
-                    style: textStyle(18, bold: true),
-                  ),
-                  Text(
-                    "${stats!.episodesWatched}",
-                    style: textStyle(18),
-                  ),
-                ],
-              ),
+              if (showEpisodes)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      "Episodes watched: ",
+                      style: textStyle(18, bold: true),
+                    ),
+                    Text(
+                      "${stats!.episodesWatched}",
+                      style: textStyle(18),
+                    ),
+                  ],
+                ),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [

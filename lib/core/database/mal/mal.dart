@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:animestream/core/commons/enums.dart';
 import 'package:animestream/core/data/secureStorage.dart';
 import 'package:animestream/core/database/database.dart';
@@ -27,6 +29,16 @@ class MAL extends Database {
     };
     headers = map;
     return map;
+  }
+
+  Future<({int entries, int minutes})> getUserStats(String userName) async {
+    final body = await fetch('https://api.myanimelist.net/v2/users/$userName?fields=anime_stats');
+    final data = jsonDecode(body) as Map<String, dynamic>;
+    final anime = data['anime_stats'] as Map<String, dynamic>? ?? const {};
+    final total = (anime['total_entries'] as num?)?.toInt() ?? 0;
+    final planned = (anime['plan_to_watch'] as num?)?.toInt() ?? 0;
+    final days = (anime['days_watched'] as num?)?.toDouble() ?? 0;
+    return (entries: total - planned, minutes: (days * 1440).round());
   }
 
   Future<String> fetch(String url,
