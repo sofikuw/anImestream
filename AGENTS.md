@@ -13,7 +13,7 @@
     -d '{"ref":"divergent","inputs":{"branch":"divergent","release_channel":"beta","tag_name":"","create_release":true,"regenerate_icons":false}}'
   ```
 
-  Beta tags look like `divergent-android-v<version>-beta.<hash>` and are published as prereleases.
+  Tags are `<branch>-android-v<version>-<channel>.<build>`, where `<build>` is a three-digit serial per version and channel (`#001`, `#002`, ...), not a random hash. The release title uses the `#build` form, e.g. `Divergent 1.2.7 · beta #001`.
 
 ## Project rules
 
@@ -24,6 +24,7 @@
 ## Versioning
 
 - Bump `version: X.Y.Z+N` in `pubspec.yaml`; the workflow derives tag, APK name and build number from it.
+- The release body is generated from commit subjects into **Added**, **Changed**, **Fixed**, **Removed** and **Other** sections, so commits must keep the Conventional Commit prefix (`feat:`, `fix:`, `refactor:`, ...).
 
 ## Environment
 

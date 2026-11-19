@@ -91,6 +91,9 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
       build_number: ${{ steps.version.outputs.build_number }}
+      build: ${{ steps.version.outputs.build }}
+      channel: ${{ steps.version.outputs.channel }}
+      release_title: ${{ steps.version.outputs.release_title }}
       tag: ${{ steps.version.outputs.tag }}
       prerelease: ${{ steps.version.outputs.prerelease }}
       # Per-branch, so it comes from branches/<branch>/identity.env rather than a
@@ -240,6 +243,7 @@ jobs:
           INPUT_CHANNEL: ${{ inputs.release_channel }}
           TAG_PREFIX: ${{ steps.identity.outputs.tag_prefix }}
           APK_BASENAME: ${{ steps.identity.outputs.apk_basename }}
+          DISPLAY_NAME: ${{ steps.identity.outputs.display_name }}
         run: |
           VERSION=$(sed -n 's/^version: \([^+]*\).*/\1/p' pubspec.yaml | head -n1)
           BUILD_NUMBER=$(sed -n 's/^version: [^+]*+\([0-9][0-9]*\).*/\1/p' pubspec.yaml | head -n1)
@@ -259,16 +263,19 @@ jobs:
           elif [ -n "$INPUT_TAG_NAME" ]; then
             TAG="$INPUT_TAG_NAME"
           else
-            # Random on purpose: the version keeps the tag readable, the eight hex
-            # characters make the run unique, so the workflow can be re-run at one
-            # version as many times as it takes.
-            SUFFIX=$(openssl rand -hex 4)
-            if [ "$CHANNEL" = "stable" ]; then
-              TAG="${TAG_PREFIX}v${VERSION}-${SUFFIX}"
-            else
-              TAG="${TAG_PREFIX}v${VERSION}-${CHANNEL}.${SUFFIX}"
-            fi
+            # A serial build number per version and channel: #001, #002, ...
+            # No random suffix, so the title says which build is newest and the
+            # workflow can still be dispatched again at the same version.
+            BASE="${TAG_PREFIX}v${VERSION}-${CHANNEL}"
+            LAST=$(git tag -l "${BASE}.*" | grep -E '\.[0-9]+$' | sed 's/.*\.//' | sort -n | tail -1)
+            BUILD=$(printf '%03d' $((10#${LAST:-0} + 1)))
+            TAG="${BASE}.${BUILD}"
           fi
+
+          # A pushed or explicitly selected tag may be an older hex tag, so read
+          # the serial back from it when it has one.
+          BUILD="${BUILD:-$(printf '%s' "$TAG" | sed -n 's/.*\.\([0-9][0-9]*\)$/\1/p')}"
+          BUILD="${BUILD:-0}"
 
           if [ "$GITHUB_EVENT_NAME" = "push" ] && [ -z "$INPUT_CHANNEL" ]; then
             case "$VERSION" in
@@ -297,17 +304,27 @@ jobs:
 
           SLUG=""
           [ "$CHANNEL" = "stable" ] || SLUG="-${CHANNEL}"
+          if [ "$BUILD" = "0" ]; then
+            RELEASE_TITLE="${DISPLAY_NAME} ${VERSION} · ${CHANNEL}"
+            BUILD_SLUG=""
+          else
+            RELEASE_TITLE="${DISPLAY_NAME} ${VERSION} · ${CHANNEL} #${BUILD}"
+            BUILD_SLUG="-${BUILD}"
+          fi
 
           {
             echo "version=$VERSION"
             echo "build_number=$BUILD_NUMBER"
+            echo "build=$BUILD"
             echo "tag=$TAG"
             echo "prerelease=$PRERELEASE"
             echo "channel=$BUILD_CHANNEL"
-            echo "apk_stem=${APK_BASENAME}-${VERSION}${SLUG}-android"
+            echo "release_title=$RELEASE_TITLE"
+            echo "apk_stem=${APK_BASENAME}-${VERSION}${SLUG}${BUILD_SLUG}-android"
           } >> "$GITHUB_OUTPUT"
 
           echo "tag:        $TAG"
+          echo "title:      $RELEASE_TITLE"
           echo "channel:    $BUILD_CHANNEL"
           echo "prerelease: $PRERELEASE"
 
@@ -444,11 +461,63 @@ jobs:
           git tag "$TAG"
           git push origin "$TAG"
 
+      - name: Generate release notes
+        shell: bash
+        env:
+          TAG: ${{ needs.build-android.outputs.tag }}
+          VERSION: ${{ needs.build-android.outputs.version }}
+          CHANNEL: ${{ needs.build-android.outputs.channel }}
+          BUILD: ${{ needs.build-android.outputs.build }}
+          DISPLAY_NAME: ${{ needs.build-android.outputs.display_name }}
+        run: |
+          PREV=$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || true)
+          if [ -n "$PREV" ]; then
+            RANGE="${PREV}..${TAG}"
+          else
+            RANGE="${TAG}"
+          fi
+          git log "$RANGE" --max-count=50 --pretty=format:'%s' > changes.txt
+
+          python3 - <<'PY'
+          import os
+          import re
+
+          subjects = [line.strip() for line in open('changes.txt', encoding='utf-8') if line.strip()]
+          sections = {'Added': [], 'Changed': [], 'Fixed': [], 'Removed': [], 'Other': []}
+
+          for line in subjects:
+              subject = re.sub(r'^[A-Za-z]+(\([^)]*\))?!?:\s*', '', line)
+              subject = subject[:1].upper() + subject[1:]
+              if re.search(r'\b(remove|removed|delete|deleted|drop|dropped)\b', subject, re.I):
+                  key = 'Removed'
+              elif line.startswith('feat'):
+                  key = 'Added'
+              elif line.startswith('fix'):
+                  key = 'Fixed'
+              elif line.startswith(('refactor', 'perf', 'style', 'build', 'revert')):
+                  key = 'Changed'
+              elif line.startswith(('docs', 'chore', 'ci', 'test')):
+                  key = 'Other'
+              else:
+                  key = 'Changed'
+              sections[key].append(subject)
+
+          header = f"**{os.environ['DISPLAY_NAME']} {os.environ['VERSION']} · {os.environ['CHANNEL']} #{os.environ['BUILD']}**"
+          out = [header, '', "Split APKs: install the one that matches your phone's CPU."]
+          for name in ('Added', 'Changed', 'Fixed', 'Removed', 'Other'):
+              if sections[name]:
+                  out += ['', f'**{name}**', '']
+                  out += [f'- {item}' for item in sections[name]]
+          open('release-notes.md', 'w', encoding='utf-8').write('\n'.join(out) + '\n')
+          PY
+          cat release-notes.md
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.build-android.outputs.tag }}
-          name: ${{ needs.build-android.outputs.display_name }} ${{ needs.build-android.outputs.tag }}
+          name: ${{ needs.build-android.outputs.release_title }}
+          body_path: release-notes.md
           generate_release_notes: true
           draft: false
           prerelease: ${{ needs.build-android.outputs.prerelease }}
