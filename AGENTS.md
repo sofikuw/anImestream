@@ -25,6 +25,7 @@
 
 - Bump `version: X.Y.Z+N` in `pubspec.yaml`; the workflow derives tag, APK name and build number from it.
 - The release body is generated from commit subjects into **Added**, **Changed**, **Fixed**, **Removed** and **Other** sections, so commits must keep the Conventional Commit prefix (`feat:`, `fix:`, `refactor:`, ...).
+- Every release body opens with the divergence meter from `scripts/divergence.sh` (`1.<lines moved since the fork point>`). Never hardcode it in the notes; it must be computed at build time.
 
 ## Environment
 

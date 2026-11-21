@@ -28,6 +28,10 @@ than pretending to cover the fork's earlier life. That history is in the git log
 - **Discord Rich Presence.** The current anime episode or manga chapter is
   shown on the Discord profile, with the app name and icon, an elapsed timer
   and a working sign-in flow.
+- **Continue Watching opens the episode list.** A card in the Continue Watching
+  row now lands on the watch section of the info page instead of the synopsis,
+  so resuming takes one tap instead of two. Every other row still opens on the
+  synopsis.
 
 ### Changed
 - **Reader chrome stays as 1.0 designed it.** The dot-track bottom bar and the
@@ -49,6 +53,9 @@ than pretending to cover the fork's earlier life. That history is in the git log
   falls through the enabled sources automatically.
 
 ### Fixed
+- **The preferred provider is remembered.** Picking a source on an anime's page
+  now records it; the cached value was never updated, so the same preference was
+  rewritten on every later visit and readers of it kept seeing the old provider.
 - **Metadata fallbacks stay usable without AniList.** Choosing MyAnimeList or
   Simkl as the database now routes search and details through that provider
   instead of hitting an unimplemented path, and the provider list can fall
@@ -85,6 +92,10 @@ than pretending to cover the fork's earlier life. That history is in the git log
 ### Changed
 - **README rewritten.** Installation, extension rules and build instructions
   now describe the app as it actually ships, with a logo and badges.
+- **Divergence meter.** The README and every release description now state how
+  far this fork has moved from upstream (`1.<lines moved>%`, Steins;Gate style).
+  The number is computed from git at build time by `scripts/divergence.sh`, and
+  the release workflow writes it back into the README.
 
 ## [0.3.0] - 2026-10-29
 

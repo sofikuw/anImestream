@@ -478,6 +478,10 @@ jobs:
           fi
           git log "$RANGE" --max-count=50 --pretty=format:'%s' > changes.txt
 
+          # The divergence meter: lines moved since the fork point, as a
+          # worldline number. Computed from the repo, so it changes every build.
+          export DIVERGENCE="$(bash scripts/divergence.sh)"
+
           python3 - <<'PY'
           import os
           import re
@@ -503,7 +507,14 @@ jobs:
               sections[key].append(subject)
 
           header = f"**{os.environ['DISPLAY_NAME']} {os.environ['VERSION']} · {os.environ['CHANNEL']} #{os.environ['BUILD']}**"
-          out = [header, '', "Split APKs: install the one that matches your phone's CPU."]
+          out = [
+              header,
+              '',
+              f"Divergence meter: `{os.environ['DIVERGENCE']}%` — the worldline this build sits on, "
+              "measured as the lines moved since the upstream fork point.",
+              '',
+              "Split APKs: install the one that matches your phone's CPU.",
+          ]
           for name in ('Added', 'Changed', 'Fixed', 'Removed', 'Other'):
               if sections[name]:
                   out += ['', f'**{name}**', '']
@@ -511,6 +522,50 @@ jobs:
           open('release-notes.md', 'w', encoding='utf-8').write('\n'.join(out) + '\n')
           PY
           cat release-notes.md
+
+      - name: Record the meter in the README
+        shell: bash
+        env:
+          BRANCH: ${{ inputs.branch }}
+        run: |
+          DIVERGENCE=$(bash scripts/divergence.sh)
+          python3 - "$DIVERGENCE" <<'PY'
+          import re
+          import sys
+
+          value = sys.argv[1]
+          path = 'README.md'
+          text = open(path, encoding='utf-8').read()
+          updated = re.sub(
+              r'(<!-- divergence -->)[^<]*(<!-- /divergence -->)',
+              lambda m: m.group(1) + value + m.group(2),
+              text,
+          )
+          if updated == text:
+              print('README unchanged')
+              raise SystemExit(0)
+          open(path, 'w', encoding='utf-8').write(updated)
+          print(f'README divergence set to {value}')
+          PY
+
+          if git diff --quiet README.md; then
+            exit 0
+          fi
+
+          # A tag build has no branch to write to; the release notes still
+          # carry this build's number.
+          if [ -z "$BRANCH" ]; then
+            echo "::notice::tag build; leaving the README to the next branch build"
+            exit 0
+          fi
+
+          git config user.name "divergent-bot"
+          git config user.email "divergent-bot@users.noreply.github.com"
+          git commit -q -m "docs(readme): update divergence meter to ${DIVERGENCE}" -- README.md
+          # The branch may have moved while the APKs were built; a failed push
+          # only means the number is one build behind, never a broken release.
+          git push origin "HEAD:refs/heads/${BRANCH}" ||
+            echo "::warning::could not push the meter update to ${BRANCH}"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
