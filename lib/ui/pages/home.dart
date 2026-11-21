@@ -79,8 +79,8 @@ class _HomeState extends State<Home> {
           refreshing = false;
         });
     } catch (err) {
-      Logs.app.log(err.toString());
-      if (currentUserSettings!.showErrors != null && currentUserSettings!.showErrors!) floatingSnackBar(err.toString());
+      Logs.app.log("home list refresh failed: $err", addToBuffer: true);
+      if (currentUserSettings!.showErrors ?? false) floatingSnackBar("Couldn't refresh your lists.");
       if (mounted)
         setState(() {
           refreshing = false;

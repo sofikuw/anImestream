@@ -253,9 +253,9 @@ class InfoProvider extends ChangeNotifier {
       }
     } catch (err) {
       floatingSnackBar("Couldn't fetch watch progress.");
-      Logs.app.log(err.toString());
+      Logs.app.log("watch progress lookup for anime $id: $err", addToBuffer: true);
       if (currentUserSettings?.showErrors ?? false) {
-        floatingSnackBar(err.toString(), waitForPreviousToFinish: true);
+        floatingSnackBar("Couldn't fetch watch progress for this anime.", waitForPreviousToFinish: true);
       }
     }
 
@@ -388,7 +388,7 @@ class InfoProvider extends ChangeNotifier {
       await _search(searchTitle);
       notifyListeners();
     } catch (err) {
-      Logs.app.log(err.toString());
+      Logs.app.log("episode lookup for '$searchTitle' via ${selectedSource.identifier}: $err", addToBuffer: true);
 
       // try again with romaji title if english title failed
 
@@ -408,8 +408,8 @@ class InfoProvider extends ChangeNotifier {
 
       _epSearcherror = true;
       notifyListeners();
-      if (currentUserSettings!.showErrors != null && currentUserSettings!.showErrors!) {
-        floatingSnackBar(err.toString());
+      if (currentUserSettings!.showErrors ?? false) {
+        floatingSnackBar("Couldn't load episodes for ${selectedSource.identifier}. Try another source.");
       }
     }
   }
