@@ -31,7 +31,8 @@ class InfoMobile extends StatefulWidget {
 class _InfoMobileState extends State<InfoMobile> {
   late InfoProvider provider;
 
-  bool infoPage = true;
+  // Opened from "Continue Watching" lands on the episode list.
+  late bool infoPage = context.read<InfoProvider>().initialSection == InfoView.info;
 
   FocusNode _watchInfoButtonFocusNode = FocusNode();
   final useNativeTitle = currentUserSettings?.nativeTitle ?? false;

@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import 'package:animestream/core/app/runtimeDatas.dart';
+import 'package:animestream/ui/models/providers/infoProvider.dart';
 import 'package:animestream/ui/models/snackBar.dart';
 import 'package:animestream/ui/pages/info.dart';
 import 'package:animestream/ui/pages/mangaDetails.dart';
@@ -26,6 +27,9 @@ class AnimeCardExtended extends StatelessWidget {
   final String? bannerImageUrl;
   final Color? surfaceColor;
   final double? customWidth;
+
+  /// Which half of the info page the card opens.
+  final InfoView openTo;
 
   /// "anime" or "manga" -- which details page this row opens.
   final String contentType;
@@ -57,6 +61,7 @@ class AnimeCardExtended extends StatelessWidget {
     this.contentType = 'anime',
     this.onTap,
     this.routeId,
+    this.openTo = InfoView.info,
   });
 
   bool get _isManga => contentType.toLowerCase() == 'manga';
@@ -111,7 +116,7 @@ class AnimeCardExtended extends StatelessWidget {
 
     Navigator.of(context)
         .push(
-          MaterialPageRoute(builder: (context) => Info(id: id)),
+          MaterialPageRoute(builder: (context) => Info(id: id, initialSection: openTo)),
         )
         .then((val) {
       if (afterNavigation != null) afterNavigation?.call();

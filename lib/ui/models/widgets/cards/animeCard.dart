@@ -4,6 +4,7 @@ import 'package:animestream/core/app/runtimeDatas.dart';
 import 'package:animestream/core/commons/enums.dart';
 import 'package:animestream/core/database/handler/syncHandler.dart';
 import 'package:animestream/ui/models/snackBar.dart';
+import 'package:animestream/ui/models/providers/infoProvider.dart';
 import 'package:animestream/ui/models/widgets/ContextMenu.dart';
 import 'package:animestream/ui/pages/info.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -20,6 +21,9 @@ class AnimeCard extends StatefulWidget {
   final String? subText;
   final double? rating;
   final void Function()? afterNavigation;
+
+  /// Which half of the info page the card opens.
+  final InfoView openTo;
 
   /// Replaces the card's built-in tap behaviour entirely.
   ///
@@ -41,6 +45,7 @@ class AnimeCard extends StatefulWidget {
     this.shouldNavigate = true,
     this.subText = null,
     this.isMobile = true,
+    this.openTo = InfoView.info,
   });
 
   @override
@@ -92,6 +97,7 @@ class _AnimeCardState extends State<AnimeCard> {
               MaterialPageRoute(
                 builder: (context) => Info(
                   id: widget.id,
+                  initialSection: widget.openTo,
                 ),
               ),
             )

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:animestream/core/app/logging.dart';
 import 'package:animestream/ui/models/providers/mainNavProvider.dart';
+import 'package:animestream/ui/models/providers/infoProvider.dart';
 import 'package:animestream/ui/models/screenType.dart';
 import 'package:flutter/material.dart';
 
@@ -89,6 +90,9 @@ class _HomeState extends State<Home> {
 
   AnimeListData<HomePageList>? selectedList;
 
+  /// Which section the right panel's grid opens. Set alongside [selectedList].
+  InfoView selectedOpenTo = InfoView.info;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -137,7 +141,7 @@ class _HomeState extends State<Home> {
                             : null,
                       ),
                       _titleAndList("Continue Watching", widget.mainNavProvider.recentlyWatched,
-                          showRefreshIndication: refreshing),
+                          showRefreshIndication: refreshing, openTo: InfoView.watch),
                       divider(),
                       // Directly under Continue Watching, as asked. Rows carry
                       // contentType: 'manga', which is what AnimeCardExtended
@@ -220,7 +224,7 @@ class _HomeState extends State<Home> {
                       itemBuilder: (context, index) {
                         final item = selectedList!.items[index];
                         return Center(
-                          child: _listGridCard(item),
+                          child: _listGridCard(item, openTo: selectedOpenTo),
                         );
                       },
                     ),
@@ -237,7 +241,7 @@ class _HomeState extends State<Home> {
   /// has to route by that type: an anime row opens [Info], a manga row opens
   /// [MangaDetailsPage]. This is the same shape as the horizontal rail's card,
   /// just in a grid.
-  Widget _listGridCard(HomePageList item) {
+  Widget _listGridCard(HomePageList item, {InfoView openTo = InfoView.info}) {
     final isManga = item.contentType == 'manga';
     final title = item.title['english'] ?? item.title['romaji'] ?? "";
     return Cards.animeCard(
@@ -247,6 +251,7 @@ class _HomeState extends State<Home> {
       rating: item.rating,
       isAnime: !isManga,
       shouldNavigate: !isManga,
+      openTo: openTo,
       onTap: isManga
           ? () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (context) => MangaDetailsPage(id: item.id)),
@@ -366,7 +371,8 @@ class _HomeState extends State<Home> {
     );
   }
 
-  Column _titleAndList(String title, AnimeListData<HomePageList> list, {bool showRefreshIndication = false}) {
+  Column _titleAndList(String title, AnimeListData<HomePageList> list,
+      {bool showRefreshIndication = false, InfoView openTo = InfoView.info}) {
     return Column(
       children: [
         Row(
@@ -397,6 +403,7 @@ class _HomeState extends State<Home> {
                   if (context.screenType == ScreenType.expanded || context.screenType == ScreenType.large) {
                     setState(() {
                       selectedList = list;
+                      selectedOpenTo = openTo;
                     });
                     return;
                   }
@@ -428,7 +435,7 @@ class _HomeState extends State<Home> {
                                 itemBuilder: (context, index) {
                                   final item = list.items[index];
                                   return Center(
-                                    child: _listGridCard(item),
+                                    child: _listGridCard(item, openTo: openTo),
                                   );
                                 },
                               ),
@@ -501,6 +508,7 @@ class _HomeState extends State<Home> {
                                   contentType: item.contentType,
                                   routeId: item.id,
                                   isAnime: item.contentType != 'manga',
+                                  openTo: openTo,
                                   afterNavigation: () => getLists(userName: storedUserData?.name)),
                             );
                           })
