@@ -12,8 +12,10 @@ than pretending to cover the fork's earlier life. That history is in the git log
 ### Added
 - **In-app mini player.** Leaving the video page now shrinks the episode into a
   draggable floating window instead of stopping it, so the rest of the app can
-  be browsed while it keeps playing. Tap the window to return to the full
-  player; the close button ends playback. Works for both online streams and
+  be browsed while it keeps playing. Controls fade out after a few seconds and
+  come back on interaction; they cover play/pause, back 10 seconds, next
+  episode (when one is ready), expand and close. Tap the video to reveal them,
+  tap again to return to the full player. Works for online streams and
   downloaded files.
 - **Built-in manga providers are switchable.** WeebCentral and MangaPill now
   appear under *Built-in providers* next to the built-in anime sources. Turning
