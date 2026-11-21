@@ -380,8 +380,8 @@ class InfoProvider extends ChangeNotifier {
   Future<void> getEpisodes() async {
     _foundName = null;
     _epSearcherror = false;
+    String searchTitle = data.title['english'] ?? data.title['romaji'] ?? '';
     try {
-      String searchTitle = data.title['english'] ?? data.title['romaji'] ?? '';
       if (_manualSearchQuery != null) {
         searchTitle = _manualSearchQuery!;
       }
