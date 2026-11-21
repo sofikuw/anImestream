@@ -24,12 +24,50 @@ class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> {
   /// rebuilds the video widget or the whole overlay.
   final ValueNotifier<Offset> _drag = ValueNotifier(Offset.zero);
   final ValueNotifier<double> _width = ValueNotifier(_initialWidth);
+  bool _dragging = false;
+  Offset? _dragStart;
 
   @override
   void dispose() {
     _drag.dispose();
     _width.dispose();
     super.dispose();
+  }
+
+  void _startDrag(_) {
+    _dragStart = _drag.value;
+    setState(() => _dragging = true);
+  }
+
+  void _updateDrag(Offset delta) => _drag.value += delta;
+
+  /// YouTube-style: a decisive rightward flick dismisses, otherwise the
+  /// window settles against the nearest screen edge.
+  void _endDrag(DragEndDetails details, Size size, double width, double height, double bottom) {
+    _dragging = false;
+    setState(() {});
+
+    final moved = _drag.value - (_dragStart ?? Offset.zero);
+    _dragStart = null;
+
+    if (moved.dx > 90 && moved.dx.abs() > moved.dy.abs()) {
+      final base = Offset(size.width - width - 12, size.height - height - bottom);
+      _drag.value = Offset(size.width + 24 - base.dx, _drag.value.dy);
+      Future.delayed(const Duration(milliseconds: 230), () {
+        if (PlayerSession.instance.active) PlayerSession.instance.close();
+      });
+      return;
+    }
+
+    final base = Offset(size.width - width - 12, size.height - height - bottom);
+    const margin = 28.0;
+    var x = (base.dx + _drag.value.dx).clamp(0.0, size.width - width);
+    var y = (base.dy + _drag.value.dy).clamp(0.0, size.height - height);
+    if (x < margin) x = 0;
+    if (x + width > size.width - margin) x = size.width - width;
+    if (y < margin) y = 0;
+    if (y + height > size.height - margin) y = size.height - height;
+    _drag.value = Offset(x - base.dx, y - base.dy);
   }
 
   @override
@@ -57,7 +95,9 @@ class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> {
                   key: ValueKey(session.routeId),
                   navigatorKey: widget.navigatorKey,
                   width: width,
-                  onDrag: (delta) => _drag.value += delta,
+                  onDragStart: _startDrag,
+                  onDrag: _updateDrag,
+                  onDragEnd: (details) => _endDrag(details, size, width, height, bottom),
                   onResize: (delta) => _width.value = (_width.value + delta).clamp(_minWidth, _maxWidth),
                 ),
                 builder: (context, delta, child) {
@@ -66,7 +106,13 @@ class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> {
                   return Stack(
                     children: [
                       const IgnorePointer(child: SizedBox.expand()),
-                      Positioned(left: x, top: y, child: child!),
+                      AnimatedPositioned(
+                        left: x,
+                        top: y,
+                        duration: _dragging ? Duration.zero : const Duration(milliseconds: 220),
+                        curve: Curves.easeOut,
+                        child: child!,
+                      ),
                     ],
                   );
                 },
@@ -82,13 +128,17 @@ class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> {
 class MiniPlayerWindow extends StatefulWidget {
   final GlobalKey<NavigatorState> navigatorKey;
   final double width;
+  final void Function(DragStartDetails details) onDragStart;
   final void Function(Offset delta) onDrag;
+  final void Function(DragEndDetails details) onDragEnd;
   final void Function(double delta) onResize;
   const MiniPlayerWindow({
     super.key,
     required this.navigatorKey,
     required this.width,
+    required this.onDragStart,
     required this.onDrag,
+    required this.onDragEnd,
     required this.onResize,
   });
 
@@ -111,8 +161,6 @@ class _MiniPlayerWindowState extends State<MiniPlayerWindow> {
     if (mounted) setState(() {});
   }
 
-  /// Controls fade out a few seconds after the last interaction, like the
-  /// YouTube mini player.
   void _showControls() {
     if (!mounted) return;
     setState(() => _controlsVisible = true);
@@ -137,11 +185,6 @@ class _MiniPlayerWindowState extends State<MiniPlayerWindow> {
     openPlayerRoute(navigator);
   }
 
-  void _act(Future<void> Function() action) {
-    _showControls();
-    unawaited(action());
-  }
-
   @override
   Widget build(BuildContext context) {
     final session = PlayerSession.instance;
@@ -158,8 +201,11 @@ class _MiniPlayerWindowState extends State<MiniPlayerWindow> {
         data.state.currentEpIndex + 1 < data.epLinks.length &&
         data.state.preloadedSources.isNotEmpty;
 
-    Widget button(IconData icon, String tooltip, VoidCallback? onPressed) => IconButton(
-          onPressed: onPressed == null ? null : () => _act(() async { onPressed(); }),
+    Widget button(IconData icon, String tooltip, VoidCallback action) => IconButton(
+          onPressed: () {
+            _showControls();
+            action();
+          },
           icon: Icon(icon, color: Colors.white, size: 18),
           tooltip: tooltip,
           padding: const EdgeInsets.all(1),
@@ -167,8 +213,12 @@ class _MiniPlayerWindowState extends State<MiniPlayerWindow> {
         );
 
     return GestureDetector(
-      onPanStart: (_) => _showControls(),
+      onPanStart: (details) {
+        _showControls();
+        widget.onDragStart(details);
+      },
       onPanUpdate: (details) => widget.onDrag(details.delta),
+      onPanEnd: widget.onDragEnd,
       child: DecoratedBox(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
@@ -182,8 +232,8 @@ class _MiniPlayerWindowState extends State<MiniPlayerWindow> {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                // Tapping the video reveals the controls; only the expand
-                // button returns to the full player.
+                // Tapping the video only reveals the controls. The expand
+                // button is the way back to the full player.
                 GestureDetector(onTap: _showControls, child: controller.getMiniWidget()),
                 Positioned(
                   left: 0,
@@ -195,25 +245,59 @@ class _MiniPlayerWindowState extends State<MiniPlayerWindow> {
                     child: IgnorePointer(
                       ignoring: !_controlsVisible,
                       child: Container(
-                        height: 32,
                         decoration: const BoxDecoration(
                           gradient: LinearGradient(
                             begin: Alignment.bottomCenter,
                             end: Alignment.topCenter,
-                            colors: [Colors.black, Colors.transparent],
+                            colors: [Color(0xE6000000), Color(0x80000000), Colors.transparent],
                           ),
                         ),
-                        child: Row(
+                        padding: const EdgeInsets.only(left: 6, right: 20, bottom: 2),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            button(Icons.replay_10, 'Back 10 seconds', () => player!.fastForward(-10)),
-                            button(playing ? Icons.pause : Icons.play_arrow,
-                                playing ? 'Pause' : 'Play', () => playing ? controller.pause() : controller.play()),
-                            button(Icons.forward_10, 'Forward 10 seconds', () => player!.fastForward(10)),
-                            if (hasNext)
-                              button(Icons.skip_next, 'Next episode', () => player!.playPreloadedEpisode(data!)),
-                            const Spacer(),
-                            button(Icons.open_in_full, 'Back to full player', _restore),
-                            button(Icons.close, 'Close player', session.close),
+                            Text(
+                              data?.showTitle ?? '',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(color: Colors.white, fontSize: 11, fontFamily: "NotoSans"),
+                            ),
+                            SizedBox(
+                              height: 16,
+                              child: SliderTheme(
+                                data: SliderThemeData(
+                                  trackHeight: 2,
+                                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 4),
+                                  overlayShape: const RoundSliderOverlayShape(overlayRadius: 8),
+                                  activeTrackColor: Theme.of(context).colorScheme.primary,
+                                  inactiveTrackColor: Colors.white38,
+                                  thumbColor: Colors.white,
+                                ),
+                                child: Slider(
+                                  value: progress.clamp(0.0, 1.0),
+                                  onChanged: (value) {
+                                    _showControls();
+                                    if (duration > 0) {
+                                      unawaited(controller.seekTo(Duration(milliseconds: (value * duration).round())));
+                                    }
+                                  },
+                                ),
+                              ),
+                            ),
+                            Row(
+                              children: [
+                                button(Icons.replay_10, 'Back 10 seconds', () => player?.fastForward(-10)),
+                                button(playing ? Icons.pause : Icons.play_arrow, playing ? 'Pause' : 'Play',
+                                    () => playing ? controller.pause() : controller.play()),
+                                button(Icons.forward_10, 'Forward 10 seconds', () => player?.fastForward(10)),
+                                if (hasNext)
+                                  button(Icons.skip_next, 'Next episode', () => player?.playPreloadedEpisode(data!)),
+                                const Spacer(),
+                                button(Icons.open_in_full, 'Back to full player', _restore),
+                                button(Icons.close, 'Close player', session.close),
+                              ],
+                            ),
                           ],
                         ),
                       ),
@@ -222,26 +306,15 @@ class _MiniPlayerWindowState extends State<MiniPlayerWindow> {
                 ),
                 Positioned(
                   right: 0,
-                  top: 0,
+                  bottom: 0,
                   child: GestureDetector(
                     onPanStart: (_) => _showControls(),
                     onPanUpdate: (details) => widget.onResize(details.delta.dx),
                     child: const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: Center(child: Icon(Icons.aspect_ratio, color: Colors.white70, size: 13)),
+                      width: 18,
+                      height: 18,
+                      child: Center(child: Icon(Icons.aspect_ratio, color: Colors.white70, size: 12)),
                     ),
-                  ),
-                ),
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: LinearProgressIndicator(
-                    value: progress.clamp(0.0, 1.0),
-                    minHeight: 2.5,
-                    backgroundColor: Colors.white30,
-                    color: Theme.of(context).colorScheme.primary,
                   ),
                 ),
               ],
