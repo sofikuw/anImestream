@@ -92,10 +92,11 @@ than pretending to cover the fork's earlier life. That history is in the git log
 ### Changed
 - **README rewritten.** Installation, extension rules and build instructions
   now describe the app as it actually ships, with a logo and badges.
-- **Divergence meter.** The README and every release description now state how
-  far this fork has moved from upstream (`1.<lines moved>%`, Steins;Gate style).
-  The number is computed from git at build time by `scripts/divergence.sh`, and
-  the release workflow writes it back into the README.
+- **Divergence meter.** Every release description opens with how far this fork
+  has moved from upstream (`1.<lines moved>%`, Steins;Gate style), and the README
+  carries the same number as a badge under the app name. The value is computed
+  from git at build time by `scripts/divergence.sh`, and the release workflow
+  writes it back into the badge.
 
 ## [0.3.0] - 2026-10-29
 

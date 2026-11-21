@@ -536,8 +536,9 @@ jobs:
           value = sys.argv[1]
           path = 'README.md'
           text = open(path, encoding='utf-8').read()
+          # The badge in the header: shields.io static badge, `divergence-<n>%25`.
           updated = re.sub(
-              r'(<!-- divergence -->)[^<]*(<!-- /divergence -->)',
+              r'(divergence-)[0-9.]+(%25)',
               lambda m: m.group(1) + value + m.group(2),
               text,
           )

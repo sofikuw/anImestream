@@ -12,6 +12,7 @@ A fast, native Android client for streaming anime and reading manga, built with 
 [![Android](https://img.shields.io/badge/Android-API%2024%2B-3DDC84?logo=android&logoColor=white)](https://developer.android.com)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/sofikuw/anImestream?include_prereleases&label=release)](https://github.com/sofikuw/anImestream/releases)
+[![Divergence](https://img.shields.io/badge/divergence-1.044960%25-8E44AD)](scripts/divergence.sh)
 
 [Download](#installation) · [Features](#features) · [Extensions](#extensions) · [Build](#building)
 
@@ -180,39 +181,6 @@ bash branches/apply-identity.sh divergent
 
 The script is idempotent. See [branches/README.md](branches/README.md) for the
 descriptor schema.
-
-## Divergence from upstream
-
-`divergent` is not a thin reskin of [frostnova721/animestream](https://github.com/frostnova721/animestream).
-It is a fork with its own behaviour, and the distance from the original build is
-tracked as a worldline number, the way Steins;Gate counts divergence:
-
-```text
-Divergence: <!-- divergence -->1.044986<!-- /divergence -->%
-```
-
-The digits are real, not decoration. The number after the `1.` is the count of
-lines added and removed since the fork point (`7813ca0`), zero-padded to six. It
-only ever grows, and it is reproducible from the repo:
-
-```bash
-bash scripts/divergence.sh
-```
-
-Each release prints the meter it was cut from at the top of its description, and
-the release workflow writes the new value back into the line above, so this page
-and every build state the same worldline.
-
-What that distance consists of, in user-visible terms:
-
-| | |
-| --- | --- |
-| **Removed** | NSFW mode, its settings toggle and all adult providers/metadata; the native libass Picture-in-Picture overlay (the in-app viewer handles ASS/SSA on every platform); an unused torrent streaming engine and its dependency. |
-| **Added** | Real MyAnimeList and Simkl user stats, per-episode batch downloads, separate audio-stream downloads, AniList request caching, and "Continue Watching" opening straight to the episode list. |
-| **Changed** | Watch progress syncs through whichever database is active (AniList, MAL or Simkl) instead of AniList only; stats no longer send an AniList request when another database is active. |
-
-Upstream fixes are backported when they do not collide with the above; the
-backport history is in [changelog.md](changelog.md).
 
 ## Continuous integration
 
