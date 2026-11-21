@@ -5,9 +5,11 @@ import 'package:animestream/core/commons/extractQuality.dart';
 import 'package:animestream/ui/models/playerControllers/videoController.dart';
 import 'package:animestream/ui/models/widgets/player/playerUtils.dart';
 import 'package:better_player/better_player.dart';
+// The vendored player ships its own video_player fork; using the app's
+// video_player 2.14.0 here gives a different VideoPlayerController type.
+import 'package:better_player/src/video_player/video_player.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
-import 'package:video_player/video_player.dart';
 
 class BetterPlayerWrapper implements VideoController {
   late BetterPlayerController controller = BetterPlayerController(_config);
@@ -21,10 +23,6 @@ class BetterPlayerWrapper implements VideoController {
     fit: BoxFit.contain,
     expandToFill: true,
     autoPlay: true,
-    // BetterPlayer disposes its controller when the widget leaves the tree.
-    // The app-scoped session owns the controller instead, so leaving the watch
-    // page can minimise without killing playback.
-    autoDispose: false,
     errorBuilder: (context, errorMessage) {
       return Center(
           child: Text(
@@ -40,7 +38,10 @@ class BetterPlayerWrapper implements VideoController {
     // iOS PiP must remain playing while the app transitions to the background.
     // Watch manages ordinary background pause/resume on iOS itself.
     handleLifecycle: !Platform.isIOS,
-    autoDispose: true,
+    // BetterPlayer disposes its controller when the widget leaves the tree.
+    // The app-scoped session owns it instead, so leaving the watch page can
+    // minimise without killing playback; the wrapper disposes it on close.
+    autoDispose: false,
     controlsConfiguration: BetterPlayerControlsConfiguration(
       showControls: false,
     ),
