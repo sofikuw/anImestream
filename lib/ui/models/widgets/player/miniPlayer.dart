@@ -66,7 +66,7 @@ class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> {
                   return Stack(
                     children: [
                       const IgnorePointer(child: SizedBox.expand()),
-                      Positioned(left: x, top: y, child: child),
+                      Positioned(left: x, top: y, child: child!),
                     ],
                   );
                 },
@@ -229,7 +229,7 @@ class _MiniPlayerWindowState extends State<MiniPlayerWindow> {
                     child: const SizedBox(
                       width: 20,
                       height: 20,
-                      child: Center(child: Icon(Icons.resize_bottom_right, color: Colors.white70, size: 13)),
+                      child: Center(child: Icon(Icons.aspect_ratio, color: Colors.white70, size: 13)),
                     ),
                   ),
                 ),
