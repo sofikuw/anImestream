@@ -18,9 +18,17 @@ import 'package:animestream/core/metadata/metadataFallback.dart';
 import 'package:animestream/ui/models/snackBar.dart';
 import 'package:animestream/ui/models/sources.dart';
 
+/// Which half of the info page opens first.
+enum InfoView { info, watch }
+
 class InfoProvider extends ChangeNotifier {
   int id;
-  InfoProvider(int id) : this.id = id;
+
+  /// Used when the page is opened from a "Continue Watching" row, which wants
+  /// the episode list rather than the synopsis.
+  final InfoView initialSection;
+
+  InfoProvider(int id, {this.initialSection = InfoView.info}) : this.id = id;
 
   late DatabaseInfo _data;
 
@@ -104,6 +112,7 @@ class InfoProvider extends ChangeNotifier {
   set selectedSource(ProviderDetails val) {
     _selectedSource = val;
     if (aspProvider != val.identifier) {
+      aspProvider = val.identifier;
       saveAnimeSpecificPreference(
           id.toString(),
           AnimeSpecificPreference(
