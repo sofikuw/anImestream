@@ -27,6 +27,10 @@ abstract class VideoController {
   /// Retuns the Widget of the player
   Widget getWidget();
 
+  /// Renders the same video in the floating mini window. Must not reuse the
+  /// full-size player's widget key, since both can be on screen at once.
+  Widget getMiniWidget();
+
   /// Seek the media to a particular position
   Future<void> seekTo(Duration duration);
 

@@ -35,6 +35,11 @@ class FvpWrapper implements VideoController {
   }
 
   @override
+  Widget getMiniWidget() {
+    return VideoPlayer(controller);
+  }
+
+  @override
   Future<void> initiateVideo(String url, {Map<String, String>? headers = null, bool offline = false}) async {
     final vol = controllerInitialized ? controller.value.volume : 0.8;
 

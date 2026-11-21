@@ -12,17 +12,17 @@ import 'package:animestream/ui/models/playerControllers/betterPlayer.dart';
 import 'package:animestream/ui/models/playerControllers/fvp_mdk.dart';
 import 'package:animestream/ui/models/providers/playerDataProvider.dart';
 import 'package:animestream/ui/models/providers/playerProvider.dart';
+import 'package:animestream/ui/models/providers/playerSession.dart';
 import 'package:animestream/ui/models/snackBar.dart';
 import 'package:animestream/ui/models/widgets/fileExplorer.dart';
+import 'package:animestream/ui/pages/playerRoute.dart';
 import 'package:animestream/ui/pages/settingPages/logs.dart';
-import 'package:animestream/ui/pages/watch.dart';
 import 'package:animestream/core/manga/anilistManga.dart';
 import 'package:animestream/core/manga/javascriptMangaProvider.dart';
 import 'package:animestream/core/manga/types.dart' as manga_types;
 import 'package:animestream/ui/pages/mangaReader.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 class DownloadsPage extends StatefulWidget {
   const DownloadsPage({super.key});
@@ -463,42 +463,33 @@ class _DownloadsPageState extends State<DownloadsPage> with TickerProviderStateM
       print("Error while scanning for subs: $e");
     }
 
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => MultiProvider(
-          providers: [
-            ChangeNotifierProvider(
-              create: (context) => PlayerDataProvider(
-                initialStreams: [],
-                initialStream: VideoStream(
-                    quality: "default",
-                    url: filepath,
-                    server: "local",
-                    backup: false,
-                    subtitle: subsPath,
-                    subtitleFormat: subsPath?.split(".").lastOrNull ?? "vtt"),
-                epLinks: [], // doesnt matter
-                showTitle: filenameSplit.first,
-                showId: 0, // doesnt matter
-                selectedSource: "default", //doesnt matter
-                startIndex: ((int.tryParse(filenameSplit.last) ?? 0) - 1)
-                    .clamp(0, 9999), // does matter! [change with episode number, need to fw download methods]
-                altDatabases: [], // doesnt matter
-                preferDubs: false, // doesnt matter
-                lastWatchDuration: null, // does matter!
-              ),
-            ),
-            ChangeNotifierProvider(
-              create: (context) => PlayerProvider(controller, true),
-            ),
-          ],
-          child: Watch(
-            controller: controller,
-            localSource: true,
-          ),
-        ),
+    final navigator = Navigator.of(context);
+    PlayerSession.instance.start(
+      controller: controller,
+      navigator: navigator,
+      localSource: true,
+      dataProvider: PlayerDataProvider(
+        initialStreams: [],
+        initialStream: VideoStream(
+            quality: "default",
+            url: filepath,
+            server: "local",
+            backup: false,
+            subtitle: subsPath,
+            subtitleFormat: subsPath?.split(".").lastOrNull ?? "vtt"),
+        epLinks: [], // doesnt matter
+        showTitle: filenameSplit.first,
+        showId: 0, // doesnt matter
+        selectedSource: "default", //doesnt matter
+        startIndex: ((int.tryParse(filenameSplit.last) ?? 0) - 1)
+            .clamp(0, 9999), // does matter! [change with episode number, need to fw download methods]
+        altDatabases: [], // doesnt matter
+        preferDubs: false, // doesnt matter
+        lastWatchDuration: null, // does matter!
       ),
+      playerProvider: PlayerProvider(controller, true),
     );
+    openPlayerRoute(navigator);
   }
 
   Widget _downloadItem(DownloadItem item) {

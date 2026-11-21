@@ -16,15 +16,15 @@ import 'package:animestream/ui/models/playerControllers/fvp.dart';
 import 'package:animestream/ui/models/providers/infoProvider.dart';
 import 'package:animestream/ui/models/providers/playerDataProvider.dart';
 import 'package:animestream/ui/models/providers/playerProvider.dart';
+import 'package:animestream/ui/models/providers/playerSession.dart';
 import 'package:animestream/ui/models/snackBar.dart';
 import 'package:animestream/ui/models/widgets/appWrapper.dart';
 import 'package:animestream/ui/models/widgets/sourceTile.dart';
 import 'package:animestream/ui/models/widgets/subtitleFormatBadge.dart';
+import 'package:animestream/ui/pages/playerRoute.dart';
 import 'package:animestream/ui/pages/settingPages/common.dart';
-import 'package:animestream/ui/pages/watch.dart';
 import 'package:flutter/material.dart';
 import 'package:animestream/ui/models/sources.dart';
-import 'package:provider/provider.dart';
 import 'package:collection/collection.dart';
 
 class DownloadStreamOptions({
@@ -211,42 +211,36 @@ class ServerSelectionBottomSheetState extends State<ServerSelectionBottomSheet> 
 
     final controller = Platform.isAndroid || Platform.isIOS ? BetterPlayerWrapper() : FvpWrapper();
     final provider = widget.provider;
-    final navigatorState = (Platform.isWindows ? AppWrapper.navKey.currentState : Navigator.of(context));
+    final navigatorState = Platform.isWindows ? AppWrapper.navKey.currentState : Navigator.of(context);
+    if (navigatorState == null) return;
+
+    PlayerSession.instance.start(
+      controller: controller,
+      navigator: navigatorState,
+      dataProvider: PlayerDataProvider(
+        initialStreams: streamSources,
+        initialStream: streamSources[index],
+        epLinks: provider.epLinks,
+        showTitle: title,
+        coverImageUrl: widget.provider.data.cover,
+        showId: provider.id,
+        selectedSource: provider.selectedSource.identifier,
+        startIndex: widget.episodeIndex,
+        altDatabases: provider.altDatabases,
+        preferDubs: provider.preferDubs,
+        lastWatchDuration: provider.lastWatchedDurationMap?[provider.watched < provider.epLinks.length
+            ? provider.watched + 1
+            : provider.watched],
+      ),
+      // Online streams are not offline files: the episode title comes from the
+      // data provider, not the "Episode N" fallback.
+      playerProvider: PlayerProvider(controller, false),
+    );
 
     Navigator.pop(context, true);
-
-    navigatorState
-        ?.push(
-          MaterialPageRoute(
-            builder: (context) => MultiProvider(
-              providers: [
-                ChangeNotifierProvider(
-                  create: (context) => PlayerDataProvider(
-                    initialStreams: streamSources,
-                    initialStream: streamSources[index],
-                    epLinks: provider.epLinks,
-                    showTitle: title,
-                    coverImageUrl: widget.provider.data.cover,
-                    showId: provider.id,
-                    selectedSource: provider.selectedSource.identifier,
-                    startIndex: widget.episodeIndex,
-                    altDatabases: provider.altDatabases,
-                    preferDubs: provider.preferDubs,
-                    lastWatchDuration:
-                        provider.lastWatchedDurationMap?[provider.watched < provider.epLinks.length
-                            ? provider.watched + 1
-                            : provider.watched],
-                  ),
-                ),
-                ChangeNotifierProvider(create: (context) => PlayerProvider(controller, true)),
-              ],
-              child: Watch(controller: controller),
-            ),
-          ),
-        )
-        .then((value) {
-          provider.getWatched(refreshLastWatchDuration: true);
-        });
+    openPlayerRoute(navigatorState).then((_) {
+      provider.getWatched(refreshLastWatchDuration: true);
+    });
   }
 
   @override

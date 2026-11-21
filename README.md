@@ -12,7 +12,7 @@ A fast, native Android client for streaming anime and reading manga, built with 
 [![Android](https://img.shields.io/badge/Android-API%2024%2B-3DDC84?logo=android&logoColor=white)](https://developer.android.com)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/sofikuw/anImestream?include_prereleases&label=release)](https://github.com/sofikuw/anImestream/releases)
-[![Divergence](https://img.shields.io/badge/divergence-1.044960%25-8E44AD)](scripts/divergence.sh)
+[![Divergence](https://img.shields.io/badge/divergence-1.045383%25-8E44AD)](scripts/divergence.sh)
 
 [Download](#installation) · [Features](#features) · [Extensions](#extensions) · [Build](#building)
 
@@ -29,7 +29,7 @@ anImestream brings discovery, streaming, downloads, manga reading and list track
 | | |
 | --- | --- |
 | **Discover** | Trending, airing, recent, seasonal and recommended anime, plus manga discovery and search. |
-| **Stream** | Built-in streaming sources and installable JavaScript extensions, with a modern player: subtitles, gestures, speed control, wakelock, Picture-in-Picture. |
+| **Stream** | Built-in streaming sources and installable JavaScript extensions, with a modern player: subtitles, gestures, speed control, wakelock, and a floating mini player that keeps the episode playing while you browse. |
 | **Read** | Manga chapters from built-in sources or extensions, with progress tracking and per-chapter downloads. |
 | **Track** | AniList, MyAnimeList and Simkl, including progress updates and alternate-ID sync. |
 | **Offline** | Download anime episodes and manga chapters for offline use. |

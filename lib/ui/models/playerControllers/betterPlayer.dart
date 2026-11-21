@@ -7,6 +7,7 @@ import 'package:animestream/ui/models/widgets/player/playerUtils.dart';
 import 'package:better_player/better_player.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import 'package:video_player/video_player.dart';
 
 class BetterPlayerWrapper implements VideoController {
   late BetterPlayerController controller = BetterPlayerController(_config);
@@ -20,6 +21,10 @@ class BetterPlayerWrapper implements VideoController {
     fit: BoxFit.contain,
     expandToFill: true,
     autoPlay: true,
+    // BetterPlayer disposes its controller when the widget leaves the tree.
+    // The app-scoped session owns the controller instead, so leaving the watch
+    // page can minimise without killing playback.
+    autoDispose: false,
     errorBuilder: (context, errorMessage) {
       return Center(
           child: Text(
@@ -93,12 +98,20 @@ class BetterPlayerWrapper implements VideoController {
 
   @override
   void dispose() {
-    return controller.dispose();
+    // autoDispose is off so the widget can be torn down on minimise; this is
+    // the one place that actually releases the player.
+    return controller.dispose(forceDispose: true);
   }
 
   @override
   Widget getWidget() {
     return BetterPlayer(controller: controller, key: key);
+  }
+
+  @override
+  Widget getMiniWidget() {
+    final video = controller.videoPlayerController;
+    return video == null ? Container(color: Colors.black) : VideoPlayer(video);
   }
 
   @override

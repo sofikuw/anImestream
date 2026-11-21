@@ -32,6 +32,7 @@ import 'package:animestream/ui/models/snackBar.dart';
 import 'package:animestream/ui/models/sources.dart';
 import 'package:animestream/ui/models/widgets/appWrapper.dart';
 import 'package:animestream/ui/models/widgets/loader.dart';
+import 'package:animestream/ui/models/widgets/player/miniPlayer.dart';
 import 'package:animestream/ui/pages/info.dart';
 import 'package:animestream/ui/pages/mainNav.dart';
 import 'package:animestream/ui/pages/mangaReader.dart';
@@ -395,6 +396,12 @@ class _AnimeStreamState extends State<AnimeStream> {
             home: ChangeNotifierProvider(
               create: (context) => MainNavProvider(),
               child: Platform.isWindows || Platform.isLinux ? AppWrapper(firstPage: MainNavigator()) : MainNavigator(),
+            ),
+            builder: (context, child) => Stack(
+              children: [
+                Positioned.fill(child: child ?? const SizedBox.shrink()),
+                MiniPlayerOverlay(navigatorKey: AnimeStream.navigatorKey),
+              ],
             ),
             debugShowCheckedModeBanner: false,
           );

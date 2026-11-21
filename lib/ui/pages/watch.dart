@@ -22,6 +22,7 @@ import 'package:animestream/core/data/watching.dart';
 import 'package:animestream/ui/models/widgets/player/playerUtils.dart';
 import 'package:animestream/ui/models/providers/playerDataProvider.dart';
 import 'package:animestream/ui/models/providers/playerProvider.dart';
+import 'package:animestream/ui/models/providers/playerSession.dart';
 import 'package:animestream/ui/models/providers/appProvider.dart';
 import 'package:animestream/ui/models/playerControllers/videoController.dart';
 import 'package:screen_brightness/screen_brightness.dart';
@@ -51,7 +52,13 @@ class _WatchState extends State<Watch> with WidgetsBindingObserver {
     controller = widget.controller;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initialize();
+      // Coming back from the mini window: reuse the live player instead of
+      // rebuilding the stream and restarting playback.
+      if (PlayerSession.instance.initialised && PlayerSession.instance.controller == controller) {
+        _markPlayerReady();
+      } else {
+        _initialize();
+      }
       _initCallbacks(context);
     });
 
@@ -217,6 +224,7 @@ class _WatchState extends State<Watch> with WidgetsBindingObserver {
     setState(() {
       isInitiated = true;
     });
+    PlayerSession.instance.markInitialised();
     context.read<PlayerProvider>().toggleControlsVisibility(action: true);
     controller.addListener(_listener);
   }
@@ -901,7 +909,9 @@ class _WatchState extends State<Watch> with WidgetsBindingObserver {
     }
 
     controller.removeListener(_listener);
-    controller.dispose();
+    // Leaving the page minimises; only the session's close() ends playback and
+    // tears down the platform controller.
+    if (PlayerSession.instance.controller != controller) controller.dispose();
     _controlsTimer?.cancel();
     _tapTimer?.cancel();
 

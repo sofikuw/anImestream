@@ -42,15 +42,16 @@ class FvpWrapper implements VideoController {
   Widget getWidget() {
     return AspectRatio(
         aspectRatio: 16 / 9,
-        child: ValueListenableBuilder(
-            valueListenable: _player.textureId,
-            builder: (context, value, child) {
-              return value != null
-                  ? Texture(
-                      textureId: value,
-                    )
-                  : Container();
-            }));
+        child: getMiniWidget());
+  }
+
+  @override
+  Widget getMiniWidget() {
+    return ValueListenableBuilder(
+        valueListenable: _player.textureId,
+        builder: (context, value, child) {
+          return value != null ? Texture(textureId: value) : Container();
+        });
   }
 
   @override
