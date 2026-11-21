@@ -11,11 +11,12 @@ than pretending to cover the fork's earlier life. That history is in the git log
 
 ### Added
 - **In-app mini player.** Leaving the video page now shrinks the episode into a
-  draggable floating window instead of stopping it, so the rest of the app can
-  be browsed while it keeps playing. Controls fade out after a few seconds and
-  come back on interaction; they cover play/pause, back 10 seconds, next
-  episode (when one is ready), expand and close. Tap the video to reveal them,
-  tap again to return to the full player. Works for online streams and
+  floating window instead of stopping it, so the rest of the app can be browsed
+  while it keeps playing. The window can be dragged and resized; controls fade
+  out after a few seconds and come back on interaction. They cover back 10
+  seconds, play/pause, forward 10 seconds, next episode (when one is ready),
+  expand and close. Tapping the video only reveals the controls -- the expand
+  button is the way back to the full player. Works for online streams and
   downloaded files.
 - **Built-in manga providers are switchable.** WeebCentral and MangaPill now
   appear under *Built-in providers* next to the built-in anime sources. Turning
@@ -60,6 +61,9 @@ than pretending to cover the fork's earlier life. That history is in the git log
   falls through the enabled sources automatically.
 
 ### Fixed
+- **Anime details load with MyAnimeList selected.** MAL is a list database, not
+  a metadata source, so its positive ids are now resolved through the metadata
+  fallback instead of hitting an unimplemented MAL details method.
 - **The preferred provider is remembered.** Picking a source on an anime's page
   now records it; the cached value was never updated, so the same preference was
   rewritten on every later visit and readers of it kept seeing the old provider.

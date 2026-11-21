@@ -5,8 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:animestream/ui/models/providers/playerSession.dart';
 import 'package:animestream/ui/pages/playerRoute.dart';
 
-const double _miniWidth = 200;
-const double _miniHeight = 112.5;
+const double _initialWidth = 200;
+const double _minWidth = 180;
+const double _maxWidth = 360;
+double _heightOf(double width) => width * 9 / 16;
 
 /// Sits above the navigator: taps outside the window fall through to the app.
 class MiniPlayerOverlay extends StatefulWidget {
@@ -18,13 +20,15 @@ class MiniPlayerOverlay extends StatefulWidget {
 }
 
 class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> {
-  /// Drag is a notifier so a pan only moves the window -- it never rebuilds the
-  /// video widget or the whole overlay.
+  /// Drag and resize are notifiers so a pan only moves the window -- it never
+  /// rebuilds the video widget or the whole overlay.
   final ValueNotifier<Offset> _drag = ValueNotifier(Offset.zero);
+  final ValueNotifier<double> _width = ValueNotifier(_initialWidth);
 
   @override
   void dispose() {
     _drag.dispose();
+    _width.dispose();
     super.dispose();
   }
 
@@ -41,32 +45,33 @@ class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> {
 
           final size = MediaQuery.sizeOf(context);
           final bottom = MediaQuery.paddingOf(context).bottom + 72;
-          final base = Offset(size.width - _miniWidth - 12, size.height - _miniHeight - bottom);
 
-          return Stack(
-            children: [
-              const IgnorePointer(child: SizedBox.expand()),
-              Positioned(
-                left: base.dx,
-                top: base.dy,
-                child: ValueListenableBuilder<Offset>(
-                  valueListenable: _drag,
-                  child: MiniPlayerWindow(
-                    key: ValueKey(session.routeId),
-                    navigatorKey: widget.navigatorKey,
-                    onDrag: (delta) => _drag.value += delta,
-                  ),
-                  builder: (context, delta, child) {
-                    final x = (base.dx + delta.dx).clamp(0.0, size.width - _miniWidth);
-                    final y = (base.dy + delta.dy).clamp(0.0, size.height - _miniHeight);
-                    return Transform.translate(
-                      offset: Offset(x - base.dx, y - base.dy),
-                      child: child,
-                    );
-                  },
+          return ValueListenableBuilder<double>(
+            valueListenable: _width,
+            builder: (context, width, _) {
+              final height = _heightOf(width);
+              final base = Offset(size.width - width - 12, size.height - height - bottom);
+              return ValueListenableBuilder<Offset>(
+                valueListenable: _drag,
+                child: MiniPlayerWindow(
+                  key: ValueKey(session.routeId),
+                  navigatorKey: widget.navigatorKey,
+                  width: width,
+                  onDrag: (delta) => _drag.value += delta,
+                  onResize: (delta) => _width.value = (_width.value + delta).clamp(_minWidth, _maxWidth),
                 ),
-              ),
-            ],
+                builder: (context, delta, child) {
+                  final x = (base.dx + delta.dx).clamp(0.0, size.width - width);
+                  final y = (base.dy + delta.dy).clamp(0.0, size.height - height);
+                  return Stack(
+                    children: [
+                      const IgnorePointer(child: SizedBox.expand()),
+                      Positioned(left: x, top: y, child: child),
+                    ],
+                  );
+                },
+              );
+            },
           );
         },
       ),
@@ -76,11 +81,15 @@ class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> {
 
 class MiniPlayerWindow extends StatefulWidget {
   final GlobalKey<NavigatorState> navigatorKey;
+  final double width;
   final void Function(Offset delta) onDrag;
+  final void Function(double delta) onResize;
   const MiniPlayerWindow({
     super.key,
     required this.navigatorKey,
+    required this.width,
     required this.onDrag,
+    required this.onResize,
   });
 
   @override
@@ -133,11 +142,6 @@ class _MiniPlayerWindowState extends State<MiniPlayerWindow> {
     unawaited(action());
   }
 
-  void _onVideoTap() {
-    // First tap reveals the controls; a second one expands the player.
-    _controlsVisible ? _restore() : _showControls();
-  }
-
   @override
   Widget build(BuildContext context) {
     final session = PlayerSession.instance;
@@ -154,6 +158,14 @@ class _MiniPlayerWindowState extends State<MiniPlayerWindow> {
         data.state.currentEpIndex + 1 < data.epLinks.length &&
         data.state.preloadedSources.isNotEmpty;
 
+    Widget button(IconData icon, String tooltip, VoidCallback? onPressed) => IconButton(
+          onPressed: onPressed == null ? null : () => _act(() async { onPressed(); }),
+          icon: Icon(icon, color: Colors.white, size: 18),
+          tooltip: tooltip,
+          padding: const EdgeInsets.all(1),
+          constraints: const BoxConstraints.tightFor(width: 28, height: 28),
+        );
+
     return GestureDetector(
       onPanStart: (_) => _showControls(),
       onPanUpdate: (details) => widget.onDrag(details.delta),
@@ -165,12 +177,14 @@ class _MiniPlayerWindowState extends State<MiniPlayerWindow> {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(10),
           child: SizedBox(
-            width: _miniWidth,
-            height: _miniHeight,
+            width: widget.width,
+            height: _heightOf(widget.width),
             child: Stack(
               fit: StackFit.expand,
               children: [
-                GestureDetector(onTap: _onVideoTap, child: controller.getMiniWidget()),
+                // Tapping the video reveals the controls; only the expand
+                // button returns to the full player.
+                GestureDetector(onTap: _showControls, child: controller.getMiniWidget()),
                 Positioned(
                   left: 0,
                   right: 0,
@@ -181,7 +195,7 @@ class _MiniPlayerWindowState extends State<MiniPlayerWindow> {
                     child: IgnorePointer(
                       ignoring: !_controlsVisible,
                       child: Container(
-                        height: 34,
+                        height: 32,
                         decoration: const BoxDecoration(
                           gradient: LinearGradient(
                             begin: Alignment.bottomCenter,
@@ -191,46 +205,31 @@ class _MiniPlayerWindowState extends State<MiniPlayerWindow> {
                         ),
                         child: Row(
                           children: [
-                            IconButton(
-                              onPressed: () => _act(() => player!.fastForward(-10)),
-                              icon: const Icon(Icons.replay_10, color: Colors.white, size: 18),
-                              tooltip: 'Back 10 seconds',
-                              padding: const EdgeInsets.all(2),
-                              constraints: const BoxConstraints.tightFor(width: 30, height: 30),
-                            ),
-                            IconButton(
-                              onPressed: () => _act(() => playing ? controller.pause() : controller.play()),
-                              icon: Icon(playing ? Icons.pause : Icons.play_arrow, color: Colors.white, size: 20),
-                              tooltip: playing ? 'Pause' : 'Play',
-                              padding: const EdgeInsets.all(2),
-                              constraints: const BoxConstraints.tightFor(width: 30, height: 30),
-                            ),
+                            button(Icons.replay_10, 'Back 10 seconds', () => player!.fastForward(-10)),
+                            button(playing ? Icons.pause : Icons.play_arrow,
+                                playing ? 'Pause' : 'Play', () => playing ? controller.pause() : controller.play()),
+                            button(Icons.forward_10, 'Forward 10 seconds', () => player!.fastForward(10)),
                             if (hasNext)
-                              IconButton(
-                                onPressed: () => _act(() async => player!.playPreloadedEpisode(data!)),
-                                icon: const Icon(Icons.skip_next, color: Colors.white, size: 18),
-                                tooltip: 'Next episode',
-                                padding: const EdgeInsets.all(2),
-                                constraints: const BoxConstraints.tightFor(width: 30, height: 30),
-                              ),
+                              button(Icons.skip_next, 'Next episode', () => player!.playPreloadedEpisode(data!)),
                             const Spacer(),
-                            IconButton(
-                              onPressed: _restore,
-                              icon: const Icon(Icons.open_in_full, color: Colors.white, size: 17),
-                              tooltip: 'Back to full player',
-                              padding: const EdgeInsets.all(2),
-                              constraints: const BoxConstraints.tightFor(width: 30, height: 30),
-                            ),
-                            IconButton(
-                              onPressed: session.close,
-                              icon: const Icon(Icons.close, color: Colors.white, size: 18),
-                              tooltip: 'Close player',
-                              padding: const EdgeInsets.all(2),
-                              constraints: const BoxConstraints.tightFor(width: 30, height: 30),
-                            ),
+                            button(Icons.open_in_full, 'Back to full player', _restore),
+                            button(Icons.close, 'Close player', session.close),
                           ],
                         ),
                       ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  child: GestureDetector(
+                    onPanStart: (_) => _showControls(),
+                    onPanUpdate: (details) => widget.onResize(details.delta.dx),
+                    child: const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: Center(child: Icon(Icons.resize_bottom_right, color: Colors.white70, size: 13)),
                     ),
                   ),
                 ),

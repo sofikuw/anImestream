@@ -307,8 +307,10 @@ class InfoProvider extends ChangeNotifier {
       _mediaListStatus = isFallback ? null : assignItemEnum(data.mediaListStatus);
       notifyListeners();
     } catch (err) {
-      Logs.app.log(err.toString());
-      if (currentUserSettings!.showErrors != null && currentUserSettings!.showErrors!) floatingSnackBar(err.toString());
+      Logs.app.log("info load for anime $id via ${currentUserSettings?.database?.name}: $err", addToBuffer: true);
+      if (currentUserSettings!.showErrors ?? false) {
+        floatingSnackBar("Couldn't load details for this anime.");
+      }
       _infoLoadError = true;
       notifyListeners();
       rethrow;
@@ -402,7 +404,7 @@ class InfoProvider extends ChangeNotifier {
           notifyListeners();
           return;
         } catch (e) {
-          Logs.app.log(e.toString());
+          Logs.app.log("romaji retry via ${selectedSource.identifier}: $e", addToBuffer: true);
         }
       }
 

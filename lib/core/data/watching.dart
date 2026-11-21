@@ -53,7 +53,7 @@ Future<void> storeWatching(
       box.close();
     }
   } catch (err) {
-    Logs.app.log(err.toString());
+    Logs.app.log("storeWatching for anime $id: $err", addToBuffer: true);
   }
 }
 
@@ -86,7 +86,7 @@ Future<void> updateWatching(int? id, String title, int watched, List<AlternateDa
       box.close();
     }
   } catch (err) {
-    Logs.app.log(err.toString());
+    Logs.app.log("updateWatching for anime $id: $err", addToBuffer: true);
   }
 }
 

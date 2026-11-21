@@ -47,6 +47,12 @@ class DatabaseHandler extends Database {
     if (AnimeMetadataRouter.instance.isFallbackId(id)) {
       return AnimeMetadataRouter.instance.info(id);
     }
+    // MAL is a list-sync database, not a metadata source: MAL.getAnimeInfo is
+    // unimplemented. Its positive numeric id is the same id the metadata
+    // router encodes as a negative MAL fallback id, so resolve it there.
+    if (db == Databases.mal && id > 0) {
+      return await AnimeMetadataRouter.instance.info(-id);
+    }
     return await getDatabaseInstance(db).getAnimeInfo(id);
   }
 }

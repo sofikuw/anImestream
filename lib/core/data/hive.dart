@@ -21,6 +21,6 @@ Future<void> storeVal(HiveKey itemKey, dynamic val, {HiveBox boxName = HiveBox.a
     await box.put(itemKey.name, val);
     await box.close();
   } catch (err) {
-    Logs.app.log(err.toString());
+    Logs.app.log("storeVal ${itemKey.name}: $err", addToBuffer: true);
   }
 }
