@@ -58,15 +58,14 @@ class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> {
   Offset _base(Size size, double width, double height, double bottom) =>
       Offset(size.width - width - 12, size.height - height - bottom);
 
+  /// YouTube-style: horizontal position snaps to the nearest side, vertical
+  /// position stays wherever the user left it (clamped to the screen).
   Offset _snapped(Size size, double width, double height, double bottom) {
     final base = _base(size, width, height, bottom);
     final maxY = size.height - height - bottom;
     final x = (base.dx + _drag.value.dx).clamp(0.0, size.width - width);
-    final y = (base.dy + _drag.value.dy).clamp(0.0, maxY);
-    return Offset(
-      x < (size.width - width) / 2 ? 0 : size.width - width,
-      y < maxY / 2 ? 0 : maxY,
-    );
+    final y = (base.dy + _drag.value.dy).clamp(0.0, maxY < 0 ? 0 : maxY);
+    return Offset(x < (size.width - width) / 2 ? 0 : size.width - width, y);
   }
 
   Offset _offscreen(String edge, Offset home, Size size, double width) {
@@ -89,9 +88,10 @@ class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> {
 
     final session = PlayerSession.instance;
     String? edge;
-    if (moved.dx > 100) edge = 'right';
-    if (moved.dx < -100) edge = 'left';
-    if (moved.dy > 100) edge = 'bottom';
+    // Hide only once more than half the window has left the screen sideways.
+    final threshold = width / 2;
+    if (moved.dx > threshold) edge = 'right';
+    if (moved.dx < -threshold) edge = 'left';
 
     if (edge != null) {
       final home = _snapped(size, width, height, bottom);
@@ -119,7 +119,7 @@ class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> {
             : Icons.keyboard_arrow_up;
 
     return AnimatedOpacity(
-      opacity: session.collapsed ? 1 : 0,
+      opacity: session.collapsed ? 0.4 : 0,
       duration: const Duration(milliseconds: 220),
       child: IgnorePointer(
         ignoring: !session.collapsed,
@@ -137,14 +137,14 @@ class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> {
             }
           },
           child: Container(
-            width: 42,
-            height: 42,
+            width: 28,
+            height: 28,
             decoration: BoxDecoration(
               color: Colors.black87,
               shape: BoxShape.circle,
               border: Border.all(color: Colors.white30),
             ),
-            child: Icon(icon, color: Colors.white, size: 26),
+            child: Icon(icon, color: Colors.white, size: 18),
           ),
         ),
       ),
@@ -163,7 +163,7 @@ class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> {
           }
 
           final size = MediaQuery.sizeOf(context);
-          final bottom = MediaQuery.paddingOf(context).bottom + 72;
+          final bottom = MediaQuery.paddingOf(context).bottom + 8;
 
           return ValueListenableBuilder<double>(
             valueListenable: _width,
@@ -199,8 +199,7 @@ class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> {
                       Positioned(
                         left: leftOfArrow(session, size),
                         right: rightOfArrow(session, size),
-                        top: session.collapseEdge == 'bottom' ? null : (size.height - bottom) / 2 - 21,
-                        bottom: session.collapseEdge == 'bottom' ? bottom + 10 : null,
+                        top: (_hiddenPosition?.dy ?? (size.height - bottom) / 2) + height / 2 - 14,
                         child: _arrow(session, size, bottom),
                       ),
                     ],
@@ -218,7 +217,7 @@ class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> {
   double? leftOfArrow(PlayerSession session, Size size) => session.collapseEdge == 'left'
       ? 10
       : session.collapseEdge == 'bottom'
-          ? (size.width - 42) / 2
+          ? (size.width - 28) / 2
           : null;
   double? rightOfArrow(PlayerSession session, Size size) => session.collapseEdge == 'right' ? 10 : null;
 }

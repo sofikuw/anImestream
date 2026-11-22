@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'dart:isolate';
 
+import 'package:flutter/services.dart';
+
 import 'package:animestream/core/commons/hlsParser/hlsParser.dart';
 import 'package:collection/collection.dart';
 
@@ -20,6 +22,29 @@ class Downloader {
   final DownloaderHelper _helper = DownloaderHelper();
 
   final Logbook? logger;
+
+  static const MethodChannel _platform = MethodChannel('animestream.app/utils');
+  static bool _backgroundActive = false;
+
+  /// A foreground service keeps the process alive while isolates download, so
+  /// leaving the app (or closing the activity) does not stop the queue.
+  Future<void> _startBackground() async {
+    if (!Platform.isAndroid || _backgroundActive) return;
+    try {
+      await _platform.invokeMethod('startDownloadService');
+      _backgroundActive = true;
+    } catch (err) {
+      logger?.log("Could not start the download service: $err");
+    }
+  }
+
+  Future<void> _stopBackground() async {
+    if (!Platform.isAndroid || !_backgroundActive) return;
+    _backgroundActive = false;
+    try {
+      await _platform.invokeMethod('stopDownloadService');
+    } catch (_) {}
+  }
 
   Downloader({this.logger});
 
@@ -57,6 +82,7 @@ class Downloader {
   Future<void> startDownload(DownloadItem item) async {
     // add the item to queue and wait for it to be processed
     DownloadManager.enqueue(item);
+    await _startBackground();
 
     _processQueue();
   }
@@ -143,6 +169,10 @@ class Downloader {
 
     // Continue next download if scheduled
     _processQueue();
+
+    final pending = DownloadManager.downloadingItems.any((item) =>
+        item.status == DownloadStatus.downloading || item.status == DownloadStatus.queued);
+    if (!pending) await _stopBackground();
   }
 
   Future<void> requestCancellation(int id) async {

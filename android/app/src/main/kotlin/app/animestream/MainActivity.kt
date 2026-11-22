@@ -3,6 +3,7 @@ package app.animestream
 import android.widget.Toast
 import android.os.Looper
 import android.os.Handler
+import android.os.Build
 import android.os.Bundle
 import android.content.Intent
 import android.net.Uri
@@ -31,6 +32,19 @@ class MainActivity: FlutterActivity() {
                     result.error("MESSAGE_NOT_PROVIDED", "MESSAGE IS NULL OR EMPTY", null)
                 }
                 showToast(message ?: "")
+                }
+                "startDownloadService" -> {
+                    val intent = Intent(this, DownloadService::class.java)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        startForegroundService(intent)
+                    } else {
+                        startService(intent)
+                    }
+                    result.success(null)
+                }
+                "stopDownloadService" -> {
+                    stopService(Intent(this, DownloadService::class.java))
+                    result.success(null)
                 }
                 else -> result.notImplemented()
             }

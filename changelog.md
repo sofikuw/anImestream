@@ -10,13 +10,17 @@ than pretending to cover the fork's earlier life. That history is in the git log
 ## [Unreleased]
 
 ### Added
+- **Background downloads.** An Android foreground service keeps the download
+  queue running when you leave the app or close the activity, with a persistent
+  notification while files are being fetched.
 - **In-app mini player.** Leaving the video page shrinks the episode into a
   floating window, so the rest of the app can be browsed while it keeps
   playing. The window has only play/pause and close buttons (both fade out).
   Pinch to resize, and every drag settles against the nearest screen edge.
-  Flick it off the left, right or bottom edge to pause and slide it away with
-  an arrow left behind at that edge; swipe the arrow inward and the window
-  animates back and resumes. Closing is only through the X button. Tap the
+  Flick it more than halfway off the left or right edge to pause and slide it
+  away with a small, faded arrow left at the height where it hid; swipe the
+  arrow inward and the window animates back and resumes. Closing is only
+  through the X button. Tap the
   video once to reveal the buttons and again to return to the full player.
   Works for online streams and downloaded files.
 - **Built-in manga providers are switchable.** WeebCentral and MangaPill now
