@@ -64,17 +64,6 @@ class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> {
       PlayerSession.instance.close();
       return;
     }
-    // Swipe up is the way back to the full player now that there is no expand
-    // button on the window.
-    if (moved.dy < -90 && moved.dy.abs() > moved.dx.abs()) {
-      final session = PlayerSession.instance;
-      final navigator = widget.navigatorKey.currentState ?? session.navigator;
-      if (navigator != null) {
-        session.restore();
-        openPlayerRoute(navigator);
-      }
-      return;
-    }
     if (moved.dx.abs() > 90 && moved.dx.abs() > moved.dy.abs()) {
       unawaited(PlayerSession.instance.collapse(toRight: moved.dx > 0));
       return;
@@ -204,7 +193,7 @@ class MiniPlayerWindow extends StatefulWidget {
 }
 
 class _MiniPlayerWindowState extends State<MiniPlayerWindow> {
-  bool _controlsVisible = true;
+  bool _controlsVisible = false;
   double _widthAtPinch = _initialWidth;
   Timer? _hideTimer;
 
@@ -212,7 +201,6 @@ class _MiniPlayerWindowState extends State<MiniPlayerWindow> {
   void initState() {
     super.initState();
     PlayerSession.instance.controller?.addListener(_onTick);
-    _showControls();
   }
 
   void _onTick() {
@@ -233,6 +221,20 @@ class _MiniPlayerWindowState extends State<MiniPlayerWindow> {
     _hideTimer?.cancel();
     PlayerSession.instance.controller?.removeListener(_onTick);
     super.dispose();
+  }
+
+  /// First tap reveals the buttons, second tap on the video (not a button)
+  /// returns to the full player.
+  void _onVideoTap() {
+    if (!_controlsVisible) {
+      _showControls();
+      return;
+    }
+    final session = PlayerSession.instance;
+    final navigator = widget.navigatorKey.currentState ?? session.navigator;
+    if (navigator == null) return;
+    session.restore();
+    openPlayerRoute(navigator);
   }
 
   @override
@@ -268,18 +270,18 @@ class _MiniPlayerWindowState extends State<MiniPlayerWindow> {
       onScaleUpdate: (details) => widget.onWidthChanged(_widthAtPinch * details.scale),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(16),
           boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 12)],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(16),
           child: SizedBox(
             width: widget.width,
             height: _heightOf(widget.width),
             child: Stack(
               fit: StackFit.expand,
               children: [
-                GestureDetector(onTap: _showControls, child: controller.getMiniWidget()),
+                GestureDetector(onTap: _onVideoTap, child: controller.getMiniWidget()),
                 Positioned(
                   left: 0,
                   right: 0,

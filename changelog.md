@@ -14,9 +14,9 @@ than pretending to cover the fork's earlier life. That history is in the git log
   floating window, so the rest of the app can be browsed while it keeps
   playing. The window has only play/pause and close buttons (both fade out).
   Pinch to resize, drag and it snaps to the nearest edge, swipe down to close,
-  swipe up to return to the full player, or swipe sideways to pause and park it
-  as an arrow on that edge -- swipe the arrow back to resume. Works for online
-  streams and downloaded files.
+  or swipe sideways to pause and park it as an arrow on that edge -- swipe the
+  arrow back to resume. Tap the video once to reveal the buttons and again to
+  return to the full player. Works for online streams and downloaded files.
 - **Built-in manga providers are switchable.** WeebCentral and MangaPill now
   appear under *Built-in providers* next to the built-in anime sources. Turning
   one off hides it from the reader, the source picker and the default-provider
