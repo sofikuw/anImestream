@@ -64,8 +64,8 @@ class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> {
     final base = _base(size, width, height, bottom);
     final maxY = size.height - height - bottom;
     final x = (base.dx + _drag.value.dx).clamp(0.0, size.width - width);
-    final y = (base.dy + _drag.value.dy).clamp(0.0, maxY < 0 ? 0 : maxY);
-    return Offset(x < (size.width - width) / 2 ? 0 : size.width - width, y);
+    final y = (base.dy + _drag.value.dy).clamp(0.0, maxY < 0 ? 0.0 : maxY);
+    return Offset(x < (size.width - width) / 2 ? 0.0 : size.width - width, y);
   }
 
   Offset _offscreen(String edge, Offset home, Size size, double width) {
