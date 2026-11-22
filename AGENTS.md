@@ -15,6 +15,11 @@
 
   Tags are `<branch>-android-v<version>-<channel>.<build>`, where `<build>` is a three-digit serial per version and channel (`#001`, `#002`, ...), not a random hash. The release title uses the `#build` form, e.g. `Divergent 1.2.7 · beta #001`.
 
+## iOS builds (fork: divergent)
+
+- `.github/workflows/build-ios.yml` uses the same dispatch inputs and beta channel. Its tags are `<branch>-ios-v<version>-<channel>.<build>` with the same three-digit serial, and the release title is `Divergent <version> · <channel> #<build> (iOS)`.
+- Never use random hex suffixes for either platform: the build serial and the `#NNN` title are the contract.
+
 ## Project rules
 
 1. **Version bumps require at least 5 changes.** Do not bump `version:` unless the same release adds, removes or changes at least 5 user-facing things.

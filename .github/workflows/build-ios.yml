@@ -65,7 +65,9 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
       build_number: ${{ steps.version.outputs.build_number }}
+      build: ${{ steps.version.outputs.build }}
       tag: ${{ steps.version.outputs.tag }}
+      release_title: ${{ steps.version.outputs.release_title }}
       prerelease: ${{ steps.version.outputs.prerelease }}
       ipa_name: ${{ steps.version.outputs.ipa_name }}
       # Per-branch, so it comes from branches/<branch>/identity.env rather than a
@@ -123,11 +125,11 @@ jobs:
           # The branch name, not the descriptor, decides the tag and artifact
           # names: master keeps the names this repository already shipped.
           if [ "$BRANCH" = "master" ]; then
-            TAG_PREFIX=""
+            TAG_PREFIX="ios-"
             IPA_BASENAME="anImestream"
             ARTIFACT_NAME="anImestream-ios-unsigned"
           else
-            TAG_PREFIX="${BRANCH}-"
+            TAG_PREFIX="${BRANCH}-ios-"
             IPA_BASENAME="anImestream-${BRANCH}"
             ARTIFACT_NAME="anImestream-${BRANCH}-ios-unsigned"
           fi
@@ -186,6 +188,7 @@ jobs:
           INPUT_CHANNEL: ${{ inputs.release_channel }}
           TAG_PREFIX: ${{ steps.identity.outputs.tag_prefix }}
           IPA_BASENAME: ${{ steps.identity.outputs.ipa_basename }}
+          DISPLAY_NAME: ${{ steps.identity.outputs.display_name }}
         run: |
           VERSION=$(sed -n 's/^version: \([^+]*\).*/\1/p' pubspec.yaml | head -n1)
           BUILD_NUMBER=$(sed -n 's/^version: [^+]*+\([0-9][0-9]*\).*/\1/p' pubspec.yaml | head -n1)
@@ -208,15 +211,22 @@ jobs:
             # Re-releasing a tag that already exists.
             TAG="$INPUT_TAG_NAME"
           else
-            # Random on purpose. The version keeps the tag readable; the eight
-            # hex characters make the run unique. That is what allows repeated
-            # runs at the same version: v1.0.6, v1.0.6-4f2ab9, v1.0.6-9c1de0...
-            SUFFIX=$(openssl rand -hex 4)
-            if [ "$CHANNEL" = "stable" ]; then
-              TAG="${TAG_PREFIX}v${VERSION}-${SUFFIX}"
-            else
-              TAG="${TAG_PREFIX}v${VERSION}-${CHANNEL}.${SUFFIX}"
-            fi
+            # Serial per version and channel, like the Android workflow: #001,
+            # #002, ... No random suffix, so the title says which build is newest.
+            BASE="${TAG_PREFIX}v${VERSION}-${CHANNEL}"
+            LAST=$(git tag -l "${BASE}.*" | sed -n 's/.*\.\([0-9][0-9]*\)$/\1/p' | sort -n | tail -1)
+            BUILD=$(printf '%03d' $((10#${LAST:-0} + 1)))
+            TAG="${BASE}.${BUILD}"
+          fi
+
+          # A pushed or explicitly selected tag may be old; read its serial
+          # back so the release title still has the #build form.
+          BUILD="${BUILD:-$(printf '%s' "$TAG" | sed -n 's/.*\.\([0-9][0-9]*\)$/\1/p')}"
+          BUILD="${BUILD:-0}"
+          if [ "$BUILD" = "0" ]; then
+            RELEASE_TITLE="${DISPLAY_NAME} ${VERSION} · ${CHANNEL} (iOS)"
+          else
+            RELEASE_TITLE="${DISPLAY_NAME} ${VERSION} · ${CHANNEL} #${BUILD} (iOS)"
           fi
 
           # Pushed tags take their prerelease-ness from the version the pusher
@@ -239,12 +249,15 @@ jobs:
           {
             echo "version=$VERSION"
             echo "build_number=$BUILD_NUMBER"
+            echo "build=$BUILD"
             echo "tag=$TAG"
+            echo "release_title=$RELEASE_TITLE"
             echo "prerelease=$PRERELEASE"
             echo "ipa_name=$IPA_NAME"
           } >> "$GITHUB_OUTPUT"
 
           echo "tag:        $TAG"
+          echo "title:      $RELEASE_TITLE"
           echo "channel:    $CHANNEL"
           echo "prerelease: $PRERELEASE"
           echo "ipa:        $IPA_NAME"
@@ -329,7 +342,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.build-ios.outputs.tag }}
-          name: ${{ needs.build-ios.outputs.display_name }} ${{ needs.build-ios.outputs.tag }}
+          name: ${{ needs.build-ios.outputs.release_title }}
           generate_release_notes: true
           draft: false
           prerelease: ${{ needs.build-ios.outputs.prerelease }}

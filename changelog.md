@@ -114,9 +114,10 @@ than pretending to cover the fork's earlier life. That history is in the git log
 
 ### Changed
 - **iOS beta builds.** The same version is now dispatched for iOS as an
-  unsigned IPA. The README lists what does not carry over: background
-  downloads (Android foreground service), file-intent imports and TV/desktop
-  features.
+  unsigned IPA, with serial `divergent-ios-v<version>-beta.<build>` tags and
+  `#<build>` release titles like Android. The README lists what does not carry
+  over: background downloads (Android foreground service), file-intent imports
+  and TV/desktop features.
 - **README rewritten.** Installation, extension rules and build instructions
   now describe the app as it actually ships, with a logo and badges.
 - **Divergence meter.** Every release description opens with how far this fork
