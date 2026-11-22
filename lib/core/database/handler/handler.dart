@@ -51,7 +51,7 @@ class DatabaseHandler extends Database {
     // unimplemented. Its positive numeric id is the same id the metadata
     // router encodes as a negative MAL fallback id, so resolve it there.
     if (db == Databases.mal && id > 0) {
-      return await AnimeMetadataRouter.instance.info(-id);
+      return await AnimeMetadataRouter.instance.infoFromMal(id);
     }
     return await getDatabaseInstance(db).getAnimeInfo(id);
   }

@@ -211,7 +211,7 @@ class KitsuAnimeMetadata implements AnimeMetadataProvider {
   /// broken (they always come back empty). Kitsu has a mapping for most MAL
   /// entries, so it can supply the cross-media half of the relation rail.
   Future<List<AnimeMetadataSummary>> mangaRelationsForMal(String malId) async {
-    final kitsuId = await _kitsuIdForMapping('myanimelist/anime', malId);
+    final kitsuId = await kitsuIdForMapping('myanimelist/anime', malId);
     if (kitsuId == null) return const <AnimeMetadataSummary>[];
     final res = await get(
       '$_base/anime/$kitsuId',
@@ -248,7 +248,7 @@ class KitsuAnimeMetadata implements AnimeMetadataProvider {
 
   static final Map<String, String> _kitsuIds = <String, String>{};
 
-  static Future<String?> _kitsuIdForMapping(
+  static Future<String?> kitsuIdForMapping(
     String site,
     String externalId,
   ) async {
@@ -618,7 +618,7 @@ class KitsuMangaMetadata implements MangaMetadataProvider {
   /// side; Kitsu's manga mapping fills it in.
   Future<List<MangaRelation>> animeRelationsForMal(String malId) async {
     final kitsuId =
-        await KitsuAnimeMetadata._kitsuIdForMapping('myanimelist/manga', malId);
+        await KitsuAnimeMetadata.kitsuIdForMapping('myanimelist/manga', malId);
     if (kitsuId == null) return const <MangaRelation>[];
     final res = await get(
       '$_base/manga/$kitsuId',

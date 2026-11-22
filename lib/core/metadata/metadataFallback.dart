@@ -214,6 +214,45 @@ class AnimeMetadataRouter {
     );
   }
 
+  /// Resolve a positive MyAnimeList id. MAL does not carry every anime, so a
+  /// 404 there falls through to Kitsu's MAL mapping before giving up.
+  Future<AnilistInfo> infoFromMal(int malId) async {
+    final mal = _providers['mal'];
+    if (mal != null) {
+      try {
+        return _toInfo(await mal.details(malId.toString()));
+      } catch (err) {
+        Logs.app.log('[metadata] MAL has no anime $malId: $err');
+      }
+    }
+    final kitsuId = await KitsuAnimeMetadata.kitsuIdForMapping('myanimelist/anime', malId.toString());
+    if (kitsuId != null) {
+      final kitsu = _providers['kitsu'];
+      if (kitsu != null) {
+        try {
+          return _toInfo(await kitsu.details(kitsuId));
+        } catch (err) {
+          Logs.app.log('[metadata] Kitsu has no anime mapped to MAL $malId: $err');
+        }
+      }
+    }
+    // A card discovered while AniList was active keeps its AniList id even
+    // after switching to MAL, so MAL sees an id it has never heard of. Simkl
+    // can resolve an AniList URL back to a real entry.
+    final simkl = _providers['simkl'];
+    if (simkl != null) {
+      try {
+        final results = await simkl.search('https://anilist.co/anime/$malId');
+        if (results.isNotEmpty) {
+          return _toInfo(await simkl.details(results.first.providerId));
+        }
+      } catch (err) {
+        Logs.app.log('[metadata] Simkl could not resolve AniList $malId: $err');
+      }
+    }
+    throw MetadataUnavailableException('No metadata source knows anime $malId');
+  }
+
   Future<AnilistInfo> info(int id) async {
     String? source;
     String? providerId;

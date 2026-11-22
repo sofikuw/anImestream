@@ -12,7 +12,7 @@ A fast, native Android client for streaming anime and reading manga, built with 
 [![Android](https://img.shields.io/badge/Android-API%2024%2B-3DDC84?logo=android&logoColor=white)](https://developer.android.com)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/sofikuw/anImestream?include_prereleases&label=release)](https://github.com/sofikuw/anImestream/releases)
-[![Divergence](https://img.shields.io/badge/divergence-1.045995%25-8E44AD)](scripts/divergence.sh)
+[![Divergence](https://img.shields.io/badge/divergence-1.046034%25-8E44AD)](scripts/divergence.sh)
 
 [Download](#installation) · [Features](#features) · [Extensions](#extensions) · [Build](#building)
 
