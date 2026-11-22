@@ -15,14 +15,13 @@ than pretending to cover the fork's earlier life. That history is in the git log
   notification while files are being fetched.
 - **In-app mini player.** Leaving the video page shrinks the episode into a
   floating window, so the rest of the app can be browsed while it keeps
-  playing. The window has only play/pause and close buttons (both fade out).
-  Pinch to resize, and every drag settles against the nearest screen edge.
-  Flick it more than halfway off the left or right edge to pause and slide it
-  away with a small, faded arrow left at the height where it hid; swipe the
-  arrow inward and the window animates back and resumes. Closing is only
-  through the X button. Tap the
-  video once to reveal the buttons and again to return to the full player.
-  Works for online streams and downloaded files.
+  playing. The window starts larger, pinch-resizes, moves freely up to the top
+  of the screen, and settles against the nearest left/right edge when released.
+  Only play/pause and close buttons appear, and only after a tap (a second tap
+  on the video returns to the full player). Drag more than half of it off a
+  side to pause and slide it away; a small, faded arrow at that height brings
+  it back when swiped inward. Only the X closes it. Works for online streams
+  and downloaded files.
 - **Built-in manga providers are switchable.** WeebCentral and MangaPill now
   appear under *Built-in providers* next to the built-in anime sources. Turning
   one off hides it from the reader, the source picker and the default-provider
@@ -114,6 +113,10 @@ than pretending to cover the fork's earlier life. That history is in the git log
 - **Seanime manga provider.** Unused provider implementation deleted.
 
 ### Changed
+- **iOS beta builds.** The same version is now dispatched for iOS as an
+  unsigned IPA. The README lists what does not carry over: background
+  downloads (Android foreground service), file-intent imports and TV/desktop
+  features.
 - **README rewritten.** Installation, extension rules and build instructions
   now describe the app as it actually ships, with a logo and badges.
 - **Divergence meter.** Every release description opens with how far this fork

@@ -12,7 +12,7 @@ A fast, native Android client for streaming anime and reading manga, built with 
 [![Android](https://img.shields.io/badge/Android-API%2024%2B-3DDC84?logo=android&logoColor=white)](https://developer.android.com)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/sofikuw/anImestream?include_prereleases&label=release)](https://github.com/sofikuw/anImestream/releases)
-[![Divergence](https://img.shields.io/badge/divergence-1.045961%25-8E44AD)](scripts/divergence.sh)
+[![Divergence](https://img.shields.io/badge/divergence-1.045976%25-8E44AD)](scripts/divergence.sh)
 
 [Download](#installation) · [Features](#features) · [Extensions](#extensions) · [Build](#building)
 
@@ -22,7 +22,8 @@ A fast, native Android client for streaming anime and reading manga, built with 
 
 anImestream brings discovery, streaming, downloads, manga reading and list tracking into a single, focused app. It is built primarily for Android and ships as a standalone build with its own application ID, so it can be installed alongside other anImestream builds.
 
-> iOS support is paused until a dedicated beta tester is available.
+> iOS builds are beta-quality and unsigned. See [Platform support](#platform-support)
+> for what does not carry over from Android.
 
 ## Features
 
@@ -39,18 +40,33 @@ anImestream brings discovery, streaming, downloads, manga reading and list track
 
 ## Platform support
 
-| Capability | Android | iOS |
+| Capability | Android | iOS (beta) |
 | --- | :---: | :---: |
-| Anime streaming | ✅ | ⏸️ |
-| Manga reading and downloads | ✅ | ⏸️ |
-| Search and discovery | ✅ | ⏸️ |
-| AniList / MAL / Simkl tracking | ✅ | ⏸️ |
-| Episode and chapter downloads | ✅ | ⏸️ |
-| Picture-in-Picture | ✅ | ⏸️ |
+| Anime streaming | ✅ | ✅ |
+| Manga reading and downloads | ✅ | ⚠️ |
+| Search and discovery | ✅ | ✅ |
+| AniList / MAL / Simkl tracking | ✅ | ✅ |
+| Episode and chapter downloads | ✅ | ⚠️ |
+| In-app mini player | ✅ | ✅ |
+| Background downloads | ✅ | — |
 | Android TV | ✅ | — |
 | Desktop | — | — |
 
-**Minimum version:** Android 7.0 (API 24).
+**Minimum version:** Android 7.0 (API 24). iOS builds target iOS 15+ and are
+**unsigned** — sideload them with AltStore, Sideloadly or a similar tool; there
+is no App Store build.
+
+What does not work on iOS yet:
+
+- **Background downloads.** The foreground service that keeps downloads alive
+  after you leave the app is Android-only. On iOS a download pauses when the
+  app is suspended and resumes when you come back.
+- **All-files access / opening manga from a file intent.** Those use Android
+  storage permissions and the `astrm`/file intents; imported manga must be
+  opened from inside the app on iOS.
+- **Android TV and desktop window PiP** are not applicable.
+
+Everything else in this table is the same Flutter code on both platforms.
 
 ## Installation
 

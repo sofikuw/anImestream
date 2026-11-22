@@ -5,9 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:animestream/ui/models/providers/playerSession.dart';
 import 'package:animestream/ui/pages/playerRoute.dart';
 
-const double _initialWidth = 200;
-const double _minWidth = 180;
-const double _maxWidth = 360;
+const double _initialWidth = 260;
+const double _minWidth = 200;
+const double _maxWidth = 480;
 double _heightOf(double width) => width * 9 / 16;
 
 /// Sits above the navigator: taps outside the window fall through to the app.
@@ -23,7 +23,6 @@ class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> {
   final ValueNotifier<Offset> _drag = ValueNotifier(Offset.zero);
   final ValueNotifier<double> _width = ValueNotifier(_initialWidth);
   bool _dragging = false;
-  Offset? _dragStart;
   Offset? _hiddenPosition;
 
   @override
@@ -48,10 +47,7 @@ class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> {
     }
   }
 
-  void _startDrag(_) {
-    _dragStart = _drag.value;
-    setState(() => _dragging = true);
-  }
+  void _startDrag(_) => setState(() => _dragging = true);
 
   void _updateDrag(Offset delta) => _drag.value += delta;
 
@@ -82,16 +78,17 @@ class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> {
   /// Flick off any edge: the window animates away, pauses, and leaves an arrow
   /// at the edge it disappeared through.
   void _endDrag(DragEndDetails details, Size size, double width, double height, double bottom) {
-    final moved = _drag.value - (_dragStart ?? Offset.zero);
-    _dragStart = null;
     setState(() => _dragging = false);
 
     final session = PlayerSession.instance;
     String? edge;
-    // Hide only once more than half the window has left the screen sideways.
-    final threshold = width / 2;
-    if (moved.dx > threshold) edge = 'right';
-    if (moved.dx < -threshold) edge = 'left';
+    // Hide only once more than half the window is actually off-screen.
+    final current = Offset(
+      _base(size, width, height, bottom).dx + _drag.value.dx,
+      _base(size, width, height, bottom).dy + _drag.value.dy,
+    );
+    if (current.dx > size.width - width / 2) edge = 'right';
+    if (current.dx < -width / 2) edge = 'left';
 
     if (edge != null) {
       final home = _snapped(size, width, height, bottom);
@@ -184,8 +181,7 @@ class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> {
                 builder: (context, delta, child) {
                   final hidden = session.collapsed
                       ? _offscreen(session.collapseEdge, _hiddenPosition ?? base, size, width)
-                      : Offset((base.dx + delta.dx).clamp(0.0, size.width - width),
-                          (base.dy + delta.dy).clamp(0.0, size.height - height));
+                      : Offset(base.dx + delta.dx, base.dy + delta.dy);
                   return Stack(
                     children: [
                       const IgnorePointer(child: SizedBox.expand()),
