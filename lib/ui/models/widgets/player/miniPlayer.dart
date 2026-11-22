@@ -24,6 +24,7 @@ class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> {
   final ValueNotifier<double> _width = ValueNotifier(_initialWidth);
   bool _dragging = false;
   Offset? _dragStart;
+  Offset? _hiddenPosition;
 
   @override
   void initState() {
@@ -43,6 +44,7 @@ class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> {
     if (!PlayerSession.instance.active) {
       _drag.value = Offset.zero;
       _width.value = _initialWidth;
+      _hiddenPosition = null;
     }
   }
 
@@ -53,65 +55,99 @@ class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> {
 
   void _updateDrag(Offset delta) => _drag.value += delta;
 
-  /// Down closes; sideways hides the window and leaves an arrow; anything else
-  /// settles against the nearest edge.
+  Offset _base(Size size, double width, double height, double bottom) =>
+      Offset(size.width - width - 12, size.height - height - bottom);
+
+  Offset _snapped(Size size, double width, double height, double bottom) {
+    final base = _base(size, width, height, bottom);
+    final maxY = size.height - height - bottom;
+    final x = (base.dx + _drag.value.dx).clamp(0.0, size.width - width);
+    final y = (base.dy + _drag.value.dy).clamp(0.0, maxY);
+    return Offset(
+      x < (size.width - width) / 2 ? 0 : size.width - width,
+      y < maxY / 2 ? 0 : maxY,
+    );
+  }
+
+  Offset _offscreen(String edge, Offset home, Size size, double width) {
+    switch (edge) {
+      case 'left':
+        return Offset(-width - 12, home.dy);
+      case 'bottom':
+        return Offset(home.dx, size.height + 12);
+      default:
+        return Offset(size.width + 12, home.dy);
+    }
+  }
+
+  /// Flick off any edge: the window animates away, pauses, and leaves an arrow
+  /// at the edge it disappeared through.
   void _endDrag(DragEndDetails details, Size size, double width, double height, double bottom) {
     final moved = _drag.value - (_dragStart ?? Offset.zero);
     _dragStart = null;
     setState(() => _dragging = false);
 
-    if (moved.dy > 90 && moved.dy > moved.dx.abs()) {
-      PlayerSession.instance.close();
-      return;
-    }
-    if (moved.dx.abs() > 90 && moved.dx.abs() > moved.dy.abs()) {
-      unawaited(PlayerSession.instance.collapse(toRight: moved.dx > 0));
+    final session = PlayerSession.instance;
+    String? edge;
+    if (moved.dx > 100) edge = 'right';
+    if (moved.dx < -100) edge = 'left';
+    if (moved.dy > 100) edge = 'bottom';
+
+    if (edge != null) {
+      final home = _snapped(size, width, height, bottom);
+      _hiddenPosition = home;
+      _drag.value = _offscreen(edge, home, size, width) - _base(size, width, height, bottom);
+      unawaited(session.collapse(edge: edge));
       return;
     }
 
-    final base = Offset(size.width - width - 12, size.height - height - bottom);
-    const margin = 28.0;
-    var x = (base.dx + _drag.value.dx).clamp(0.0, size.width - width);
-    var y = (base.dy + _drag.value.dy).clamp(0.0, size.height - height);
-    if (x < margin) x = 0;
-    if (x + width > size.width - margin) x = size.width - width;
-    if (y < margin) y = 0;
-    if (y + height > size.height - margin) y = size.height - height;
-    _drag.value = Offset(x - base.dx, y - base.dy);
+    _drag.value = _snapped(size, width, height, bottom) - _base(size, width, height, bottom);
   }
 
-  /// The only thing left when the window is swiped aside. Swipe it back toward
-  /// the middle (or tap it) to bring the player back.
+  void _restoreFromArrow(PlayerSession session, Size size, double width, double height, double bottom) {
+    final home = _hiddenPosition ?? _snapped(size, width, height, bottom);
+    _drag.value = home - _base(size, width, height, bottom);
+    unawaited(session.uncollapse());
+  }
+
   Widget _arrow(PlayerSession session, Size size, double bottom) {
-    final onRight = session.collapseToRight;
-    return Stack(
-      children: [
-        const IgnorePointer(child: SizedBox.expand()),
-        Positioned(
-          left: onRight ? null : 10,
-          right: onRight ? 10 : null,
-          top: (size.height - bottom) / 2 - 21,
-          child: GestureDetector(
-            onPanEnd: (details) {
-              final velocity = details.primaryVelocity ?? 0;
-              if ((onRight && velocity < -150) || (!onRight && velocity > 150)) {
-                unawaited(session.uncollapse());
-              }
-            },
-            onTap: () => unawaited(session.uncollapse()),
-            child: Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: Colors.black87,
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white30),
-              ),
-              child: Icon(onRight ? Icons.chevron_left : Icons.chevron_right, color: Colors.white, size: 26),
+    final edge = session.collapseEdge;
+    final icon = edge == 'right'
+        ? Icons.chevron_left
+        : edge == 'left'
+            ? Icons.chevron_right
+            : Icons.keyboard_arrow_up;
+
+    return AnimatedOpacity(
+      opacity: session.collapsed ? 1 : 0,
+      duration: const Duration(milliseconds: 220),
+      child: IgnorePointer(
+        ignoring: !session.collapsed,
+        child: GestureDetector(
+          onTap: () => _restoreFromArrow(session, size, _width.value, _heightOf(_width.value), bottom),
+          onPanEnd: (details) {
+            final velocity = details.velocity.pixelsPerSecond;
+            final towardCenter = edge == 'right'
+                ? velocity.dx < -100
+                : edge == 'left'
+                    ? velocity.dx > 100
+                    : velocity.dy < -100;
+            if (towardCenter) {
+              _restoreFromArrow(session, size, _width.value, _heightOf(_width.value), bottom);
+            }
+          },
+          child: Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: Colors.black87,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white30),
             ),
+            child: Icon(icon, color: Colors.white, size: 26),
           ),
         ),
-      ],
+      ),
     );
   }
 
@@ -128,13 +164,12 @@ class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> {
 
           final size = MediaQuery.sizeOf(context);
           final bottom = MediaQuery.paddingOf(context).bottom + 72;
-          if (session.collapsed) return _arrow(session, size, bottom);
 
           return ValueListenableBuilder<double>(
             valueListenable: _width,
             builder: (context, width, _) {
               final height = _heightOf(width);
-              final base = Offset(size.width - width - 12, size.height - height - bottom);
+              final base = _base(size, width, height, bottom);
               return ValueListenableBuilder<Offset>(
                 valueListenable: _drag,
                 child: MiniPlayerWindow(
@@ -147,17 +182,26 @@ class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> {
                   onWidthChanged: (value) => _width.value = value.clamp(_minWidth, _maxWidth),
                 ),
                 builder: (context, delta, child) {
-                  final x = (base.dx + delta.dx).clamp(0.0, size.width - width);
-                  final y = (base.dy + delta.dy).clamp(0.0, size.height - height);
+                  final hidden = session.collapsed
+                      ? _offscreen(session.collapseEdge, _hiddenPosition ?? base, size, width)
+                      : Offset((base.dx + delta.dx).clamp(0.0, size.width - width),
+                          (base.dy + delta.dy).clamp(0.0, size.height - height));
                   return Stack(
                     children: [
                       const IgnorePointer(child: SizedBox.expand()),
                       AnimatedPositioned(
-                        left: x,
-                        top: y,
+                        left: hidden.dx,
+                        top: hidden.dy,
                         duration: _dragging ? Duration.zero : const Duration(milliseconds: 220),
                         curve: Curves.easeOut,
                         child: child!,
+                      ),
+                      Positioned(
+                        left: leftOfArrow(session, size),
+                        right: rightOfArrow(session, size),
+                        top: session.collapseEdge == 'bottom' ? null : (size.height - bottom) / 2 - 21,
+                        bottom: session.collapseEdge == 'bottom' ? bottom + 10 : null,
+                        child: _arrow(session, size, bottom),
                       ),
                     ],
                   );
@@ -169,6 +213,14 @@ class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> {
       ),
     );
   }
+
+  // Positioning helpers kept out of the builder to avoid duplicate math.
+  double? leftOfArrow(PlayerSession session, Size size) => session.collapseEdge == 'left'
+      ? 10
+      : session.collapseEdge == 'bottom'
+          ? (size.width - 42) / 2
+          : null;
+  double? rightOfArrow(PlayerSession session, Size size) => session.collapseEdge == 'right' ? 10 : null;
 }
 
 class MiniPlayerWindow extends StatefulWidget {
@@ -194,8 +246,12 @@ class MiniPlayerWindow extends StatefulWidget {
 
 class _MiniPlayerWindowState extends State<MiniPlayerWindow> {
   bool _controlsVisible = false;
-  double _widthAtPinch = _initialWidth;
   Timer? _hideTimer;
+  final Map<int, Offset> _pointers = {};
+  double? _pinchStartWidth;
+  double? _pinchStartDistance;
+
+  bool get _pinching => _pointers.length >= 2;
 
   @override
   void initState() {
@@ -223,8 +279,33 @@ class _MiniPlayerWindowState extends State<MiniPlayerWindow> {
     super.dispose();
   }
 
-  /// First tap reveals the buttons, second tap on the video (not a button)
-  /// returns to the full player.
+  void _pointerDown(PointerDownEvent event) {
+    _pointers[event.pointer] = event.position;
+    if (_pointers.length == 2) {
+      final points = _pointers.values.toList();
+      _pinchStartDistance = (points[0] - points[1]).distance;
+      _pinchStartWidth = widget.width;
+    }
+  }
+
+  void _pointerMove(PointerMoveEvent event) {
+    if (!_pointers.containsKey(event.pointer)) return;
+    _pointers[event.pointer] = event.position;
+    if (!_pinching || _pinchStartDistance == null || _pinchStartDistance == 0) return;
+    final points = _pointers.values.take(2).toList();
+    final distance = (points[0] - points[1]).distance;
+    widget.onWidthChanged(_pinchStartWidth! * distance / _pinchStartDistance!);
+  }
+
+  void _pointerUp(PointerUpEvent event) {
+    _pointers.remove(event.pointer);
+    if (_pointers.length < 2) {
+      _pinchStartDistance = null;
+      _pinchStartWidth = null;
+    }
+  }
+
+  /// First tap shows the two buttons; second tap on the video expands.
   void _onVideoTap() {
     if (!_controlsVisible) {
       _showControls();
@@ -258,72 +339,88 @@ class _MiniPlayerWindowState extends State<MiniPlayerWindow> {
           constraints: const BoxConstraints.tightFor(width: 32, height: 32),
         );
 
-    return GestureDetector(
-      onPanStart: (details) {
-        _showControls();
-        widget.onDragStart(details);
+    return Listener(
+      onPointerDown: _pointerDown,
+      onPointerMove: _pointerMove,
+      onPointerUp: _pointerUp,
+      onPointerCancel: (event) {
+        _pointers.remove(event.pointer);
+        if (_pointers.length < 2) {
+          _pinchStartDistance = null;
+          _pinchStartWidth = null;
+        }
       },
-      onPanUpdate: (details) => widget.onDrag(details.delta),
-      onPanEnd: widget.onDragEnd,
-      // Two fingers: resize, keeping the 16:9 shape.
-      onScaleStart: (_) => _widthAtPinch = widget.width,
-      onScaleUpdate: (details) => widget.onWidthChanged(_widthAtPinch * details.scale),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 12)],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: SizedBox(
-            width: widget.width,
-            height: _heightOf(widget.width),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                GestureDetector(onTap: _onVideoTap, child: controller.getMiniWidget()),
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: AnimatedOpacity(
-                    opacity: _controlsVisible ? 1 : 0,
-                    duration: const Duration(milliseconds: 200),
-                    child: IgnorePointer(
-                      ignoring: !_controlsVisible,
-                      child: Container(
-                        height: 34,
-                        decoration: const BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.bottomCenter,
-                            end: Alignment.topCenter,
-                            colors: [Color(0xE6000000), Colors.transparent],
+      child: GestureDetector(
+        onPanStart: (details) {
+          if (_pinching) return;
+          _showControls();
+          widget.onDragStart(details);
+        },
+        onPanUpdate: (details) {
+          if (_pinching) return;
+          widget.onDrag(details.delta);
+        },
+        onPanEnd: (details) {
+          if (_pinching) return;
+          widget.onDragEnd(details);
+        },
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 12)],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: SizedBox(
+              width: widget.width,
+              height: _heightOf(widget.width),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  GestureDetector(onTap: _onVideoTap, child: controller.getMiniWidget()),
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: AnimatedOpacity(
+                      opacity: _controlsVisible ? 1 : 0,
+                      duration: const Duration(milliseconds: 200),
+                      child: IgnorePointer(
+                        ignoring: !_controlsVisible,
+                        child: Container(
+                          height: 34,
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.bottomCenter,
+                              end: Alignment.topCenter,
+                              colors: [Color(0xE6000000), Colors.transparent],
+                            ),
                           ),
-                        ),
-                        child: Row(
-                          children: [
-                            button(playing ? Icons.pause : Icons.play_arrow, playing ? 'Pause' : 'Play',
-                                () => playing ? controller.pause() : controller.play()),
-                            const Spacer(),
-                            button(Icons.close, 'Close player', session.close),
-                          ],
+                          child: Row(
+                            children: [
+                              button(playing ? Icons.pause : Icons.play_arrow, playing ? 'Pause' : 'Play',
+                                  () => playing ? controller.pause() : controller.play()),
+                              const Spacer(),
+                              button(Icons.close, 'Close player', session.close),
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: LinearProgressIndicator(
-                    value: progress.clamp(0.0, 1.0),
-                    minHeight: 2.5,
-                    backgroundColor: Colors.white30,
-                    color: Theme.of(context).colorScheme.primary,
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: LinearProgressIndicator(
+                      value: progress.clamp(0.0, 1.0),
+                      minHeight: 2.5,
+                      backgroundColor: Colors.white30,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

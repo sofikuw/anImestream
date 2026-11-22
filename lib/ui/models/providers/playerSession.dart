@@ -34,7 +34,8 @@ class PlayerSession extends ChangeNotifier {
   /// bring it back. Playback is paused while it is hidden.
   bool _collapsed = false;
   bool get collapsed => _collapsed;
-  bool collapseToRight = true;
+  /// Which edge the window was swiped off: left, right or bottom.
+  String collapseEdge = 'right';
 
   bool _initialised = false;
   bool get initialised => _initialised;
@@ -64,10 +65,10 @@ class PlayerSession extends ChangeNotifier {
   }
 
   /// Swipe aside: pause and leave a single arrow on that edge.
-  Future<void> collapse({required bool toRight}) async {
+  Future<void> collapse({required String edge}) async {
     if (!active) return;
     _collapsed = true;
-    collapseToRight = toRight;
+    collapseEdge = edge;
     await controller?.pause();
     notifyListeners();
   }
