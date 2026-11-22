@@ -30,6 +30,12 @@ class PlayerSession extends ChangeNotifier {
   bool _mini = false;
   bool get mini => _mini;
 
+  /// Hidden to the side after a horizontal swipe, with only an arrow left to
+  /// bring it back. Playback is paused while it is hidden.
+  bool _collapsed = false;
+  bool get collapsed => _collapsed;
+  bool collapseToRight = true;
+
   bool _initialised = false;
   bool get initialised => _initialised;
 
@@ -53,6 +59,24 @@ class PlayerSession extends ChangeNotifier {
     _localSource = localSource;
     _initialised = false;
     _mini = false;
+    _collapsed = false;
+    notifyListeners();
+  }
+
+  /// Swipe aside: pause and leave a single arrow on that edge.
+  Future<void> collapse({required bool toRight}) async {
+    if (!active) return;
+    _collapsed = true;
+    collapseToRight = toRight;
+    await controller?.pause();
+    notifyListeners();
+  }
+
+  /// Swipe the arrow back toward the middle to resume.
+  Future<void> uncollapse() async {
+    if (!_collapsed) return;
+    _collapsed = false;
+    await controller?.play();
     notifyListeners();
   }
 
@@ -75,6 +99,7 @@ class PlayerSession extends ChangeNotifier {
   void restore() {
     if (!active || !_mini) return;
     _mini = false;
+    _collapsed = false;
     notifyListeners();
   }
 
@@ -89,6 +114,7 @@ class PlayerSession extends ChangeNotifier {
     _navigator = null;
     _initialised = false;
     _mini = false;
+    _collapsed = false;
     _routeId++;
     notifyListeners();
     controller?.dispose();
