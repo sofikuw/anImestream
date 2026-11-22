@@ -60,6 +60,14 @@ than pretending to cover the fork's earlier life. That history is in the git log
   falls through the enabled sources automatically.
 
 ### Fixed
+- **Upstream beta fixes backported.** The compact episode grid's Watch action
+  now uses the real episode index on later pages, Continue Watching stays on
+  the last episode after a show is finished, callback notifications are
+  ignored after a provider is disposed, concurrent downloads are capped at
+  two, and subtitle files are saved with a format detected from their content.
+- **ReAnime servers actually play and download.** The MKV file hint is back in
+  the download URL, duplicate servers are deduplicated, and the player is
+  told the container extension instead of guessing from a HEAD request.
 - **Anime details load with MyAnimeList selected.** MAL is a list database, not
   a metadata source, so its positive ids are now resolved through the metadata
   fallback instead of hitting an unimplemented MAL details method.

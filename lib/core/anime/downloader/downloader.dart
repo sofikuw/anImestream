@@ -31,7 +31,7 @@ class Downloader {
   static final Map<int, SendPort> _isolatePorts = {};
 
   /// The max concurrent downloads count
-  static const int MAX_DOWNLOADS_COUNT = 5;
+  static const int MAX_DOWNLOADS_COUNT = 2;
 
   /// The max batch size per stream (for segments)
   static int MAX_STREAM_BATCH_SIZE = 5;

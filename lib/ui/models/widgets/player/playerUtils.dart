@@ -10,6 +10,7 @@ Future<BetterPlayerDataSource> dataSourceConfig(String url, {Map<String, String>
     BetterPlayerDataSourceType.network,
     url,
     videoFormat: await _getFormat(url, headers),
+    videoExtension: _getVideoExtension(url),
     useAsmsAudioTracks: true,
     useAsmsTracks: true,
     bufferingConfiguration: BetterPlayerBufferingConfiguration(
@@ -27,7 +28,19 @@ Future<BetterPlayerDataSource> dataSourceConfig(String url, {Map<String, String>
   );
 }
 
+String? _getVideoExtension(String url) {
+  final lower = url.toLowerCase();
+  if (lower.contains('.mkv')) return 'mkv';
+  if (lower.contains('.mp4')) return 'mp4';
+  if (lower.contains('.webm')) return 'webm';
+  if (lower.contains('.mov')) return 'mov';
+  return null;
+}
+
 Future<BetterPlayerVideoFormat> _getFormat(String url, Map<String, String>? headers) async {
+  // Direct container files are not HLS/DASH; skip MIME probing for them.
+  if (_getVideoExtension(url) != null) return BetterPlayerVideoFormat.other;
+
   // Use the URL when it is explicit. Some stream hosts reject or stall on HEAD
   // requests, so don't make normal HLS/DASH playback wait for MIME detection.
   final urlPath = Uri.tryParse(url)?.path.toLowerCase() ?? url.toLowerCase().split('?').first;

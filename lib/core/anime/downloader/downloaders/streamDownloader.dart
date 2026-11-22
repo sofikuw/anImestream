@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -314,14 +315,28 @@ class StreamDownloader extends BaseDownloader {
     }
   }
 
+  /// Subtitle URLs rarely carry a usable extension. Detect it from the body
+  /// so SRT/VTT/ASS subtitles are saved with the right suffix and remux.
+  String? detectSubtitleFormat(String body) {
+    final head = body.replaceFirst('\uFEFF', '').trimLeft();
+    final start = head.length > 2000 ? head.substring(0, 2000) : head;
+    if (start.startsWith('WEBVTT')) return 'vtt';
+    if (start.contains('[Script Info]') || start.contains('[Events]')) return 'ass';
+    if (RegExp(r'\d{2}:\d{2}:\d{2},\d{3}\s*-->').hasMatch(start)) return 'srt';
+    if (RegExp(r'(\d{2}:)?\d{2}:\d{2}\.\d{3}\s*-->').hasMatch(start)) return 'vtt';
+    return null;
+  }
+
   Future<String> downloadSubs(String url, String fileName, String downloadPath) async {
     try {
       final folder = File(downloadPath).parent;
       fileName = fileName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '') + " Subtitles";
 
-      final ext = url.split(".").lastOrNull ?? "txt";
+      final response = await get(Uri.parse(url), headers: task.customHeaders);
+      final body = utf8.decode(response.bodyBytes);
+      final ext = detectSubtitleFormat(body) ?? (url.split(".").lastOrNull ?? "txt");
       final file = File("${folder.path}${Platform.pathSeparator}$fileName.$ext");
-      await file.writeAsString((await get(Uri.parse(url), headers: task.customHeaders)).body);
+      await file.writeAsString(body);
       return file.path;
     } catch (err) {
       print("[DOWNLOADER] Failed to download $fileName subs!");

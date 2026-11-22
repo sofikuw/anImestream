@@ -22,6 +22,19 @@ import 'package:animestream/ui/models/sources.dart';
 enum InfoView { info, watch }
 
 class InfoProvider extends ChangeNotifier {
+  bool _disposed = false;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
   int id;
 
   /// Used when the page is opened from a "Continue Watching" row, which wants
@@ -241,6 +254,7 @@ class InfoProvider extends ChangeNotifier {
         _started = false;
       }
       final item = await getAnimeWatchProgress(id, _mediaListStatus);
+      if (_disposed) return;
       _watched = item == -1 ? 0 : item;
       _started = item != -1;
 

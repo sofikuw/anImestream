@@ -184,23 +184,42 @@ class ReAnime implements AnimeProvider {
       return;
     }
 
-    for (final server in targetServers) {
+    final extracted = <String, VideoStream>{};
+    await Future.wait(targetServers.map((server) async {
       final String? dataLink = server['dataLink'];
-      if (dataLink == null || dataLink.isEmpty) continue;
+      if (dataLink == null || dataLink.isEmpty) return;
 
       final serverName = server['serverName']?.toString() ?? 'Default';
       final isServerDub = (server['dataType'] as String?)?.toLowerCase() == 'dub';
-      // final audioTag = isServerDub ? '[Dub]' : '[Sub]';
-      // final softsubTag = (server['softsub'] == true) ? ' [Softsub]' : '';
       final label = '$serverName';
+
+      // Several servers point at the same file; reuse the extraction instead
+      // of hammering the host with duplicate requests.
+      final cached = extracted[dataLink];
+      if (cached != null) {
+        update([
+          VideoStream(
+            quality: cached.quality,
+            url: cached.url,
+            server: '$label [MKV]',
+            backup: cached.backup,
+            subtitle: cached.subtitle,
+            subtitleFormat: cached.subtitleFormat,
+            dub: isServerDub,
+            customHeaders: cached.customHeaders,
+          )
+        ], false);
+        return;
+      }
 
       try {
         final ddlStream = await _extractDdl(dataLink, label, isDub: isServerDub);
         if (ddlStream != null) {
+          extracted[dataLink] = ddlStream;
           update([ddlStream], false);
         }
       } catch (_) {}
-    }
+    }));
 
     update([], true);
   }
@@ -276,7 +295,9 @@ class ReAnime implements AnimeProvider {
 
     if (!ready) return null;
 
-    final downloadUrl = '$base/download/$fileId?token=$token';
+    // The host needs the file hint to serve the MKV; without it the URL looks
+    // extensionless and the player/downloader cannot identify the container.
+    final downloadUrl = '$base/download/$fileId?token=$token&file=.mkv';
     final qualityStr = resolution ?? '1080p';
 
     return VideoStream(

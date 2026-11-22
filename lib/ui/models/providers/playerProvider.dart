@@ -19,6 +19,19 @@ import 'package:window_manager/window_manager.dart';
 
 /// Handle the core player stuff
 class PlayerProvider extends ChangeNotifier {
+  bool _disposed = false;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
   final VideoController _controller;
 
   final bool _isOffline;

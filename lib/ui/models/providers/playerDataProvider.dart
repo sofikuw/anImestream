@@ -13,6 +13,19 @@ import 'package:flutter/material.dart';
 
 /// Handle the state of player. manages datas like quality, servers etc..
 class PlayerDataProvider extends ChangeNotifier {
+  bool _disposed = false;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
   PlayerDataProviderState _state;
   List<EpisodeDetails> epLinks;
   String showTitle; // Title of the anime

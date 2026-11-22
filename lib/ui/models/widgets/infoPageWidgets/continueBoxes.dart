@@ -4,6 +4,14 @@ import 'package:animestream/ui/models/bottomSheets/serverSelectionSheet.dart';
 import 'package:animestream/ui/models/providers/infoProvider.dart';
 import 'package:flutter/material.dart';
 
+/// Clamp the continue index so a finished show opens its last episode instead
+/// of one past the end of the episode list.
+int _nextEpisodeIndex(InfoProvider provider) {
+  final total = provider.epLinks.length;
+  if (total == 0 || provider.watched < total) return provider.watched;
+  return total - 1;
+}
+
 class ContinueWatchingSideBox extends StatelessWidget {
   final InfoProvider provider;
   ContinueWatchingSideBox({
@@ -84,7 +92,7 @@ class ContinueWatchingSideBox extends StatelessWidget {
                               width: size.width / 3,
                               child: ServerSelectionBottomSheet(
                                 provider: provider,
-                                episodeIndex: provider.watched,
+                                episodeIndex: _nextEpisodeIndex(provider),
                                 type: ServerSheetType.watch,
                               ),
                             ),
@@ -346,7 +354,7 @@ class ContinueWatchingBodyBox extends StatelessWidget {
                 width: size.width / 3,
                 child: ServerSelectionBottomSheet(
                   provider: provider,
-                  episodeIndex: provider.watched,
+                  episodeIndex: _nextEpisodeIndex(provider),
                   type: ServerSheetType.watch,
                 ),
               ),
@@ -521,7 +529,7 @@ class ContinueWatchingBodyBox extends StatelessWidget {
                                 width: size.width / 3,
                                 child: ServerSelectionBottomSheet(
                                   provider: provider,
-                                  episodeIndex: provider.watched,
+                                  episodeIndex: _nextEpisodeIndex(provider),
                                   type: ServerSheetType.watch,
                                 ),
                               ),
