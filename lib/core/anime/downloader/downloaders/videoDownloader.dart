@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:animestream/core/anime/downloader/downloaders/baseDownloader.dart';
 import 'package:animestream/core/anime/downloader/types.dart';
@@ -9,6 +10,123 @@ class VideoDownloader extends BaseDownloader {
   VideoDownloader(DownloadTaskIsolate task) : super(task);
 
   late IOSink sink;
+
+  /// Ask for one byte to find the real total size. Unlike a HEAD probe this
+  /// works on CDNs that only advertise ranges on GET.
+  Future<int?> _probeTotalSize() async {
+    try {
+      final req = Request('GET', Uri.parse(task.url));
+      req.headers.addAll(task.customHeaders);
+      req.headers['Range'] = 'bytes=0-0';
+      final res = await req.send().timeout(const Duration(seconds: 15));
+      await res.stream.drain<List<int>>();
+      if (res.statusCode == 206) {
+        final range = res.headers['content-range'];
+        if (range != null && range.contains('/')) return int.tryParse(range.split('/').last);
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// IDM-style download: eight byte ranges written into the same file at once.
+  Future<void> _downloadChunked(String filepath, int total) async {
+    const chunks = 8;
+    final file = File(filepath);
+    final raf = await file.open(mode: FileMode.write);
+    await raf.setLength(total);
+    final client = Client();
+    final chunkSize = (total / chunks).ceil();
+    final subscriptions = <StreamSubscription<List<int>>>[];
+    final written = List<int>.filled(chunks, 0);
+    int totalWritten = 0;
+    int lastProgress = 0;
+
+    Future<void> abort() async {
+      for (final subscription in subscriptions) {
+        try {
+          await subscription.cancel();
+        } catch (_) {}
+      }
+      try {
+        await raf.close();
+      } catch (_) {}
+      try {
+        client.close();
+      } catch (_) {}
+      if (await file.exists()) await file.delete();
+    }
+
+    final workers = <Future<void>>[];
+    for (var i = 0; i < chunks; i++) {
+      final start = i * chunkSize;
+      if (start >= total) break;
+      final end = min(start + chunkSize, total) - 1;
+      workers.add(() async {
+        final req = Request('GET', Uri.parse(task.url));
+        req.headers.addAll(task.customHeaders);
+        req.headers['Range'] = 'bytes=$start-$end';
+        final res = await client.send(req);
+        if (res.statusCode != 206) {
+          throw Exception('Server refused byte range for chunk $i (${res.statusCode})');
+        }
+        final done = Completer<void>();
+        StreamSubscription<List<int>>? subscription;
+        subscription = res.stream.listen(
+          (data) async {
+            subscription!.pause();
+            if (status == DownloadStatus.cancelled) {
+              await abort();
+              setCancelledStatus();
+              if (!done.isCompleted) done.complete();
+              return;
+            }
+            if (status == DownloadStatus.paused) {
+              await waitForResume();
+              if (status == DownloadStatus.cancelled) {
+                await abort();
+                setCancelledStatus();
+                if (!done.isCompleted) done.complete();
+                return;
+              }
+            }
+            try {
+              await raf.writeAt(data, start + written[i]);
+            } catch (_) {
+              // A cancelled worker may have closed the file already.
+            }
+            written[i] += data.length;
+            totalWritten += data.length;
+            final progress = (totalWritten / total * 100).toInt();
+            if (progress - lastProgress >= 2) {
+              updateProgress(progress, filepath);
+              lastProgress = progress;
+            }
+            subscription!.resume();
+          },
+          onDone: () {
+            if (!done.isCompleted) done.complete();
+          },
+          onError: (err) {
+            if (!done.isCompleted) done.completeError(err);
+          },
+          cancelOnError: true,
+        );
+        subscriptions.add(subscription);
+        await done.future;
+      }());
+    }
+
+    try {
+      await Future.wait(workers);
+      if (status == DownloadStatus.cancelled) return;
+      await raf.close();
+      client.close();
+      setCompletedStatus(filepath, silent: false);
+    } catch (err) {
+      await abort();
+      setFailedStatus(err.toString());
+    }
+  }
 
   @override
   Future<void> download() async {
@@ -23,6 +141,17 @@ class VideoDownloader extends BaseDownloader {
       fileExtension: extensionGuess,
       downloadPath: task.downloadPath,
     );
+
+    // Fresh downloads use eight parallel byte ranges when the server allows
+    // it. Resume keeps the old single-stream path so its byte offset semantics
+    // stay intact.
+    if (task.resumeFrom == 0) {
+      final total = await _probeTotalSize();
+      if (total != null && total > 0) {
+        await _downloadChunked(filepath, total);
+        return;
+      }
+    }
 
     //we considering the file as mp4
     final req = Request("GET", Uri.parse(task.url));
@@ -142,7 +271,9 @@ class VideoDownloader extends BaseDownloader {
 
   @override
   Future<void> onCancel() async {
-    await sink.close();
-    return;
+    // The chunked path has no IOSink.
+    try {
+      await sink.close();
+    } catch (_) {}
   }
 }

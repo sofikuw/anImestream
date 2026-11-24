@@ -97,7 +97,7 @@ class StreamDownloader extends BaseDownloader {
 
       // slot allocation
       final maxVideoBatch = parallelDownloadsBatchSize;
-      final maxAudioBatch = hasAudio ? 2 : 0;
+      final maxAudioBatch = hasAudio ? (parallelDownloadsBatchSize ~/ 2) : 0;
       final maxLookahead = maxVideoBatch * 2;
 
       Object? downloadError;
@@ -196,7 +196,7 @@ class StreamDownloader extends BaseDownloader {
           final future = () async {
             try {
               final segment = entry.url;
-              final segmentNumber = currentIndex + 1;
+              final segmentNumber = entryIndex + 1;
 
               final uri = segment.startsWith('http') ? segment : "$streamBaseLink/$segment";
 

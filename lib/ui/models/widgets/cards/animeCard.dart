@@ -161,6 +161,7 @@ class _AnimeCardState extends State<AnimeCard> {
                     clipBehavior: Clip.hardEdge,
                     child: CachedNetworkImage(
                       imageUrl: widget.imageUrl,
+                      memCacheWidth: (width * MediaQuery.of(context).devicePixelRatio).round(),
                       fadeInDuration: Duration(milliseconds: 200),
                       fit: BoxFit.cover,
                       placeholder: (context, url) => Container(

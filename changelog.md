@@ -10,6 +10,12 @@ than pretending to cover the fork's earlier life. That history is in the git log
 ## [Unreleased]
 
 ### Added
+- **Faster downloads.** HLS streams now keep eight video segments and four
+  audio segments in flight, and direct files are downloaded with eight
+  parallel byte ranges written into one file.
+- **Batch manga downloads.** The chapters header has a download-all button
+  that queues every chapter through the same downloader as the per-chapter
+  button, with count progress.
 - **Background downloads.** An Android foreground service keeps the download
   queue running when you leave the app or close the activity, with a persistent
   notification while files are being fetched.
@@ -65,6 +71,13 @@ than pretending to cover the fork's earlier life. That history is in the git log
   falls through the enabled sources automatically.
 
 ### Fixed
+- **Downloaded manga shows up on iOS.** Chapters now live under the same
+  Downloads root the in-app browser scans, with old `<Documents>/manga`
+  chapters still recognised.
+- **Mini window stays on screen.** Resizing is clamped to the display width so
+  it cannot grow larger than the screen.
+- **Anime info survives a MAL 404.** When MAL has no entry (often an AniList
+  id), Kitsu's MAL mapping and Simkl are tried before failing.
 - **Upstream beta fixes backported.** The compact episode grid's Watch action
   now uses the real episode index on later pages, Continue Watching stays on
   the last episode after a show is finished, callback notifications are
@@ -113,6 +126,10 @@ than pretending to cover the fork's earlier life. That history is in the git log
 - **Seanime manga provider.** Unused provider implementation deleted.
 
 ### Changed
+- **Lower memory use.** The network-response cache is now a lazy Hive box (50
+  MB instead of up to 1 GB loaded into RAM), decoded image cache is capped at
+  48 MB, card thumbnails are decoded at display size, and metadata caches are
+  bounded.
 - **iOS beta builds.** The same version is now dispatched for iOS as an
   unsigned IPA, with serial `divergent-ios-v<version>-beta.<build>` tags and
   `#<build>` release titles like Android. The README lists what does not carry

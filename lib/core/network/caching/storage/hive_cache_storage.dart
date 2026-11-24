@@ -53,14 +53,16 @@ class HiveCacheStorage implements CacheStorage {
     return '${key.substring(0, 100)}..._$hash';
   }
 
-  Future<Box<CacheEntry>> _getBox() async {
+  /// A lazy box keeps cached response bodies on disk instead of deserialising
+  /// every entry into RAM when the network layer starts.
+  Future<LazyBox<CacheEntry>> _getBox() async {
     if (!Hive.isAdapterRegistered(120)) {
       Hive.registerAdapter(CacheEntryAdapter());
     }
     if (Hive.isBoxOpen(boxName)) {
-      return Hive.box<CacheEntry>(boxName);
+      return Hive.lazyBox<CacheEntry>(boxName);
     }
-    return await Hive.openBox<CacheEntry>(boxName);
+    return await Hive.openLazyBox<CacheEntry>(boxName);
   }
 
   @override
@@ -91,10 +93,11 @@ class HiveCacheStorage implements CacheStorage {
   @override
   Future<int> deleteExpired(DateTime now) async {
     final box = await _getBox();
-    final keysToDelete = box.values
-        .where((entry) => entry.expiry.isBefore(now))
-        .map((entry) => entry.key)
-        .toList();
+    final keysToDelete = <dynamic>[];
+    for (final key in box.keys) {
+      final entry = await box.get(key);
+      if (entry != null && entry.expiry.isBefore(now)) keysToDelete.add(key);
+    }
 
     if (keysToDelete.isNotEmpty) {
       await box.deleteAll(keysToDelete);
@@ -112,8 +115,9 @@ class HiveCacheStorage implements CacheStorage {
       }
     }
     int totalBytes = 0;
-    for (final entry in box.values) {
-      totalBytes += entry.bodyBytes.length + entry.key.length + 32;
+    for (final key in box.keys) {
+      final entry = await box.get(key);
+      if (entry != null) totalBytes += entry.bodyBytes.length + entry.key.length + 32;
     }
     return totalBytes;
   }
@@ -127,7 +131,12 @@ class HiveCacheStorage implements CacheStorage {
   @override
   Future<List<CacheEntry>> getAll() async {
     final box = await _getBox();
-    return box.values.toList();
+    final entries = <CacheEntry>[];
+    for (final key in box.keys) {
+      final entry = await box.get(key);
+      if (entry != null) entries.add(entry);
+    }
+    return entries;
   }
 
   @override

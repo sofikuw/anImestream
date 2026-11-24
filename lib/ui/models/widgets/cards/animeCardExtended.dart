@@ -168,6 +168,7 @@ class AnimeCardExtended extends StatelessWidget {
                         clipBehavior: Clip.hardEdge,
                         child: CachedNetworkImage(
                           imageUrl: imageUrl,
+                          memCacheWidth: (100 * MediaQuery.of(context).devicePixelRatio).round(),
                           fit: BoxFit.cover,
                           fadeInDuration: Duration(milliseconds: 200),
                           fadeInCurve: Curves.easeIn,

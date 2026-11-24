@@ -11,6 +11,7 @@ import 'package:animestream/core/manga/types.dart';
 import 'package:animestream/ui/models/sources.dart';
 import 'package:animestream/ui/models/widgets/cards.dart';
 import 'package:animestream/ui/models/widgets/loader.dart';
+import 'package:animestream/ui/models/snackBar.dart';
 import 'package:animestream/ui/pages/mangaReader.dart';
 import 'package:animestream/ui/pages/info.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -84,6 +85,10 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
   /// info rows and its episode list; this toggles between the info rows and
   /// the chapter list, so "read" reveals the chapters to pick from.
   bool infoPage = true;
+
+  /// Batch download state, so the whole chapter list is not rebuilt per page.
+  bool _batchDownloading = false;
+  int _batchDone = 0;
 
   @override
   void initState() {
@@ -201,6 +206,40 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
       provider: provider,
     );
     await _refreshDownloads();
+  }
+
+  /// Queue every chapter through the same downloader the per-chapter button
+  /// uses, so progress and the downloaded set stay consistent.
+  Future<void> _downloadAllChapters() async {
+    final provider = _provider;
+    if (provider == null || _chapters.isEmpty || _batchDownloading) return;
+
+    setState(() {
+      _batchDownloading = true;
+      _batchDone = 0;
+    });
+
+    var failed = 0;
+    for (final chapter in _chapters) {
+      if (await MangaDownloader.isDownloaded(widget.id, _details?.title ?? '', chapter)) {
+        if (mounted) setState(() => _batchDone++);
+        continue;
+      }
+      final ok = await MangaDownloader.download(
+        mangaId: widget.id,
+        mangaTitle: _details?.title ?? '',
+        chapter: chapter,
+        provider: provider,
+      );
+      if (!ok) failed++;
+      if (mounted) setState(() => _batchDone++);
+    }
+
+    if (mounted) {
+      setState(() => _batchDownloading = false);
+      await _refreshDownloads();
+      floatingSnackBar('Downloaded $_batchDone chapters${failed == 0 ? '' : ', $failed failed'}');
+    }
   }
 
   Future<void> loadChapters(MangaDetails details) async {
@@ -554,7 +593,13 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
                           ),
                         ),
                       ),
-                      _chapterSortToggle(),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _batchDownloadButton(),
+                          _chapterSortToggle(),
+                        ],
+                      ),
                     ],
                   ),
                 ),
@@ -649,6 +694,34 @@ class _MangaDetailsPageState extends State<MangaDetailsPage> {
   /// series wants newest first, a 40-chapter one you are reading from the start
   /// wants the chapter you are on within reach. The choice is still remembered
   /// globally, so it does not have to be re-made for every title.
+  Widget _batchDownloadButton() {
+    final label = _batchDownloading ? '$_batchDone/${_chapters.length}' : null;
+    return Padding(
+      padding: const EdgeInsets.only(left: 8),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: _provider == null || _batchDownloading ? null : _downloadAllChapters,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.download_rounded,
+                size: 18,
+                color: _batchDownloading ? appTheme.textSubColor : appTheme.accentColor,
+              ),
+              if (label != null) ...[
+                const SizedBox(width: 4),
+                Text(label, style: TextStyle(fontFamily: "NotoSans", fontSize: 12, color: appTheme.textSubColor)),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _chapterSortToggle() {
     final ascending = _chaptersAscending;
     return Padding(

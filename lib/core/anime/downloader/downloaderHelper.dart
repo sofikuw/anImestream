@@ -50,25 +50,25 @@ class DownloaderHelper {
     return id;
   }
 
-  Future<String> getDownloadsPath() async {
+  Future<String> getDownloadsPath({bool create = true}) async {
     if (Platform.isIOS) {
       final documentsDirectory = await getApplicationDocumentsDirectory();
       final downloadsDirectory =
           Directory('${documentsDirectory.path}${Platform.pathSeparator}Downloads');
-      await downloadsDirectory.create(recursive: true);
+      if (create) await downloadsDirectory.create(recursive: true);
       return downloadsDirectory.path;
     }
 
     if (currentUserSettings?.downloadPath != null) {
       final configuredDirectory = Directory(currentUserSettings!.downloadPath!);
-      await configuredDirectory.create(recursive: true);
+      if (create) await configuredDirectory.create(recursive: true);
       return configuredDirectory.path;
     }
 
     if (Platform.isAndroid) {
       const androidDownloadsPath = '/storage/emulated/0/Download/animestream';
       final downloadsDirectory = Directory(androidDownloadsPath);
-      await downloadsDirectory.create(recursive: true);
+      if (create) await downloadsDirectory.create(recursive: true);
       return downloadsDirectory.path;
     }
 
@@ -79,7 +79,7 @@ class DownloaderHelper {
       print("[DOWNLOADER] Could not resolve the system downloads directory: $error");
     }
     if (platformDownloadsDirectory != null) {
-      await platformDownloadsDirectory.create(recursive: true);
+      if (create) await platformDownloadsDirectory.create(recursive: true);
       return platformDownloadsDirectory.path;
     }
 
@@ -87,14 +87,14 @@ class DownloaderHelper {
       final userProfile = Platform.environment['USERPROFILE'];
       if (userProfile != null && userProfile.isNotEmpty) {
         final downloadsDirectory = Directory('$userProfile\\Downloads');
-        await downloadsDirectory.create(recursive: true);
+        if (create) await downloadsDirectory.create(recursive: true);
         return downloadsDirectory.path;
       }
     }
 
     final documentsDirectory = await getApplicationDocumentsDirectory();
     final downloadsDirectory = Directory('${documentsDirectory.path}${Platform.pathSeparator}Downloads');
-    await downloadsDirectory.create(recursive: true);
+    if (create) await downloadsDirectory.create(recursive: true);
     return downloadsDirectory.path;
   }
 

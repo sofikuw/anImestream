@@ -32,6 +32,16 @@ abstract class BaseDownloader {
 
   Completer? _completer;
 
+  /// Multiple parallel chunk workers can wait for the same resume command.
+  final List<Completer<void>> _resumeWaiters = [];
+
+  @nonVirtual
+  Future<void> waitForResume() {
+    final waiter = Completer<void>();
+    _resumeWaiters.add(waiter);
+    return waiter.future;
+  }
+
   @nonVirtual
   Completer? get completer => _completer;
 
@@ -118,6 +128,10 @@ abstract class BaseDownloader {
             {
               _status = DownloadStatus.downloading;
               task.sendPort?.send(DownloadMessage(status: 'downloading', id: task.id));
+              for (final waiter in _resumeWaiters) {
+                if (!waiter.isCompleted) waiter.complete();
+              }
+              _resumeWaiters.clear();
               if (_completer != null && !_completer!.isCompleted) {
                 _completer!.complete();
               }

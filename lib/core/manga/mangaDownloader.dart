@@ -5,7 +5,6 @@ import 'package:animestream/core/anime/downloader/downloadManager.dart';
 import 'package:animestream/core/anime/downloader/downloaderHelper.dart';
 import 'package:animestream/core/anime/downloader/types.dart';
 import 'package:animestream/core/app/logging.dart';
-import 'package:animestream/core/app/runtimeDatas.dart';
 import 'package:animestream/core/data/downloadHistory.dart';
 import 'package:animestream/core/manga/mangaProvider.dart';
 import 'package:animestream/core/manga/types.dart';
@@ -60,11 +59,10 @@ class MangaDownloader {
 
   /// Where downloaded manga lives.
   ///
-  /// Android writes into the public Download tree using the titles and IDs,
-  /// matching where episodes already go, so chapters are visible and human-readable
-  /// in any file manager. A user-configured download path wins.
-  /// iOS has no shared Downloads tree, so chapters stay in the documents
-  /// directory there.
+  /// Chapters live under the same download root episodes use, on every
+  /// platform, so the in-app Downloads browser can reach them. On iOS that is
+  /// <Documents>/Downloads/manga/...; the older <Documents>/manga/... folders
+  /// are still recognised by [chapterDirectory].
   ///
   /// The directory is only created when [create] is set. Opening a manga asks
   /// whether each chapter is downloaded, and doing that must not leave an empty
@@ -74,21 +72,12 @@ class MangaDownloader {
     String mangaTitle, {
     bool create = false,
   }) async {
-    if (Platform.isAndroid) {
-      final configured = currentUserSettings?.downloadPath;
-      final base = (configured != null && configured.trim().isNotEmpty)
-          ? configured
-          : '/storage/emulated/0/Download/animestream';
-      // Format: <MangaTitle>_<mangaId>
-      final folderName = '${_safe(mangaTitle)}_${_safe(mangaId)}';
-      final root = Directory(
-        '${base.replaceAll(RegExp(r'[/\\]+$'), '')}${Platform.pathSeparator}manga${Platform.pathSeparator}$folderName',
-      );
-      if (create && !await root.exists()) await root.create(recursive: true);
-      return root;
-    }
-    final documents = await getApplicationDocumentsDirectory();
-    final root = Directory('${documents.path}/manga');
+    final base = await DownloaderHelper().getDownloadsPath(create: create);
+    // Format: <MangaTitle>_<mangaId>
+    final folderName = '${_safe(mangaTitle)}_${_safe(mangaId)}';
+    final root = Directory(
+      '${base.replaceAll(RegExp(r'[/\\]+$'), '')}${Platform.pathSeparator}manga${Platform.pathSeparator}$folderName',
+    );
     if (create && !await root.exists()) await root.create(recursive: true);
     return root;
   }
@@ -103,9 +92,16 @@ class MangaDownloader {
     final root = await _mangaRoot(mangaId, mangaTitle, create: create);
     // Format: <ChapterTitle>_<chapterId>
     final folderName = '${_safe(chapter.displayTitle)}_${_safe(chapter.id)}';
-    return Directory(
-      '${root.path}${Platform.pathSeparator}$folderName',
-    );
+    final current = Directory('${root.path}${Platform.pathSeparator}$folderName');
+
+    // Chapters downloaded by older iOS betas live one level up, in
+    // <Documents>/manga. Keep recognising them so they are not lost.
+    if (!create && Platform.isIOS && !await File('${current.path}/$kManifestName').exists()) {
+      final documents = await getApplicationDocumentsDirectory();
+      final legacy = Directory('${documents.path}${Platform.pathSeparator}manga${Platform.pathSeparator}$folderName');
+      if (await File('${legacy.path}/$kManifestName').exists()) return legacy;
+    }
+    return current;
   }
 
   /// Strips anything that is not safe as a path segment.

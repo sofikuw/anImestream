@@ -137,6 +137,7 @@ class MalAnimeMetadata implements AnimeMetadataProvider {
               .toList()
           : const <String>[],
     );
+    if (_summaries.length > 300) _summaries.clear();
     if (cache) _summaries[summary.providerId] = summary;
     return summary;
   }
@@ -455,6 +456,7 @@ class MalMangaMetadata implements MangaMetadataProvider {
               .toList()
           : const <String>[],
     );
+    if (_summaries.length > 300) _summaries.clear();
     _summaries[summary.id] = summary;
     return summary;
   }

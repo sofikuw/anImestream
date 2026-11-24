@@ -59,7 +59,7 @@ class Downloader {
   static const int MAX_DOWNLOADS_COUNT = 2;
 
   /// The max batch size per stream (for segments)
-  static int MAX_STREAM_BATCH_SIZE = 5;
+  static int MAX_STREAM_BATCH_SIZE = 8;
 
   /// Count of Refetching failed segments
   static int MAX_RETRY_ATTEMPTS = 10;

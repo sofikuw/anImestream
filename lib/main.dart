@@ -57,6 +57,12 @@ void main(List<String> args) async {
 
     WidgetsFlutterBinding.ensureInitialized();
 
+    // Keep decoded images bounded on low-RAM devices. Manga pages are excluded
+    // from this by their own full-resolution decoder; this only caps cached
+    // thumbnails and covers.
+    imageCache.maximumSize = 250;
+    imageCache.maximumSizeBytes = 48 << 20;
+
     // Initialise app version instance
     AppVersion.init();
 

@@ -10,6 +10,12 @@ const double _minWidth = 200;
 const double _maxWidth = 480;
 double _heightOf(double width) => width * 9 / 16;
 
+double maxWidthFor(double screenWidth) {
+  final available = screenWidth - 24;
+  if (available < _minWidth) return _minWidth;
+  return _maxWidth < available ? _maxWidth : available;
+}
+
 /// Sits above the navigator: taps outside the window fall through to the app.
 class MiniPlayerOverlay extends StatefulWidget {
   final GlobalKey<NavigatorState> navigatorKey;
@@ -162,9 +168,13 @@ class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> {
           final size = MediaQuery.sizeOf(context);
           final bottom = MediaQuery.paddingOf(context).bottom + 8;
 
+          // Keep the window inside the screen even on small displays.
+          final maxWidth = maxWidthFor(size.width);
+
           return ValueListenableBuilder<double>(
             valueListenable: _width,
-            builder: (context, width, _) {
+            builder: (context, storedWidth, _) {
+              final width = storedWidth.clamp(_minWidth, maxWidth);
               final height = _heightOf(width);
               final base = _base(size, width, height, bottom);
               return ValueListenableBuilder<Offset>(
@@ -176,7 +186,7 @@ class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> {
                   onDragStart: _startDrag,
                   onDrag: _updateDrag,
                   onDragEnd: (details) => _endDrag(details, size, width, height, bottom),
-                  onWidthChanged: (value) => _width.value = value.clamp(_minWidth, _maxWidth),
+                  onWidthChanged: (value) => _width.value = value.clamp(_minWidth, maxWidth),
                 ),
                 builder: (context, delta, child) {
                   final hidden = session.collapsed

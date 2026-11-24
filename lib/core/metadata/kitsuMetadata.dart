@@ -277,6 +277,7 @@ class KitsuAnimeMetadata implements AnimeMetadataProvider {
       if (item is! Map) continue;
       final id = item['id']?.toString();
       if (id != null && id.isNotEmpty) {
+        if (_kitsuIds.length > 300) _kitsuIds.clear();
         _kitsuIds[key] = id;
         return id;
       }
