@@ -13,9 +13,10 @@ than pretending to cover the fork's earlier life. That history is in the git log
 - **Faster downloads.** HLS streams now keep eight video segments and four
   audio segments in flight, and direct files are downloaded with eight
   parallel byte ranges written into one file.
-- **Batch manga downloads.** The chapters header has a download-all button
-  that queues every chapter through the same downloader as the per-chapter
-  button, with count progress.
+- **Batch manga downloads.** The chapters header has a batch button that opens
+  a chapter picker: select individual chapters (or all, not-yet-downloaded, or
+  inverted) and queue them through the same downloader as the per-chapter
+  button.
 - **Background downloads.** An Android foreground service keeps the download
   queue running when you leave the app or close the activity, with a persistent
   notification while files are being fetched.
