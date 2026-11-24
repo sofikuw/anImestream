@@ -45,7 +45,7 @@ class VideoDownloader extends BaseDownloader {
     Future<void> writeChain = Future.value();
     Future<void> writeAt(List<int> data, int offset) {
       final next = writeChain.then((_) async {
-        await raf.seek(offset);
+        await raf.setPosition(offset);
         await raf.writeFrom(data);
       });
       writeChain = next.catchError((_) {});
