@@ -33,13 +33,24 @@ class VideoDownloader extends BaseDownloader {
     const chunks = 8;
     final file = File(filepath);
     final raf = await file.open(mode: FileMode.write);
-    await raf.setLength(total);
+    await raf.truncate(total);
     final client = Client();
     final chunkSize = (total / chunks).ceil();
     final subscriptions = <StreamSubscription<List<int>>>[];
     final written = List<int>.filled(chunks, 0);
     int totalWritten = 0;
     int lastProgress = 0;
+
+    // RandomAccessFile has one shared cursor, so seek+write must not overlap.
+    Future<void> writeChain = Future.value();
+    Future<void> writeAt(List<int> data, int offset) {
+      final next = writeChain.then((_) async {
+        await raf.seek(offset);
+        await raf.writeFrom(data);
+      });
+      writeChain = next.catchError((_) {});
+      return next;
+    }
 
     Future<void> abort() async {
       for (final subscription in subscriptions) {
@@ -90,7 +101,7 @@ class VideoDownloader extends BaseDownloader {
               }
             }
             try {
-              await raf.writeAt(data, start + written[i]);
+              await writeAt(data, start + written[i]);
             } catch (_) {
               // A cancelled worker may have closed the file already.
             }
