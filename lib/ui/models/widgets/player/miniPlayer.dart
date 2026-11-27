@@ -396,7 +396,13 @@ class _MiniPlayerWindowState extends State<MiniPlayerWindow> {
                           format: SubtitleFormat.fromName(
                               data!.state.currentStream.subtitleFormat ?? SubtitleFormat.ASS.name),
                           subtitleSource: subtitle!,
-                          settings: data.subtitleSettings.copyWith(fontSize: 10, bottomMargin: 4, strokeWidth: 1),
+                          settings: data.subtitleSettings.copyWith(
+                            // Scale the user's subtitle size to the mini window
+                            // instead of using a fixed size that ignores it.
+                            fontSize: (data.subtitleSettings.fontSize * widget.width / 600).clamp(8.0, 16.0).toDouble(),
+                            bottomMargin: 4,
+                            strokeWidth: 1,
+                          ),
                           headers: data.state.currentStream.customHeaders,
                           isOffline: session.localSource,
                         ),
@@ -440,7 +446,7 @@ class _MiniPlayerWindowState extends State<MiniPlayerWindow> {
                       value: progress.clamp(0.0, 1.0),
                       minHeight: 2.5,
                       backgroundColor: Colors.white30,
-                      color: Theme.of(context).colorScheme.primary,
+                      color: Colors.white.withValues(alpha: 0.85),
                     ),
                   ),
                 ],

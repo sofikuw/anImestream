@@ -6,6 +6,7 @@ import 'package:animestream/core/app/logging.dart';
 import 'package:animestream/core/app/runtimeDatas.dart';
 import 'package:animestream/core/commons/extractQuality.dart';
 import 'package:animestream/ui/models/providers/playerDataProvider.dart';
+import 'package:animestream/ui/models/providers/playerSession.dart';
 import 'package:animestream/ui/models/providers/appProvider.dart';
 import 'package:animestream/ui/models/widgets/appWrapper.dart';
 import 'package:flutter/material.dart';
@@ -213,10 +214,12 @@ class PlayerProvider extends ChangeNotifier {
 
   void setAutoPip(bool val) {
     if (!Platform.isAndroid || _disposed) return;
-    unawaited(_pipChannel.invokeMethod(
-      'setAutoPip',
-      {'enabled': val && (currentUserSettings?.enablePipOnMinimize ?? false)},
-    ));
+    // A mini window is a Flutter overlay, so system PiP would capture its
+    // background instead of the video. Only auto-enter from the full player.
+    final enabled = val &&
+        !PlayerSession.instance.mini &&
+        (currentUserSettings?.enablePipOnMinimize ?? false);
+    unawaited(_pipChannel.invokeMethod('setAutoPip', {'enabled': enabled}));
   }
 
   void _initPip() {

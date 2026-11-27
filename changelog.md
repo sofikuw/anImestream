@@ -77,6 +77,10 @@ than pretending to cover the fork's earlier life. That history is in the git log
   falls through the enabled sources automatically.
 
 ### Fixed
+- **Mini window polish.** The progress bar is no longer tinted by the theme
+  accent, mini subtitles scale from the user's subtitle setting, and system PiP
+  no longer auto-enters while the mini window is showing (which captured the
+  overlay background instead of the video).
 - **Downloaded manga shows up on iOS.** Chapters now live under the same
   Downloads root the in-app browser scans, with old `<Documents>/manga`
   chapters still recognised.

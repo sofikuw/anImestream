@@ -11,6 +11,7 @@ Future<void> openPlayerRoute(NavigatorState navigator) async {
   if (!session.active) return;
 
   final routeId = session.beginRoute();
+  session.playerProvider?.setAutoPip(true);
   await navigator.push(
     MaterialPageRoute(
       builder: (_) => MultiProvider(
@@ -23,5 +24,8 @@ Future<void> openPlayerRoute(NavigatorState navigator) async {
     ),
   );
 
-  if (session.active && session.routeId == routeId) session.minimise();
+  if (session.active && session.routeId == routeId) {
+    session.playerProvider?.setAutoPip(false);
+    session.minimise();
+  }
 }
