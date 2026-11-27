@@ -24,6 +24,7 @@ import 'package:animestream/ui/models/providers/playerDataProvider.dart';
 import 'package:animestream/ui/models/providers/playerProvider.dart';
 import 'package:animestream/ui/models/providers/playerSession.dart';
 import 'package:animestream/ui/models/providers/appProvider.dart';
+import 'package:animestream/main.dart';
 import 'package:animestream/ui/models/playerControllers/videoController.dart';
 import 'package:screen_brightness/screen_brightness.dart';
 
@@ -40,7 +41,7 @@ class Watch extends StatefulWidget {
   State<Watch> createState() => _WatchState();
 }
 
-class _WatchState extends State<Watch> with WidgetsBindingObserver {
+class _WatchState extends State<Watch> with WidgetsBindingObserver, RouteAware {
   late VideoController controller;
   bool _wasPlayingBeforeBackground = false;
 
@@ -59,11 +60,22 @@ class _WatchState extends State<Watch> with WidgetsBindingObserver {
       } else {
         _initialize();
       }
-      _initCallbacks(context);
     });
 
     WidgetsBinding.instance.addObserver(this);
   }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route != null) AnimeStream.routeObserver.subscribe(this, route);
+  }
+
+  // Do not auto-enter system PiP while another route (e.g. the in-app mini
+  // player's full page) is pushed on top of this one.
+  void didPushNext() => context.read<PlayerProvider>().setAutoPip(false);
+  void didPopNext() => context.read<PlayerProvider>().setAutoPip(true);
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -95,18 +107,6 @@ class _WatchState extends State<Watch> with WidgetsBindingObserver {
         _wasPlayingBeforeBackground = false;
       }
     }
-  }
-
-  final _channel = MethodChannel('animestream.app/utils');
-
-  void _initCallbacks(BuildContext context) {
-    _channel.setMethodCallHandler((call) async {
-      if (call.method == "onUserLeaveHint") {
-        if (currentUserSettings?.enablePipOnMinimize ?? true) {
-          context.read<PlayerProvider>().setPip(true);
-        }
-      }
-    });
   }
 
   void setWatchMode() {
@@ -915,6 +915,7 @@ class _WatchState extends State<Watch> with WidgetsBindingObserver {
     _controlsTimer?.cancel();
     _tapTimer?.cancel();
 
+    AnimeStream.routeObserver.unsubscribe(this);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }

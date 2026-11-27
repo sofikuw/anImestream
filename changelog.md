@@ -17,6 +17,10 @@ than pretending to cover the fork's earlier life. That history is in the git log
   a chapter picker: select individual chapters (or all, not-yet-downloaded, or
   inverted) and queue them through the same downloader as the per-chapter
   button.
+- **System PiP controls (Android).** Backported upstream's custom PiP actions:
+  rewind, play/pause and forward buttons in the system window, auto-enter on
+  supported Android versions, and play-state sync. The in-app mini window also
+  renders subtitles at a smaller size.
 - **Background downloads.** An Android foreground service keeps the download
   queue running when you leave the app or close the activity, with a persistent
   notification while files are being fetched.

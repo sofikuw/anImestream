@@ -9,6 +9,7 @@ import 'package:animestream/ui/models/providers/playerDataProvider.dart';
 import 'package:animestream/ui/models/providers/appProvider.dart';
 import 'package:animestream/ui/models/widgets/appWrapper.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:collection/collection.dart';
 
 import 'package:animestream/core/commons/enums.dart';
@@ -21,9 +22,16 @@ import 'package:window_manager/window_manager.dart';
 class PlayerProvider extends ChangeNotifier {
   bool _disposed = false;
 
+  final MethodChannel _pipChannel = const MethodChannel('animestream.app/utils');
+  bool _wasPlaying = true;
+
   @override
   void dispose() {
     _disposed = true;
+    if (Platform.isAndroid) {
+      _pipChannel.setMethodCallHandler(null);
+      setAutoPip(false);
+    }
     super.dispose();
   }
 
@@ -49,7 +57,9 @@ class PlayerProvider extends ChangeNotifier {
           wakelockEnabled: false,
           currentViewMode: ViewMode.fit,
           pip: false,
-        );
+        ) {
+    if (Platform.isAndroid) _initPip();
+  }
 
   VideoController get controller => _controller;
 
@@ -122,6 +132,7 @@ class PlayerProvider extends ChangeNotifier {
 
   void updatePlayState(PlayerState playState) {
     _state = _state.copyWith(playerState: playState);
+    _syncPipPlayState();
     notifyListeners();
   }
 
@@ -180,9 +191,16 @@ class PlayerProvider extends ChangeNotifier {
       return;
     }
 
+    if (Platform.isAndroid) {
+      // The native side owns system PiP and its remote actions.
+      if (val) await _pipChannel.invokeMethod('enterPip');
+      _state = _state.copyWith(pip: val);
+      notifyListeners();
+      return;
+    }
+
     try {
-      // Android enters PiP through the system leave-app event; iOS can explicitly
-      // start and stop PiP from the AVPlayer-backed BetterPlayer controller.
+      // iOS can explicitly start PiP from the AVPlayer-backed controller.
       if (val) {
         await controller.setPip(val);
       }
@@ -191,6 +209,59 @@ class PlayerProvider extends ChangeNotifier {
     } catch (e) {
       Logs.player.log("Could not change PiP state: $e");
     }
+  }
+
+  void setAutoPip(bool val) {
+    if (!Platform.isAndroid || _disposed) return;
+    unawaited(_pipChannel.invokeMethod(
+      'setAutoPip',
+      {'enabled': val && (currentUserSettings?.enablePipOnMinimize ?? false)},
+    ));
+  }
+
+  void _initPip() {
+    setAutoPip(true);
+    _pipChannel.setMethodCallHandler((call) async {
+      if (_disposed) return;
+      final skip = currentUserSettings?.skipDuration ?? 10;
+      switch (call.method) {
+        case 'onPipChanged':
+          _onPipChanged(call.arguments == true);
+        case 'pipAction':
+          switch (call.arguments) {
+            case 'playPause':
+              (controller.isPlaying ?? false) ? controller.pause() : controller.play();
+            case 'forward':
+              unawaited(fastForward(skip));
+            case 'rewind':
+              unawaited(fastForward(-skip));
+          }
+      }
+    });
+  }
+
+  void _onPipChanged(bool val) {
+    if (_state.pip == val) return;
+    _state = _state.copyWith(pip: val);
+    notifyListeners();
+    if (val) {
+      toggleControlsVisibility(action: false);
+    } else {
+      Future.delayed(const Duration(milliseconds: 250), () {
+        if (_disposed) return;
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+        SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
+        handleWakelock();
+      });
+    }
+  }
+
+  void _syncPipPlayState() {
+    if (!Platform.isAndroid) return;
+    final playing = controller.isPlaying ?? false;
+    if (playing == _wasPlaying) return;
+    _wasPlaying = playing;
+    unawaited(_pipChannel.invokeMethod('setPipPlaying', {'playing': playing}));
   }
 
   void resetPipState() {

@@ -85,8 +85,12 @@ class BetterPlayerWrapper implements VideoController {
   }
 
   @override
-  Future<void> play() {
-    return controller.play();
+  Future<void> play() async {
+    await controller.play();
+    // better_player ignores play() while the app is not resumed (e.g. PiP).
+    if (!(controller.isPlaying() ?? false)) {
+      await controller.videoPlayerController?.play();
+    }
   }
 
   @override

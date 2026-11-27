@@ -193,6 +193,8 @@ class AnimeStream extends StatefulWidget {
   static final GlobalKey<ScaffoldMessengerState> snackbarKey = GlobalKey<ScaffoldMessengerState>();
 
   static final navigatorKey = GlobalKey<NavigatorState>();
+
+  static final routeObserver = RouteObserver<ModalRoute<dynamic>>();
   @override
   State<AnimeStream> createState() => _AnimeStreamState();
 }
@@ -388,6 +390,7 @@ class _AnimeStreamState extends State<AnimeStream> {
             title: 'Divergent',
             navigatorKey: AnimeStream.navigatorKey,
             scaffoldMessengerKey: AnimeStream.snackbarKey,
+            navigatorObservers: [AnimeStream.routeObserver],
             theme: ThemeData(
                 useMaterial3: true,
                 brightness: themeProvider.isDark ? Brightness.dark : Brightness.light,
