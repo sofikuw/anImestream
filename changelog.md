@@ -84,7 +84,8 @@ than pretending to cover the fork's earlier life. That history is in the git log
   "Full Changelog" note.
 - **Auto-PiP from the mini window.** A Dart switch fell through from the
   leave-app callback into the PiP-state callback, hiding the full-screen video
-  surface before the system entered PiP.
+  surface before the system entered PiP. A lifecycle fallback now triggers the
+  same transition when Android does not deliver `onUserLeaveHint`.
 - **Mini window polish.** The progress bar is no longer tinted by the theme
   accent, mini subtitles scale from the user's subtitle setting and force no
   underline, and auto-PiP from the mini window now swaps in a full-screen video

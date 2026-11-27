@@ -225,9 +225,13 @@ class PlayerProvider extends ChangeNotifier {
   /// The mini window is a Flutter overlay, so entering system PiP directly
   /// captures its background. Show a full-screen video surface for one frame,
   /// ask the platform to enter PiP, then drop the surface again.
-  Future<void> _enterPipFromMini() async {
+  Future<void> enterPipFromMini() async {
     final session = PlayerSession.instance;
-    if (!session.mini || session.controller == null) return;
+    if (!session.mini ||
+        session.controller == null ||
+        session.pipFullscreen ||
+        _state.pip ||
+        _disposed) return;
     session.setPipFullscreen(true);
     await Future<void>.delayed(const Duration(milliseconds: 120));
     if (_disposed) return;
@@ -247,7 +251,7 @@ class PlayerProvider extends ChangeNotifier {
       final skip = currentUserSettings?.skipDuration ?? 10;
       switch (call.method) {
         case 'onUserLeaveHint':
-          if (PlayerSession.instance.mini) await _enterPipFromMini();
+          if (PlayerSession.instance.mini) await enterPipFromMini();
           return;
         case 'onPipChanged':
           _onPipChanged(call.arguments == true);

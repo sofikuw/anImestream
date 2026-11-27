@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 
@@ -27,7 +28,7 @@ class MiniPlayerOverlay extends StatefulWidget {
   State<MiniPlayerOverlay> createState() => _MiniPlayerOverlayState();
 }
 
-class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> {
+class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> with WidgetsBindingObserver {
   final ValueNotifier<Offset> _drag = ValueNotifier(Offset.zero);
   final ValueNotifier<double> _width = ValueNotifier(_initialWidth);
   bool _dragging = false;
@@ -37,14 +38,25 @@ class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> {
   void initState() {
     super.initState();
     PlayerSession.instance.addListener(_onSession);
+    WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     PlayerSession.instance.removeListener(_onSession);
     _drag.dispose();
     _width.dispose();
     super.dispose();
+  }
+
+  /// Some Android versions never deliver onUserLeaveHint to the activity.
+  /// Backgrounding is the reliable fallback for entering PiP from the mini.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!Platform.isAndroid) return;
+    if (state != AppLifecycleState.hidden && state != AppLifecycleState.paused) return;
+    unawaited(PlayerSession.instance.playerProvider?.enterPipFromMini());
   }
 
   void _onSession() {
