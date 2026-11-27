@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 
@@ -28,7 +27,7 @@ class MiniPlayerOverlay extends StatefulWidget {
   State<MiniPlayerOverlay> createState() => _MiniPlayerOverlayState();
 }
 
-class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> with WidgetsBindingObserver {
+class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> {
   final ValueNotifier<Offset> _drag = ValueNotifier(Offset.zero);
   final ValueNotifier<double> _width = ValueNotifier(_initialWidth);
   bool _dragging = false;
@@ -38,25 +37,14 @@ class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> with WidgetsBindi
   void initState() {
     super.initState();
     PlayerSession.instance.addListener(_onSession);
-    WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
     PlayerSession.instance.removeListener(_onSession);
     _drag.dispose();
     _width.dispose();
     super.dispose();
-  }
-
-  /// Some Android versions never deliver onUserLeaveHint to the activity.
-  /// Backgrounding is the reliable fallback for entering PiP from the mini.
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (!Platform.isAndroid) return;
-    if (state != AppLifecycleState.hidden && state != AppLifecycleState.paused) return;
-    unawaited(PlayerSession.instance.playerProvider?.enterPipFromMini());
   }
 
   void _onSession() {
@@ -71,8 +59,12 @@ class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> with WidgetsBindi
 
   void _updateDrag(Offset delta) => _drag.value += delta;
 
-  Offset _base(Size size, double width, double height, double bottom) =>
-      Offset(size.width - width - 12, size.height - height - bottom);
+  /// On wide screens the mini player floats centered like YouTube's PiP;
+  /// on phones it rests against the nearest side.
+  Offset _base(Size size, double width, double height, double bottom) {
+    final x = size.width >= 600 ? (size.width - width) / 2 : size.width - width - 12;
+    return Offset(x, size.height - height - bottom);
+  }
 
   /// YouTube-style: horizontal position snaps to the nearest side, vertical
   /// position stays wherever the user left it (clamped to the screen).
@@ -81,7 +73,10 @@ class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> with WidgetsBindi
     final maxY = size.height - height - bottom;
     final x = (base.dx + _drag.value.dx).clamp(0.0, size.width - width);
     final y = (base.dy + _drag.value.dy).clamp(0.0, maxY < 0 ? 0.0 : maxY);
-    return Offset(x < (size.width - width) / 2 ? 0.0 : size.width - width, y);
+    final snappedX = size.width >= 600
+        ? (size.width - width) / 2
+        : (x < (size.width - width) / 2 ? 0.0 : size.width - width);
+    return Offset(snappedX, y);
   }
 
   Offset _offscreen(String edge, Offset home, Size size, double width) {
@@ -177,14 +172,6 @@ class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> with WidgetsBindi
           final session = PlayerSession.instance;
           if (!session.mini || session.controller == null) {
             return const IgnorePointer(child: SizedBox.expand());
-          }
-
-          // Briefly replace the floating window with a full-screen video
-          // surface so system PiP captures the video, not this overlay.
-          if (session.pipFullscreen) {
-            return Positioned.fill(
-              child: Container(color: Colors.black, child: Center(child: session.controller!.getWidget())),
-            );
           }
 
           final size = MediaQuery.sizeOf(context);

@@ -6,7 +6,6 @@ import 'package:animestream/core/app/logging.dart';
 import 'package:animestream/core/app/runtimeDatas.dart';
 import 'package:animestream/core/commons/extractQuality.dart';
 import 'package:animestream/ui/models/providers/playerDataProvider.dart';
-import 'package:animestream/ui/models/providers/playerSession.dart';
 import 'package:animestream/ui/models/providers/appProvider.dart';
 import 'package:animestream/ui/models/widgets/appWrapper.dart';
 import 'package:flutter/material.dart';
@@ -193,8 +192,12 @@ class PlayerProvider extends ChangeNotifier {
     }
 
     if (Platform.isAndroid) {
-      // The native side owns system PiP and its remote actions.
-      if (val) await _pipChannel.invokeMethod('enterPip');
+      // BetterPlayer's native PiP captures the video view, not the Flutter
+      // overlay, so the mini window background and player controls stay out.
+      if (val) {
+        toggleControlsVisibility(action: false);
+        await controller.setPip(true);
+      }
       _state = _state.copyWith(pip: val);
       notifyListeners();
       return;
@@ -212,37 +215,9 @@ class PlayerProvider extends ChangeNotifier {
     }
   }
 
-  void setAutoPip(bool val) {
-    if (!Platform.isAndroid || _disposed) return;
-    // A mini window is a Flutter overlay, so system PiP would capture its
-    // background instead of the video. Only auto-enter from the full player.
-    final enabled = val &&
-        !PlayerSession.instance.mini &&
-        (currentUserSettings?.enablePipOnMinimize ?? false);
-    unawaited(_pipChannel.invokeMethod('setAutoPip', {'enabled': enabled}));
-  }
-
-  /// The mini window is a Flutter overlay, so entering system PiP directly
-  /// captures its background. Show a full-screen video surface for one frame,
-  /// ask the platform to enter PiP, then drop the surface again.
-  Future<void> enterPipFromMini() async {
-    final session = PlayerSession.instance;
-    if (!session.mini ||
-        session.controller == null ||
-        session.pipFullscreen ||
-        _state.pip ||
-        _disposed) return;
-    session.setPipFullscreen(true);
-    await Future<void>.delayed(const Duration(milliseconds: 120));
-    if (_disposed) return;
-    try {
-      await _pipChannel.invokeMethod('enterPip');
-    } catch (e) {
-      Logs.player.log("Could not enter PiP from mini: $e");
-    }
-    await Future<void>.delayed(const Duration(milliseconds: 350));
-    if (!_disposed) session.setPipFullscreen(false);
-  }
+  /// Native auto-enter is intentionally unused: it captures the whole Flutter
+  /// window. Auto-PiP is driven through BetterPlayer's native PiP instead.
+  void setAutoPip(bool val) {}
 
   void _initPip() {
     setAutoPip(true);
@@ -251,7 +226,11 @@ class PlayerProvider extends ChangeNotifier {
       final skip = currentUserSettings?.skipDuration ?? 10;
       switch (call.method) {
         case 'onUserLeaveHint':
-          if (PlayerSession.instance.mini) await enterPipFromMini();
+          // Auto-PiP on leaving the app, from either the full player or the
+          // mini window, uses the same native video PiP path.
+          if (currentUserSettings?.enablePipOnMinimize ?? true) {
+            unawaited(setPip(true));
+          }
           return;
         case 'onPipChanged':
           _onPipChanged(call.arguments == true);
@@ -271,7 +250,6 @@ class PlayerProvider extends ChangeNotifier {
   }
 
   void _onPipChanged(bool val) {
-    if (!val) PlayerSession.instance.setPipFullscreen(false);
     if (_state.pip == val) return;
     _state = _state.copyWith(pip: val);
     notifyListeners();

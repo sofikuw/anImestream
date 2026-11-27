@@ -88,8 +88,10 @@ than pretending to cover the fork's earlier life. That history is in the git log
   same transition when Android does not deliver `onUserLeaveHint`.
 - **Mini window polish.** The progress bar is no longer tinted by the theme
   accent, mini subtitles scale from the user's subtitle setting and force no
-  underline, and auto-PiP from the mini window now swaps in a full-screen video
-  surface before the system captures it.
+  underline. Android PiP now goes through BetterPlayer's native video PiP, so
+  neither the mini overlay background nor the full-screen controls are
+  captured. On wide screens the mini window floats centered instead of hugging
+  an edge.
 - **Downloaded manga shows up on iOS.** Chapters now live under the same
   Downloads root the in-app browser scans, with old `<Documents>/manga`
   chapters still recognised.
