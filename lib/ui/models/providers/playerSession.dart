@@ -34,6 +34,17 @@ class PlayerSession extends ChangeNotifier {
   /// bring it back. Playback is paused while it is hidden.
   bool _collapsed = false;
   bool get collapsed => _collapsed;
+
+  /// Transient full-screen video surface shown just before system PiP starts,
+  /// so the platform captures the video instead of the mini overlay.
+  bool _pipFullscreen = false;
+  bool get pipFullscreen => _pipFullscreen;
+  void setPipFullscreen(bool value) {
+    if (_pipFullscreen == value) return;
+    _pipFullscreen = value;
+    notifyListeners();
+  }
+
   /// Which edge the window was swiped off: left, right or bottom.
   String collapseEdge = 'right';
 
@@ -61,6 +72,7 @@ class PlayerSession extends ChangeNotifier {
     _initialised = false;
     _mini = false;
     _collapsed = false;
+    _pipFullscreen = false;
     notifyListeners();
   }
 
@@ -101,6 +113,7 @@ class PlayerSession extends ChangeNotifier {
     if (!active || !_mini) return;
     _mini = false;
     _collapsed = false;
+    _pipFullscreen = false;
     notifyListeners();
   }
 
@@ -116,6 +129,7 @@ class PlayerSession extends ChangeNotifier {
     _initialised = false;
     _mini = false;
     _collapsed = false;
+    _pipFullscreen = false;
     _routeId++;
     notifyListeners();
     controller?.dispose();

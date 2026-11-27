@@ -167,6 +167,14 @@ class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> {
             return const IgnorePointer(child: SizedBox.expand());
           }
 
+          // Briefly replace the floating window with a full-screen video
+          // surface so system PiP captures the video, not this overlay.
+          if (session.pipFullscreen) {
+            return Positioned.fill(
+              child: Container(color: Colors.black, child: Center(child: session.controller!.getWidget())),
+            );
+          }
+
           final size = MediaQuery.sizeOf(context);
           final bottom = MediaQuery.paddingOf(context).bottom + 8;
 

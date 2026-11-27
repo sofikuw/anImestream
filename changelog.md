@@ -19,7 +19,9 @@ than pretending to cover the fork's earlier life. That history is in the git log
   button.
 - **System PiP controls (Android).** Backported upstream's custom PiP actions:
   rewind, play/pause and forward buttons in the system window, auto-enter on
-  supported Android versions, and play-state sync. The in-app mini window also
+  supported Android versions, and play-state sync. Auto-enter from the mini
+  window first swaps in a full-screen video surface, so the system window
+  shows the video instead of the floating overlay. The in-app mini window also
   renders subtitles at a smaller size.
 - **Background downloads.** An Android foreground service keeps the download
   queue running when you leave the app or close the activity, with a persistent

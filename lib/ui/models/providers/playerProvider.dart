@@ -222,12 +222,32 @@ class PlayerProvider extends ChangeNotifier {
     unawaited(_pipChannel.invokeMethod('setAutoPip', {'enabled': enabled}));
   }
 
+  /// The mini window is a Flutter overlay, so entering system PiP directly
+  /// captures its background. Show a full-screen video surface for one frame,
+  /// ask the platform to enter PiP, then drop the surface again.
+  Future<void> _enterPipFromMini() async {
+    final session = PlayerSession.instance;
+    if (!session.mini || session.controller == null) return;
+    session.setPipFullscreen(true);
+    await Future<void>.delayed(const Duration(milliseconds: 120));
+    if (_disposed) return;
+    try {
+      await _pipChannel.invokeMethod('enterPip');
+    } catch (e) {
+      Logs.player.log("Could not enter PiP from mini: $e");
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 350));
+    if (!_disposed) session.setPipFullscreen(false);
+  }
+
   void _initPip() {
     setAutoPip(true);
     _pipChannel.setMethodCallHandler((call) async {
       if (_disposed) return;
       final skip = currentUserSettings?.skipDuration ?? 10;
       switch (call.method) {
+        case 'onUserLeaveHint':
+          if (PlayerSession.instance.mini) await _enterPipFromMini();
         case 'onPipChanged':
           _onPipChanged(call.arguments == true);
         case 'pipAction':
@@ -244,6 +264,7 @@ class PlayerProvider extends ChangeNotifier {
   }
 
   void _onPipChanged(bool val) {
+    if (!val) PlayerSession.instance.setPipFullscreen(false);
     if (_state.pip == val) return;
     _state = _state.copyWith(pip: val);
     notifyListeners();
