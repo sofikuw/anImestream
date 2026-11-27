@@ -248,8 +248,10 @@ class PlayerProvider extends ChangeNotifier {
       switch (call.method) {
         case 'onUserLeaveHint':
           if (PlayerSession.instance.mini) await _enterPipFromMini();
+          return;
         case 'onPipChanged':
           _onPipChanged(call.arguments == true);
+          return;
         case 'pipAction':
           switch (call.arguments) {
             case 'playPause':
@@ -259,6 +261,7 @@ class PlayerProvider extends ChangeNotifier {
             case 'rewind':
               unawaited(fastForward(-skip));
           }
+          return;
       }
     });
   }

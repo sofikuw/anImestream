@@ -66,6 +66,7 @@ jobs:
       version: ${{ steps.version.outputs.version }}
       build_number: ${{ steps.version.outputs.build_number }}
       build: ${{ steps.version.outputs.build }}
+      channel: ${{ steps.version.outputs.channel }}
       tag: ${{ steps.version.outputs.tag }}
       release_title: ${{ steps.version.outputs.release_title }}
       prerelease: ${{ steps.version.outputs.prerelease }}
@@ -250,6 +251,7 @@ jobs:
             echo "version=$VERSION"
             echo "build_number=$BUILD_NUMBER"
             echo "build=$BUILD"
+            echo "channel=$CHANNEL"
             echo "tag=$TAG"
             echo "release_title=$RELEASE_TITLE"
             echo "prerelease=$PRERELEASE"
@@ -338,12 +340,65 @@ jobs:
           git tag "$TAG"
           git push origin "$TAG"
 
+      - name: Generate release notes
+        shell: bash
+        env:
+          TAG: ${{ needs.build-ios.outputs.tag }}
+          VERSION: ${{ needs.build-ios.outputs.version }}
+          CHANNEL: ${{ needs.build-ios.outputs.channel }}
+          BUILD: ${{ needs.build-ios.outputs.build }}
+          DISPLAY_NAME: ${{ needs.build-ios.outputs.display_name }}
+        run: |
+          PREV=$(git tag -l 'divergent-ios-v*' --sort=-version:refname | grep -v "^$TAG$" | head -n1 || true)
+          if [ -n "$PREV" ]; then
+            RANGE="${PREV}..${TAG}"
+          else
+            RANGE="${TAG}"
+          fi
+          git log "$RANGE" --max-count=50 --pretty=format:'%s' > changes.txt
+          export DIVERGENCE="$(bash scripts/divergence.sh)"
+
+          python3 - <<'PY'
+          import os
+          import re
+
+          subjects = [line.strip() for line in open('changes.txt', encoding='utf-8') if line.strip()]
+          sections = {'Added': [], 'Changed': [], 'Fixed': [], 'Removed': [], 'Other': []}
+          for line in subjects:
+              subject = re.sub(r'^[A-Za-z]+(\([^)]*\))?!?:\s*', '', line)
+              subject = subject[:1].upper() + subject[1:]
+              if re.search(r'\b(remove|removed|delete|deleted|drop|dropped)\b', subject, re.I):
+                  key = 'Removed'
+              elif line.startswith('feat'):
+                  key = 'Added'
+              elif line.startswith('fix'):
+                  key = 'Fixed'
+              elif line.startswith(('refactor', 'perf', 'style', 'build', 'revert')):
+                  key = 'Changed'
+              elif line.startswith(('docs', 'chore', 'ci', 'test')):
+                  key = 'Other'
+              else:
+                  key = 'Changed'
+              sections[key].append(subject)
+
+          header = f"**{os.environ['DISPLAY_NAME']} {os.environ['VERSION']} · {os.environ['CHANNEL']} #{os.environ['BUILD']} (iOS)**"
+          out = [header, '',
+                 f"Divergence meter: `{os.environ['DIVERGENCE']}%` — the worldline this build sits on, "
+                 "measured as the lines moved since the upstream fork point.",
+                 '', 'Unsigned IPA: sideload with AltStore, Sideloadly or a similar tool.']
+          for name in ('Added', 'Changed', 'Fixed', 'Removed', 'Other'):
+              if sections[name]:
+                  out += ['', f'**{name}**', ''] + [f'- {item}' for item in sections[name]]
+          open('release-notes.md', 'w', encoding='utf-8').write('\n'.join(out) + '\n')
+          PY
+          cat release-notes.md
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.build-ios.outputs.tag }}
           name: ${{ needs.build-ios.outputs.release_title }}
-          generate_release_notes: true
+          body_path: release-notes.md
           draft: false
           prerelease: ${{ needs.build-ios.outputs.prerelease }}
           files: release-files/${{ needs.build-ios.outputs.ipa_name }}

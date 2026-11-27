@@ -19,6 +19,7 @@
 
 - `.github/workflows/build-ios.yml` uses the same dispatch inputs and beta channel. Its tags are `<branch>-ios-v<version>-<channel>.<build>` with the same three-digit serial, and the release title is `Divergent <version> · <channel> #<build> (iOS)`.
 - Never use random hex suffixes for either platform: the build serial and the `#NNN` title are the contract.
+- Both release bodies are generated from commit subjects into **Added**, **Changed**, **Fixed**, **Removed** and **Other**, and open with the divergence meter. Never turn on GitHub's `generate_release_notes` for the fork; it produces an empty body and attributes commits to upstream.
 
 ## Project rules
 
