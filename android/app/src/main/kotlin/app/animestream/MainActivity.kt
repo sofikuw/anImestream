@@ -201,8 +201,10 @@ class MainActivity: FlutterActivity() {
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
         if (!autoPip) return
-        // Below Android 12 the system cannot auto-enter on its own.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+        // Enter PiP here for every supported version: setAutoEnterEnabled only
+        // works on Android 12+ and some OEM builds ignore it. Calling it again
+        // when the system already entered is harmless.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             try {
                 enterPictureInPictureMode(buildPipParams())
             } catch (e: Exception) {
