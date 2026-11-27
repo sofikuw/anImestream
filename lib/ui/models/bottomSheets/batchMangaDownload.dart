@@ -174,11 +174,13 @@ class _BatchMangaDownloadSheetState extends State<BatchMangaDownloadSheet> {
                       alignment: Alignment.center,
                       children: [
                         Text(
-                          "${index + 1}",
+                          widget.chapters[index].number != null
+                              ? MangaChapter.formatNumber(widget.chapters[index].number!)
+                              : '${index + 1}',
                           style: TextStyle(
                             fontFamily: "Rubik",
                             fontWeight: FontWeight.bold,
-                            fontSize: 15,
+                            fontSize: 13,
                             color: selected ? appTheme.onAccent : appTheme.textMainColor,
                           ),
                         ),

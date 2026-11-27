@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'package:animestream/core/commons/enums.dart';
 import 'package:animestream/ui/models/providers/playerSession.dart';
+import 'package:animestream/ui/models/widgets/subtitles/subViewer.dart';
 import 'package:animestream/ui/pages/playerRoute.dart';
 
 const double _initialWidth = 260;
@@ -332,6 +334,9 @@ class _MiniPlayerWindowState extends State<MiniPlayerWindow> {
     final duration = controller.duration ?? 0;
     final progress = duration > 0 ? (controller.position ?? 0) / duration : 0.0;
     final playing = controller.isPlaying ?? false;
+    final data = session.dataProvider;
+    final subtitle = data?.state.currentStream.subtitle;
+    final showSubs = subtitle != null && (session.playerProvider?.state.showSubs ?? false);
 
     Widget button(IconData icon, String tooltip, VoidCallback action) => IconButton(
           onPressed: () {
@@ -383,6 +388,20 @@ class _MiniPlayerWindowState extends State<MiniPlayerWindow> {
                 fit: StackFit.expand,
                 children: [
                   GestureDetector(onTap: _onVideoTap, child: controller.getMiniWidget()),
+                  if (showSubs)
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: SubViewer(
+                          controller: controller,
+                          format: SubtitleFormat.fromName(
+                              data!.state.currentStream.subtitleFormat ?? SubtitleFormat.ASS.name),
+                          subtitleSource: subtitle!,
+                          settings: data.subtitleSettings.copyWith(fontSize: 10, bottomMargin: 4, strokeWidth: 1),
+                          headers: data.state.currentStream.customHeaders,
+                          isOffline: session.localSource,
+                        ),
+                      ),
+                    ),
                   Positioned(
                     left: 0,
                     right: 0,

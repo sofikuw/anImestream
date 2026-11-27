@@ -27,8 +27,9 @@ than pretending to cover the fork's earlier life. That history is in the git log
   Only play/pause and close buttons appear, and only after a tap (a second tap
   on the video returns to the full player). Drag more than half of it off a
   side to pause and slide it away; a small, faded arrow at that height brings
-  it back when swiped inward. Only the X closes it. Works for online streams
-  and downloaded files.
+  it back when swiped inward. Only the X closes it. Subtitles render inside
+  the mini window at a smaller size when enabled. Works for online streams and
+  downloaded files.
 - **Built-in manga providers are switchable.** WeebCentral and MangaPill now
   appear under *Built-in providers* next to the built-in anime sources. Turning
   one off hides it from the reader, the source picker and the default-provider
@@ -77,6 +78,9 @@ than pretending to cover the fork's earlier life. That history is in the git log
   chapters still recognised.
 - **Mini window stays on screen.** Resizing is clamped to the display width so
   it cannot grow larger than the screen.
+- **Manga batch picker labels chapters by number.** Tiles no longer show list
+  positions, so a newest-first list cannot make "chapter 1" mean the last
+  chapter in the series.
 - **Anime info survives a MAL 404.** When MAL has no entry (often an AniList
   id), Kitsu's MAL mapping and Simkl are tried before failing.
 - **Upstream beta fixes backported.** The compact episode grid's Watch action
