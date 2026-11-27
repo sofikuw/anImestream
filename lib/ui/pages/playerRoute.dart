@@ -25,7 +25,9 @@ Future<void> openPlayerRoute(NavigatorState navigator) async {
   );
 
   if (session.active && session.routeId == routeId) {
-    session.playerProvider?.setAutoPip(false);
+    // Keep auto-PiP armed: leaving the app while the mini window is showing
+    // should still open the system PiP window.
+    session.playerProvider?.setAutoPip(true);
     session.minimise();
   }
 }

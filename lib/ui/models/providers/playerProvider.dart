@@ -6,6 +6,7 @@ import 'package:animestream/core/app/logging.dart';
 import 'package:animestream/core/app/runtimeDatas.dart';
 import 'package:animestream/core/commons/extractQuality.dart';
 import 'package:animestream/ui/models/providers/playerDataProvider.dart';
+import 'package:animestream/ui/models/providers/playerSession.dart';
 import 'package:animestream/ui/models/providers/appProvider.dart';
 import 'package:animestream/ui/models/widgets/appWrapper.dart';
 import 'package:flutter/material.dart';
@@ -30,7 +31,9 @@ class PlayerProvider extends ChangeNotifier {
     _disposed = true;
     if (Platform.isAndroid) {
       _pipChannel.setMethodCallHandler(null);
-      setAutoPip(false);
+      // The provider is gone, so nothing can drive PiP any more. Disarm the
+      // platform auto-enter directly; setAutoPip() refuses to run after dispose.
+      unawaited(_pipChannel.invokeMethod('setAutoPip', {'enabled': false}));
     }
     super.dispose();
   }
@@ -192,32 +195,26 @@ class PlayerProvider extends ChangeNotifier {
     }
 
     if (Platform.isAndroid) {
-      // BetterPlayer's native PiP captures the video view, not the Flutter
-      // overlay, so the mini window background and player controls stay out.
-      if (val) {
-        toggleControlsVisibility(action: false);
-        await controller.setPip(true);
+      // The platform owns system PiP: it mirrors the activity, so the video
+      // and the subtitle overlay both show up. onPipChanged reports the result.
+      if (!val) return;
+      toggleControlsVisibility(action: false);
+      try {
+        await _pipChannel.invokeMethod('enterPip');
+      } catch (e) {
+        Logs.player.log("Could not enter PiP: $e");
       }
-      _state = _state.copyWith(pip: val);
-      notifyListeners();
       return;
-    }
-
-    try {
-      // iOS can explicitly start PiP from the AVPlayer-backed controller.
-      if (val) {
-        await controller.setPip(val);
-      }
-      _state = _state.copyWith(pip: val);
-      notifyListeners();
-    } catch (e) {
-      Logs.player.log("Could not change PiP state: $e");
     }
   }
 
-  /// Native auto-enter is intentionally unused: it captures the whole Flutter
-  /// window. Auto-PiP is driven through BetterPlayer's native PiP instead.
-  void setAutoPip(bool val) {}
+  /// Ask the platform to auto-enter PiP when the app leaves the foreground.
+  /// Android 12+ does this itself; older versions use onUserLeaveHint.
+  void setAutoPip(bool val) {
+    if (!Platform.isAndroid || _disposed) return;
+    final enabled = val && (currentUserSettings?.enablePipOnMinimize ?? true);
+    unawaited(_pipChannel.invokeMethod('setAutoPip', {'enabled': enabled}));
+  }
 
   void _initPip() {
     setAutoPip(true);
@@ -225,13 +222,6 @@ class PlayerProvider extends ChangeNotifier {
       if (_disposed) return;
       final skip = currentUserSettings?.skipDuration ?? 10;
       switch (call.method) {
-        case 'onUserLeaveHint':
-          // Auto-PiP on leaving the app, from either the full player or the
-          // mini window, uses the same native video PiP path.
-          if (currentUserSettings?.enablePipOnMinimize ?? true) {
-            unawaited(setPip(true));
-          }
-          return;
         case 'onPipChanged':
           _onPipChanged(call.arguments == true);
           return;
@@ -250,6 +240,11 @@ class PlayerProvider extends ChangeNotifier {
   }
 
   void _onPipChanged(bool val) {
+    final session = PlayerSession.instance;
+    // The mini is a Flutter overlay; PiP mirrors the whole activity. While the
+    // window is up, draw the video full-screen so the floating window and the
+    // app behind it are never what the user sees.
+    session.setPipSurface(val && session.mini);
     if (_state.pip == val) return;
     _state = _state.copyWith(pip: val);
     notifyListeners();
@@ -274,6 +269,7 @@ class PlayerProvider extends ChangeNotifier {
   }
 
   void resetPipState() {
+    PlayerSession.instance.setPipSurface(false);
     if (!_state.pip) return;
     _state = _state.copyWith(pip: false);
     notifyListeners();

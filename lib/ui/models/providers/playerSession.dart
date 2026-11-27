@@ -38,6 +38,17 @@ class PlayerSession extends ChangeNotifier {
   /// Which edge the window was swiped off: left, right or bottom.
   String collapseEdge = 'right';
 
+  /// True while the system PiP window is mirroring this session. The overlay
+  /// then draws the video full-screen instead of the floating window, so PiP
+  /// never shows a shrunken copy of the mini player.
+  bool _pipSurface = false;
+  bool get pipSurface => _pipSurface;
+  void setPipSurface(bool value) {
+    if (_pipSurface == value) return;
+    _pipSurface = value;
+    notifyListeners();
+  }
+
   bool _initialised = false;
   bool get initialised => _initialised;
 
@@ -62,6 +73,7 @@ class PlayerSession extends ChangeNotifier {
     _initialised = false;
     _mini = false;
     _collapsed = false;
+    _pipSurface = false;
     notifyListeners();
   }
 
@@ -102,6 +114,7 @@ class PlayerSession extends ChangeNotifier {
     if (!active || !_mini) return;
     _mini = false;
     _collapsed = false;
+    _pipSurface = false;
     notifyListeners();
   }
 
@@ -117,6 +130,7 @@ class PlayerSession extends ChangeNotifier {
     _initialised = false;
     _mini = false;
     _collapsed = false;
+    _pipSurface = false;
     _routeId++;
     notifyListeners();
     controller?.dispose();

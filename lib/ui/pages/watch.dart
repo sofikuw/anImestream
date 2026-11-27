@@ -547,6 +547,18 @@ class _WatchState extends State<Watch> with WidgetsBindingObserver, RouteAware {
   Widget build(BuildContext context) {
     final playerProvider = context.watch<PlayerProvider>();
     final playerDataProvider = context.watch<PlayerDataProvider>();
+    final pip = playerProvider.state.pip;
+    // In system PiP the whole Flutter view is mirrored into the small window,
+    // so the user's subtitle size would be wildly oversized there.
+    final subtitleSettings = pip
+        ? playerDataProvider.subtitleSettings.copyWith(
+            fontSize: (playerDataProvider.subtitleSettings.fontSize * MediaQuery.sizeOf(context).width / 600)
+                .clamp(8.0, 18.0)
+                .toDouble(),
+            bottomMargin: 8,
+            strokeWidth: 1,
+          )
+        : playerDataProvider.subtitleSettings;
 
     return PopScope(
       canPop: true,
@@ -661,19 +673,19 @@ class _WatchState extends State<Watch> with WidgetsBindingObserver, RouteAware {
                       format: SubtitleFormat.fromName(
                           playerDataProvider.state.currentStream.subtitleFormat ?? SubtitleFormat.ASS.name),
                       subtitleSource: playerDataProvider.state.currentStream.subtitle!,
-                      settings: playerDataProvider.subtitleSettings,
+                      settings: subtitleSettings,
                       headers: playerDataProvider.state.currentStream.customHeaders,
                       isOffline: widget.localSource,
                     ),
                   isInitiated
                       ? AnimatedOpacity(
                           duration: Duration(milliseconds: 150),
-                          opacity: playerProvider.state.controlsVisible ? 1 : 0,
+                          opacity: playerProvider.state.controlsVisible && !pip ? 1 : 0,
                           child: Stack(
                             children: [
                               IgnorePointer(ignoring: true, child: overlay()),
                               IgnorePointer(
-                                ignoring: !playerProvider.state.controlsVisible,
+                                ignoring: pip || !playerProvider.state.controlsVisible,
                                 child: Listener(
                                   onPointerDown: _onControlPointerDown,
                                   onPointerUp: _onControlPointerUp,
@@ -704,9 +716,9 @@ class _WatchState extends State<Watch> with WidgetsBindingObserver, RouteAware {
                               ],
                             )
                           : Container(),
-                  _buildSpeedIndicator(),
-                  _skipIndicators(),
-                  _buildVolumeBrightnessIndicators(),
+                  if (!pip) _buildSpeedIndicator(),
+                  if (!pip) _skipIndicators(),
+                  if (!pip) _buildVolumeBrightnessIndicators(),
                 ],
               ),
             ),

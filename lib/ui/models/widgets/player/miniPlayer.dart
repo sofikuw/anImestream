@@ -59,21 +59,24 @@ class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> {
 
   void _updateDrag(Offset delta) => _drag.value += delta;
 
-  /// On wide screens the mini player floats centered like YouTube's PiP;
-  /// on phones it rests against the nearest side.
+  /// At full width the window floats in the middle like a PiP window; smaller
+  /// sizes settle against the nearest side.
+  bool _fullWidth(Size size, double width) => width >= maxWidthFor(size.width) - 1;
+
   Offset _base(Size size, double width, double height, double bottom) {
-    final x = size.width >= 600 ? (size.width - width) / 2 : size.width - width - 12;
+    final x = _fullWidth(size, width) ? (size.width - width) / 2 : size.width - width - 12;
     return Offset(x, size.height - height - bottom);
   }
 
   /// YouTube-style: horizontal position snaps to the nearest side, vertical
-  /// position stays wherever the user left it (clamped to the screen).
+  /// position stays wherever the user left it (clamped to the screen). At full
+  /// width the window centres instead, leaving equal margins on both sides.
   Offset _snapped(Size size, double width, double height, double bottom) {
     final base = _base(size, width, height, bottom);
     final maxY = size.height - height - bottom;
     final x = (base.dx + _drag.value.dx).clamp(0.0, size.width - width);
     final y = (base.dy + _drag.value.dy).clamp(0.0, maxY < 0 ? 0.0 : maxY);
-    final snappedX = size.width >= 600
+    final snappedX = _fullWidth(size, width)
         ? (size.width - width) / 2
         : (x < (size.width - width) / 2 ? 0.0 : size.width - width);
     return Offset(snappedX, y);
@@ -120,6 +123,53 @@ class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> {
     final home = _hiddenPosition ?? _snapped(size, width, height, bottom);
     _drag.value = home - _base(size, width, height, bottom);
     unawaited(session.uncollapse());
+  }
+
+  /// While the system PiP window mirrors the activity, draw only the video and
+  /// its subtitles: the floating window and the page behind it are not part of
+  /// what the user should see.
+  Widget _pipSurface(PlayerSession session) {
+    final data = session.dataProvider;
+    final controller = session.controller!;
+    final width = MediaQuery.sizeOf(context).width;
+
+    Widget? subs;
+    if (data != null) {
+      final subtitle = data.state.currentStream.subtitle;
+      if (subtitle != null && (session.playerProvider?.state.showSubs ?? false)) {
+        final settings = data.subtitleSettings;
+        subs = SubViewer(
+          controller: controller,
+          format: SubtitleFormat.fromName(data.state.currentStream.subtitleFormat ?? SubtitleFormat.ASS.name),
+          subtitleSource: subtitle,
+          settings: settings.copyWith(
+            // The PiP window is the whole Flutter view here, so scale the
+            // user's subtitle size to it instead of the full-screen size.
+            fontSize: (settings.fontSize * width / 600).clamp(8.0, 18.0).toDouble(),
+            bottomMargin: 8,
+            strokeWidth: 1,
+          ),
+          headers: data.state.currentStream.customHeaders,
+          isOffline: session.localSource,
+        );
+      }
+    }
+
+    return ColoredBox(
+      color: Colors.black,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Center(
+            child: AspectRatio(
+              aspectRatio: 16 / 9,
+              child: controller.getMiniWidget(),
+            ),
+          ),
+          if (subs != null) subs,
+        ],
+      ),
+    );
   }
 
   Widget _arrow(PlayerSession session, Size size, double bottom) {
@@ -173,6 +223,7 @@ class _MiniPlayerOverlayState extends State<MiniPlayerOverlay> {
           if (!session.mini || session.controller == null) {
             return const IgnorePointer(child: SizedBox.expand());
           }
+          if (session.pipSurface) return _pipSurface(session);
 
           final size = MediaQuery.sizeOf(context);
           final bottom = MediaQuery.paddingOf(context).bottom + 8;

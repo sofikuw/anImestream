@@ -19,10 +19,10 @@ than pretending to cover the fork's earlier life. That history is in the git log
   button.
 - **System PiP controls (Android).** Backported upstream's custom PiP actions:
   rewind, play/pause and forward buttons in the system window, auto-enter on
-  supported Android versions, and play-state sync. Auto-enter from the mini
-  window first swaps in a full-screen video surface, so the system window
-  shows the video instead of the floating overlay. The in-app mini window also
-  renders subtitles at a smaller size.
+  supported Android versions, and play-state sync. While the system window is
+  up, video and subtitles are drawn full-screen so the window shows the video
+  instead of the floating mini overlay. The in-app mini window also renders
+  subtitles at a smaller size.
 - **Background downloads.** An Android foreground service keeps the download
   queue running when you leave the app or close the activity, with a persistent
   notification while files are being fetched.
@@ -82,16 +82,17 @@ than pretending to cover the fork's earlier life. That history is in the git log
 - **iOS release descriptions.** iOS releases now use the same categorized,
   commit-derived body as Android instead of GitHub's empty auto-generated
   "Full Changelog" note.
-- **Auto-PiP from the mini window.** A Dart switch fell through from the
-  leave-app callback into the PiP-state callback, hiding the full-screen video
-  surface before the system entered PiP. A lifecycle fallback now triggers the
-  same transition when Android does not deliver `onUserLeaveHint`.
+- **Auto-PiP from the mini window.** Leaving the app now hands the same session
+  to the system PiP window from the mini player as from the full player. The
+  floating window no longer turns PiP off when the watch page pops, and the
+  window keeps drawing video instead of the mini overlay.
 - **Mini window polish.** The progress bar is no longer tinted by the theme
   accent, mini subtitles scale from the user's subtitle setting and force no
-  underline. Android PiP now goes through BetterPlayer's native video PiP, so
-  neither the mini overlay background nor the full-screen controls are
-  captured. On wide screens the mini window floats centered instead of hugging
-  an edge.
+  underline. System PiP keeps the video and subtitles on screen for the whole
+  window's life, so neither the mini overlay background nor the full-screen
+  controls are captured, and full-screen subtitles are scaled down inside it.
+  When the mini window is at full width it floats centred with equal margins
+  instead of hugging an edge; smaller sizes still snap to the nearest side.
 - **Downloaded manga shows up on iOS.** Chapters now live under the same
   Downloads root the in-app browser scans, with old `<Documents>/manga`
   chapters still recognised.

@@ -200,18 +200,15 @@ class MainActivity: FlutterActivity() {
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        if (autoPip) {
-            // Below Android 12 the system cannot auto-enter on its own.
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-                try {
-                    enterPictureInPictureMode(buildPipParams())
-                } catch (e: Exception) {
-                }
+        if (!autoPip) return
+        // Below Android 12 the system cannot auto-enter on its own.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            try {
+                enterPictureInPictureMode(buildPipParams())
+            } catch (e: Exception) {
+                // PiP unavailable on this device
             }
-            return
         }
-        // Mini window: let Dart show a full-screen video surface first.
-        if (::channel.isInitialized) channel.invokeMethod("onUserLeaveHint", null)
     }
 
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
